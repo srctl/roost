@@ -25,6 +25,15 @@
     }
   }
 
+  /* Installed iOS apps need the full viewport, including the safe areas.
+     Percentage and dynamic heights can leave a strip below the app. */
+  @media (max-width: 700px) and (display-mode: standalone) {
+    html,
+    body {
+      height: 100vh;
+    }
+  }
+
   button,
   input,
   textarea,

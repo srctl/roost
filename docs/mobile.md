@@ -6,7 +6,11 @@ Apple touch icon. The page and browser chrome follow the device's light/dark
 appearance. The installed iOS status bar overlays a safe-area-padded header.
 
 On phones, the document stays fixed while the conversation or settings content
-scrolls inside it. CSS fills the dynamic viewport while the keyboard is closed.
+scrolls inside it. While the keyboard is closed, browser tabs use the dynamic
+viewport (`100dvh`), while installed standalone apps use the full viewport
+(`100vh`) for both the document and app shell. iOS can underreport dynamic and
+percentage heights in standalone mode, leaving a bottom gap. Safe-area padding
+is applied inside that full height, once at the header and composer.
 While an input is focused and the keyboard reduces the available height, the app
 follows the visual viewport's height and top offset. On blur it removes those
 overrides, including when iOS retains a stale visual viewport size. The composer uses 16px text to avoid input zoom and
@@ -28,3 +32,8 @@ After an update, reload the page. If iOS retains an old home-screen icon or laun
 appearance, remove the shortcut and add it again. Desktop WebKit emulation covers
 layout checks, but keyboard animation and installed status-bar behavior also need
 checking on a physical iPhone.
+
+The standalone height workaround follows [WebKit bug 254868](https://bugs.webkit.org/show_bug.cgi?id=254868#c2).
+If installed before the status-bar metadata was added, iOS may require removing
+and re-adding the home-screen app; [WebKit bug 316008](https://bugs.webkit.org/show_bug.cgi?id=316008)
+describes metadata captured at install time that does not update afterward.

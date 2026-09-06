@@ -154,6 +154,9 @@ const styles = stylex.create({
     height: {
       default: "auto",
       "@media (max-width: 700px)": "var(--roost-viewport-height, 100dvh)",
+      // iOS standalone dynamic units can omit the screen's safe areas.
+      "@media (max-width: 700px) and (display-mode: standalone)":
+        "var(--roost-viewport-height, 100vh)",
     },
     overflow: { default: "visible", "@media (max-width: 700px)": "hidden" },
     flexDirection: { default: "row", "@media (max-width: 700px)": "column" },
