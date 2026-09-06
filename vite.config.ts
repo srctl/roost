@@ -1,9 +1,18 @@
 import stylex from "@stylexjs/unplugin";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
+import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: "src/web",
-  plugins: [stylex.vite({ useCSSLayers: true }), react()],
-  build: { outDir: "../../dist/web", emptyOutDir: true },
+  server: { host: "127.0.0.1" },
+  plugins: [
+    stylex.vite({ useCSSLayers: true }),
+    tanstackStart(),
+    nitro({
+      preset: "node-server",
+      plugins: ["./src/server/worker-plugin.ts"],
+    }),
+    react(),
+  ],
 });

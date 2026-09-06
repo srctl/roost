@@ -9,10 +9,9 @@
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src/web", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "vite.cli.config.ts"]
 }

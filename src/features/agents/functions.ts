@@ -1,0 +1,88 @@
+import { available } from "../../server/available";
+import {
+  readSoul,
+  readAgentMemory,
+  updateSoul,
+  SoulUpdate,
+  listSoulChanges,
+  undoSoulChange,
+} from "../../server/agents/soul.server";
+import { createServerFn } from "@tanstack/react-start";
+import { Effect, Schema } from "effect";
+import { CreateAgentInput } from "./schema";
+import { listAgents, saveAgent } from "../../server/agents/store.server";
+import {
+  CodexError,
+  getCodexConnection,
+} from "../../server/codex/app-server.server";
+
+// Return expected failures as data so Start never exposes server error details.
+const result = <A, E extends { message: string }>(
+  effect: Effect.Effect<A, E>,
+) =>
+  Effect.runPromise(
+    effect.pipe(
+      Effect.match({
+        onSuccess: (value) => ({ ok: true as const, value }),
+        onFailure: (error) => ({ ok: false as const, error: error.message }),
+      }),
+    ),
+  );
+
+export const getAgents = createServerFn({ method: "GET" })
+  .middleware([available])
+  .handler(() => result(listAgents()));
+export const getConnection = createServerFn({ method: "GET" })
+  .middleware([available])
+  .handler(() => result(getCodexConnection));
+export const createAgent = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(CreateAgentInput))
+  .handler(({ data }) =>
+    result(
+      Effect.gen(function* () {
+        const { models } = yield* getCodexConnection;
+        if (!models.some((model) => model.model === data.model)) {
+          return yield* new CodexError({
+            message:
+              "That model is no longer available. Reload the form to choose another.",
+          });
+        }
+        const agent = yield* saveAgent(data);
+        yield* readSoul(agent.id);
+        return agent;
+      }),
+    ),
+  );
+
+export const getAgentIdentity = createServerFn({ method: "GET" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
+  .handler(({ data }) =>
+    result(
+      Effect.gen(function* () {
+        const soul = yield* readSoul(data.agentId);
+        const memories = yield* readAgentMemory(data.agentId);
+        const changes = yield* listSoulChanges(data.agentId);
+        return { soul, memories, changes };
+      }),
+    ),
+  );
+
+export const saveAgentSoul = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(SoulUpdate))
+  .handler(({ data }) => result(updateSoul(data)));
+
+export const getSoulHistory = createServerFn({ method: "GET" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
+  .handler(({ data }) => result(listSoulChanges(data.agentId)));
+export const undoAgentSoul = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(
+      Schema.Struct({ agentId: Schema.UUID, id: Schema.UUID }),
+    ),
+  )
+  .handler(({ data }) => result(undoSoulChange(data.agentId, data.id)));

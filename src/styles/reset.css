@@ -1,0 +1,18 @@
+/* Keep reset rules below component styles in the cascade. */
+@layer reset {
+  /* Global reset only. Component styling belongs in StyleX. */
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}

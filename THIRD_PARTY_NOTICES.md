@@ -1,7 +1,9 @@
 # Third-party notices
 
-`src/web/components/ui/button.tsx` is adapted from shadcn/ui's Base UI button.
+`src/components/ui/button.tsx` is adapted from shadcn/ui's Base UI button.
 Its Tailwind styles have been replaced with StyleX, and unused variants removed.
+`src/components/ui/scroll-area.tsx` and `collapsible.tsx` follow shadcn/ui’s
+Base UI component composition, with locally owned StyleX styling.
 
 Source: https://ui.shadcn.com/r/styles/base-nova/button.json
 

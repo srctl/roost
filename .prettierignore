@@ -6,3 +6,10 @@ pnpm-lock.yaml
 .entire/
 .opencode/
 .pi/
+.output/
+.tanstack/
+src/routeTree.gen.ts
+src/server/codex/protocol/
+.roost/
+
+.pnpm-store/

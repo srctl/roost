@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+self=$0
+while [ -L "$self" ]; do
+  directory=$(cd -P "$(dirname "$self")" && pwd)
+  self=$(readlink "$self")
+  case "$self" in /*) ;; *) self="$directory/$self" ;; esac
+done
+root=$(cd -P "$(dirname "$self")/.." && pwd)
+if [ -x "$root/runtime/node" ]; then
+  exec "$root/runtime/node" "$root/cli/roost.mjs" "$@"
+fi
+if [ ! -f "$root/.output/cli/roost.mjs" ]; then
+  echo 'Build Roost first: corepack pnpm build' >&2
+  exit 1
+fi
+exec node "$root/.output/cli/roost.mjs" "$@"

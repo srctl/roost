@@ -1,0 +1,335 @@
+import { assertAvailable, isMaintenance } from "../maintenance.server";
+import { randomUUID } from "node:crypto";
+import type { Message, SendMessage } from "../../features/chat/schema";
+import type { Automation } from "../../features/automations/schema";
+import { withAgentStore, AgentStoreError } from "../agents/store.server";
+import { readAutomations, requireAgent } from "../automations/store.server";
+import { nextOccurrence } from "../automations/schedule";
+import { putMessage } from "./timeline.server";
+import type { DatabaseSync } from "node:sqlite";
+
+export type Run = {
+  id: string;
+  agentId: string;
+  kind: "chat" | "automation";
+  prompt: string;
+  status: string;
+  automationId: string | null;
+  scheduledFor: number | null;
+  createdAt: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  messages: string;
+  error: string | null;
+  threadId: string | null;
+  soulRevision: string | null;
+  owner: string | null;
+  cancelRequested: number;
+  automationSnapshot: string | null;
+};
+export function insertRun(
+  db: DatabaseSync,
+  run: {
+    id: string;
+    agentId: string;
+    prompt: string;
+    automation?: Automation;
+    scheduledFor?: number;
+  },
+  now = Date.now(),
+) {
+  assertAvailable(db);
+  db.prepare(
+    "INSERT OR IGNORE INTO runs (id,agentId,kind,prompt,status,automationId,scheduledFor,createdAt,automationSnapshot) VALUES (?,?,?,?,'queued',?,?,?,?)",
+  ).run(
+    run.id,
+    run.agentId,
+    run.automation ? "automation" : "chat",
+    run.prompt,
+    run.automation?.id ?? null,
+    run.scheduledFor ?? null,
+    now,
+    run.automation ? JSON.stringify(run.automation) : null,
+  );
+}
+export const enqueueChat = (input: SendMessage) =>
+  withAgentStore((db) => {
+    requireAgent(db, input.agentId);
+    const existing = db
+      .prepare("SELECT * FROM runs WHERE id=?")
+      .get(input.messageId) as Run | undefined;
+    if (
+      existing &&
+      (existing.agentId !== input.agentId ||
+        existing.prompt !== input.text ||
+        existing.kind !== "chat")
+    )
+      throw new AgentStoreError({
+        message: "This message ID has already been used.",
+      });
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      insertRun(db, {
+        id: input.messageId,
+        agentId: input.agentId,
+        prompt: input.text,
+      });
+      putMessage(db, input.agentId, {
+        id: input.messageId,
+        role: "user",
+        text: input.text,
+      });
+      db.exec("COMMIT");
+      return { id: input.messageId };
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  });
+export const runAutomationNow = (
+  agentId: string,
+  id: string,
+  requestId: string,
+) =>
+  withAgentStore((db) => {
+    const automation = readAutomations(db, agentId).find((a) => a.id === id);
+    if (!automation)
+      throw new AgentStoreError({ message: "Automation not found." });
+    const existing = db
+      .prepare("SELECT * FROM runs WHERE id=?")
+      .get(requestId) as Run | undefined;
+    if (
+      existing &&
+      (existing.agentId !== agentId || existing.automationId !== id)
+    )
+      throw new AgentStoreError({
+        message: "This run ID has already been used.",
+      });
+    insertRun(db, {
+      id: requestId,
+      agentId,
+      prompt: automation.prompt,
+      automation,
+    });
+    return { id: requestId };
+  });
+export const listRuns = (agentId: string) =>
+  withAgentStore(
+    (db) =>
+      db
+        .prepare(
+          "SELECT * FROM runs WHERE agentId=? ORDER BY createdAt DESC LIMIT 50",
+        )
+        .all(agentId) as Run[],
+  );
+export const cancelRun = (agentId: string, id: string) =>
+  withAgentStore((db) => {
+    db.prepare(
+      "UPDATE runs SET cancelRequested=1, status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END, finishedAt=CASE WHEN status='queued' THEN ? ELSE finishedAt END WHERE id=? AND agentId=? AND status IN ('queued','running')",
+    ).run(Date.now(), id, agentId);
+  });
+
+export const schedulerTick = (owner: string, now = Date.now()) =>
+  withAgentStore((db) => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const lease = db
+        .prepare("SELECT owner,heartbeat FROM worker_lease WHERE id=1")
+        .get();
+      if (
+        lease &&
+        lease.owner !== owner &&
+        Number(lease.heartbeat) > now - 30000
+      ) {
+        db.exec("COMMIT");
+        return false;
+      }
+      if (lease?.owner !== owner) {
+        const abandoned = db
+          .prepare("SELECT * FROM runs WHERE status='running'")
+          .all() as Run[];
+        for (const run of abandoned) {
+          const messages = (JSON.parse(run.messages) as Message[]).map(
+            (message) =>
+              message.status === "inProgress"
+                ? ({ ...message, status: "interrupted" } as Message)
+                : message,
+          );
+          if (run.kind === "chat")
+            for (const message of messages)
+              putMessage(db, run.agentId, message);
+          db.prepare(
+            "UPDATE runs SET status='interrupted',messages=?,finishedAt=?,error=? WHERE id=?",
+          ).run(
+            JSON.stringify(messages),
+            now,
+            "Roost restarted during this run. It was not retried automatically.",
+            run.id,
+          );
+          putMessage(db, run.agentId, {
+            id: `run:${run.id}`,
+            role: "notice",
+            noticeKind: "run",
+            referenceId: run.id,
+            title: "Run interrupted",
+            text: "Roost restarted during this run. Check its history before running it again.",
+          });
+        }
+      }
+      db.prepare(
+        "INSERT INTO worker_lease (id,owner,heartbeat) VALUES (1,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,heartbeat=excluded.heartbeat",
+      ).run(owner, now);
+      if (isMaintenance(db)) {
+        db.exec("COMMIT");
+        return true;
+      }
+      for (const automation of readAutomations(db)) {
+        if (
+          !automation.enabled ||
+          automation.nextRunAt === null ||
+          automation.nextRunAt > now
+        )
+          continue;
+        // Coalesce downtime into one catch-up, then schedule the next future occurrence.
+        if (
+          !db
+            .prepare(
+              "SELECT id FROM runs WHERE automationId=? AND status='queued'",
+            )
+            .get(automation.id)
+        )
+          insertRun(
+            db,
+            {
+              id: randomUUID(),
+              agentId: automation.agentId,
+              prompt: automation.prompt,
+              automation,
+              scheduledFor: automation.nextRunAt,
+            },
+            now,
+          );
+        const next = nextOccurrence(automation.schedule, now);
+        db.prepare(
+          "UPDATE automations SET nextRunAt=?,enabled=? WHERE id=?",
+        ).run(next, Number(next !== null), automation.id);
+      }
+      db.exec("COMMIT");
+      return true;
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  });
+export const claimRun = (owner: string) =>
+  withAgentStore((db) => {
+    const now = Date.now();
+    return db
+      .prepare(
+        "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
+      )
+      .get(owner, now, owner, now - 30000) as Run | undefined;
+  });
+export const persistRun = (run: Run, messages: readonly Message[]) =>
+  withAgentStore((db) => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      if (
+        !db
+          .prepare(
+            "SELECT id FROM runs WHERE id=? AND status='running' AND owner=?",
+          )
+          .get(run.id, run.owner)
+      ) {
+        db.exec("COMMIT");
+        return;
+      }
+      db.prepare("UPDATE runs SET messages=? WHERE id=?").run(
+        JSON.stringify(messages),
+        run.id,
+      );
+      if (run.kind === "chat")
+        for (const message of messages) putMessage(db, run.agentId, message);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  });
+export const finishRun = (
+  run: Run,
+  status: string,
+  messages: readonly Message[],
+  error?: string,
+) =>
+  withAgentStore((db) => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      if (
+        !db
+          .prepare(
+            "SELECT id FROM runs WHERE id=? AND status='running' AND owner=?",
+          )
+          .get(run.id, run.owner)
+      ) {
+        db.exec("COMMIT");
+        return;
+      }
+      const answer = [...messages]
+        .reverse()
+        .find((message) => message.role === "assistant")
+        ?.text?.trim();
+      if (status === "completed" && run.kind === "automation" && !answer) {
+        status = "failed";
+        error =
+          "The automation finished without a final response. Check its output before retrying.";
+      }
+      db.prepare(
+        "UPDATE runs SET status=?,messages=?,error=?,finishedAt=? WHERE id=?",
+      ).run(
+        status,
+        JSON.stringify(messages),
+        error ?? null,
+        Date.now(),
+        run.id,
+      );
+      if (run.kind === "chat")
+        for (const message of messages) putMessage(db, run.agentId, message);
+      if (status === "completed" && run.kind === "automation") {
+        const automation = JSON.parse(run.automationSnapshot!) as Automation;
+        if (
+          answer &&
+          !(
+            automation.notification === "when-needed" &&
+            answer === "ROOST_NO_UPDATE"
+          )
+        )
+          putMessage(db, run.agentId, {
+            id: `result:${run.id}`,
+            role: "assistant",
+            title: automation.name,
+            text: answer,
+          });
+      }
+      if (status !== "completed")
+        putMessage(db, run.agentId, {
+          id: `run:${run.id}`,
+          role: "notice",
+          noticeKind: "run",
+          referenceId: run.id,
+          title:
+            status === "cancelled"
+              ? "Run stopped"
+              : status === "failed"
+                ? "Run failed"
+                : "Run interrupted",
+          text:
+            error ??
+            "This run was stopped. Its partial output is available in run history.",
+        });
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  });
