@@ -35,20 +35,9 @@ export function Conversation({
   const [dismissedComputerRun, setDismissedComputerRun] = useState<
     string | null
   >(null);
-  const computerAnchor = manualComputerOpen
-    ? undefined
-    : computerPreviewAnchor(messages, runId);
+  const computerAnchor = computerPreviewAnchor(messages, runId);
   const computerOpen =
-    manualComputerOpen || !!(computerAnchor && dismissedComputerRun !== runId);
-  function closeComputer() {
-    setManualComputerOpen(false);
-    setDismissedComputerRun(runId);
-  }
-  function toggleComputer() {
-    if (computerOpen) return closeComputer();
-    setDismissedComputerRun(null);
-    setManualComputerOpen(!computerAnchor);
-  }
+    !manualComputerOpen && !!(computerAnchor && dismissedComputerRun !== runId);
   useEffect(() => {
     let current = true;
     void getComputerStatus()
@@ -110,9 +99,9 @@ export function Conversation({
         <div {...stylex.props(styles.settings)}>
           {computerEnabled && (
             <Button
-              aria-label="Show computer"
-              aria-expanded={computerOpen}
-              onClick={toggleComputer}
+              aria-label="Open computer"
+              aria-haspopup="dialog"
+              onClick={() => setManualComputerOpen(true)}
             >
               <Icon name="monitor" />
             </Button>
@@ -157,19 +146,23 @@ export function Conversation({
                 message.id === computerAnchor && (
                   <ComputerPanel
                     agentName={agent.name}
-                    onClose={closeComputer}
+                    onClose={() => setDismissedComputerRun(runId)}
                   />
                 )}
             </Fragment>
           ))}
-          {computerEnabled && computerOpen && !computerAnchor && (
-            <ComputerPanel agentName={agent.name} onClose={closeComputer} />
-          )}
           {busy && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />
           )}
         </div>
       </ScrollArea>
+      {computerEnabled && manualComputerOpen && (
+        <ComputerPanel
+          agentName={agent.name}
+          fullScreen
+          onClose={() => setManualComputerOpen(false)}
+        />
+      )}
       {error && (
         <div role="alert" {...stylex.props(styles.error)}>
           {error}

@@ -11,15 +11,17 @@ import { colors } from "../styles/tokens.stylex";
 export function ComputerPanel({
   onClose,
   agentName,
+  fullScreen = false,
 }: {
   onClose: () => void;
   agentName: string;
+  fullScreen?: boolean;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const desktop = useRef<HTMLDivElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const expandButton = useRef<HTMLButtonElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(fullScreen);
   const mountScreen = useCallback((node: HTMLDivElement | null) => {
     if (!node) return;
     screen.current = node;
@@ -206,7 +208,13 @@ export function ComputerPanel({
     </p>
   );
   return (
-    <Dialog.Root open={expanded} onOpenChange={setExpanded}>
+    <Dialog.Root
+      open={expanded}
+      onOpenChange={(open) => {
+        if (!open && fullScreen) onClose();
+        else setExpanded(open);
+      }}
+    >
       {!expanded && (
         <div {...stylex.props(styles.panel)}>
           <div {...stylex.props(styles.toolbar)}>
@@ -242,7 +250,7 @@ export function ComputerPanel({
         <Dialog.Backdrop {...stylex.props(styles.backdrop)} />
         <Dialog.Popup
           ref={popup}
-          finalFocus={expandButton}
+          finalFocus={fullScreen ? undefined : expandButton}
           {...stylex.props(styles.expanded)}
         >
           <div {...stylex.props(styles.expandedHeader)}>

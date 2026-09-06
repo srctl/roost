@@ -6,11 +6,13 @@ computer action in that turn. It stays there through subsequent actions, then
 disappears when the run finishes or is stopped. Closing it dismisses it for the
 rest of that run; a later run can open its own preview. Saved history never opens
 a live screen. Click the monitor beside an agent's settings to open the desktop
-yourself, including when the agent is idle. A manually opened desktop stays open
-until you close it.
-Expand it for an edge-to-edge view with a back button. This uses an in-app
-full-page dialog instead of the browser Fullscreen API, including on iPhone.
-The same VNC connection stays open when expanding or returning to chat.
+yourself, including when the agent is idle. The header button opens the full-screen
+desktop directly; Back returns to the conversation and restores any active inline
+preview. A manually opened desktop stays open until you close it.
+The inline preview also has an expand button for an edge-to-edge view. Both use an
+in-app full-page dialog instead of the browser Fullscreen API, including on iPhone.
+Expanding the inline preview preserves its VNC connection. Opening from the header
+uses a separate viewer session and releases it when you return to chat.
 After taking control, use **Trackpad** to slide the pointer, tap to click, and
 scroll with two fingers. **Direct touch** clicks where you tap. **Recenter pointer**
 moves it to the middle. The keyboard button opens the phone keyboard; Tab and
