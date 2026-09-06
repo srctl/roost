@@ -102,13 +102,21 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 2);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 3);
         assert.equal(
           db.prepare("SELECT maintenance FROM runtime_control").get()
             ?.maintenance,
           0,
         );
-        db.exec("DROP TABLE delegations; PRAGMA user_version=1");
+        db.exec(`DROP TABLE delegations;
+          DROP TRIGGER timeline_insert_revision;
+          DROP TRIGGER timeline_update_revision;
+          DROP INDEX timeline_agent_position;
+          DROP INDEX timeline_agent_revision;
+          DROP INDEX runs_active_agent;
+          DROP TABLE timeline_revision;
+          ALTER TABLE timeline DROP COLUMN revision;
+          PRAGMA user_version=1`);
       }, directory),
     );
     await run(
@@ -121,8 +129,8 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 2);
-        db.exec("PRAGMA user_version=3");
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 3);
+        db.exec("PRAGMA user_version=4");
       }, directory),
     );
     await assert.rejects(
@@ -243,7 +251,7 @@ test("failed update health restores release, database, soul files, and prior ser
                   "changed during migration",
                 );
                 const db = new DatabaseSync(join(root, "data/roost.sqlite"));
-                db.exec("PRAGMA user_version=3");
+                db.exec("PRAGMA user_version=4");
                 db.close();
                 throw new Error("bad health");
               }

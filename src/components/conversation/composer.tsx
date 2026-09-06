@@ -8,12 +8,14 @@ import { usePreferences } from "../../features/settings/preferences";
 export function Composer({
   agentName,
   busy,
+  loading = false,
   status,
   onSend,
   onStop,
 }: {
   agentName: string;
   busy: boolean;
+  loading?: boolean;
   status?: string;
   onSend: (text: string) => Promise<void>;
   onStop: () => void;
@@ -45,7 +47,7 @@ export function Composer({
   const { responseStyle } = usePreferences();
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (busy || !text.trim()) return;
+    if (loading || busy || !text.trim()) return;
     void onSend(text.trim());
     setText("");
   }
@@ -92,7 +94,7 @@ export function Composer({
           <Button
             key="send"
             type="submit"
-            disabled={!text.trim()}
+            disabled={loading || !text.trim()}
             aria-label="Send message"
             xstyle={styles.send}
           >

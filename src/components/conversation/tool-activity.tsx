@@ -1,5 +1,7 @@
+import { getActivityOutput } from "../../features/chat/functions";
+import { Button } from "../ui/button";
 import { usePreferences } from "../../features/settings/preferences";
-import { useState } from "react";
+import { memo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../../styles/tokens.stylex";
 import {
@@ -11,7 +13,17 @@ import { ScrollArea } from "../ui/scroll-area";
 import { Icon } from "../ui/primitives";
 import type { Message } from "../../features/chat/schema";
 
-export function ToolActivity({ message }: { message: Message }) {
+export const ToolActivity = memo(function ToolActivity({
+  agentId,
+  message: preview,
+}: {
+  agentId?: string;
+  message: Message;
+}) {
+  const [full, setFull] = useState<{ preview: Message; message: Message }>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const message = full?.preview === preview ? full.message : preview;
   const { showActivityDetails, responseStyle } = usePreferences();
   const running = message.status === "inProgress";
   const [open, setOpen] = useState(true);
@@ -55,6 +67,30 @@ export function ToolActivity({ message }: { message: Message }) {
         <div {...stylex.props(styles.trigger)}>{heading}</div>
       )}
       <CollapsibleContent {...stylex.props(styles.panel)}>
+        {agentId && message.truncated && (
+          <Button
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              setError(false);
+              try {
+                const result = await getActivityOutput({
+                  data: { agentId, id: message.id },
+                });
+                if (result.ok && result.value)
+                  setFull({ preview, message: result.value });
+                else setError(true);
+              } catch {
+                setError(true);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            {loading ? "Loading full output…" : "Load full output"}
+          </Button>
+        )}
+        {error && <p role="alert">Could not load full output. Try again.</p>}
         {message.details && (
           <>
             <div {...stylex.props(styles.caption)}>
@@ -87,7 +123,7 @@ export function ToolActivity({ message }: { message: Message }) {
       </CollapsibleContent>
     </Collapsible>
   );
-}
+});
 const styles = stylex.create({
   activity: {
     marginBlock: 4,

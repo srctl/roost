@@ -1,7 +1,14 @@
-import { ComputerPanel } from "./computer-panel";
 import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
-import { Fragment, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  Suspense,
+  lazy,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { TypingIndicator } from "./conversation/typing-indicator";
@@ -15,27 +22,38 @@ import { Avatar, Icon } from "./ui/primitives";
 import { AgentSettings } from "./agent-settings";
 import { colors } from "../styles/tokens.stylex";
 import type { Agent } from "../features/agents/schema";
-import type { Message } from "../features/chat/schema";
 import { useConversation } from "../features/chat/use-conversation";
 import { usePreferences } from "../features/settings/preferences";
 
-export function Conversation({
-  agent,
-  messages: initialMessages,
-}: {
-  agent: Agent;
-  messages: readonly Message[];
-}) {
-  const { messages, busy, runId, error, send, stop, reload } = useConversation(
-    agent.id,
-    initialMessages,
-  );
+const ComputerPanel = lazy(() =>
+  import("./computer-panel").then((module) => ({
+    default: module.ComputerPanel,
+  })),
+);
+
+export function Conversation({ agent }: { agent: Agent }) {
+  const {
+    messages,
+    computerAnchor: savedComputerAnchor,
+    busy,
+    runId,
+    error,
+    send,
+    stop,
+    reload,
+    loading,
+    loadingOlder,
+    before,
+    loadOlder,
+  } = useConversation(agent.id);
+  const prepend = useRef<{ height: number; top: number } | null>(null);
   const [computerEnabled, setComputerEnabled] = useState(false);
   const [manualComputerOpen, setManualComputerOpen] = useState(false);
   const [dismissedComputerRun, setDismissedComputerRun] = useState<
     string | null
   >(null);
-  const computerAnchor = computerPreviewAnchor(messages, runId);
+  const computerAnchor =
+    computerPreviewAnchor(messages, runId) ?? savedComputerAnchor;
   const computerOpen =
     !manualComputerOpen && !!(computerAnchor && dismissedComputerRun !== runId);
   useEffect(() => {
@@ -60,11 +78,21 @@ export function Conversation({
           message.role === "activity" && message.status === "inProgress",
       )?.title ??
     (messages.at(-1)?.role === "assistant" ? "Replying" : "Thinking");
+  useLayoutEffect(() => {
+    if (!loadingOlder && prepend.current && viewport.current) {
+      viewport.current.scrollTop =
+        prepend.current.top +
+        viewport.current.scrollHeight -
+        prepend.current.height;
+      prepend.current = null;
+    }
+  }, [messages, loadingOlder]);
   useEffect(() => {
     if (viewport.current && followReply.current)
       viewport.current.scrollTop = viewport.current.scrollHeight;
   }, [
     messages,
+    savedComputerAnchor,
     busy,
     responseStyle,
     showActivityDetails,
@@ -120,7 +148,26 @@ export function Conversation({
         }}
       >
         <div {...stylex.props(styles.history)}>
-          {!messages.length && (
+          {loading && (
+            <p role="status">Loading conversation… You can start typing.</p>
+          )}
+          {before !== null && (
+            <Button
+              disabled={loadingOlder}
+              onClick={() => {
+                if (viewport.current)
+                  prepend.current = {
+                    height: viewport.current.scrollHeight,
+                    top: viewport.current.scrollTop,
+                  };
+                followReply.current = false;
+                void loadOlder();
+              }}
+            >
+              {loadingOlder ? "Loading older messages…" : "Load older messages"}
+            </Button>
+          )}
+          {!loading && !messages.length && (
             <div {...stylex.props(styles.empty)}>
               <h2>Say hello to {agent.name}.</h2>
               <p>
@@ -135,7 +182,7 @@ export function Conversation({
               ) : message.role === "notice" ? (
                 <ConversationNotice agentId={agent.id} message={message} />
               ) : message.role === "activity" ? (
-                <ToolActivity message={message} />
+                <ToolActivity agentId={agent.id} message={message} />
               ) : (
                 <AgentMessage name={agent.name} title={message.title}>
                   {message.text}
@@ -144,24 +191,38 @@ export function Conversation({
               {computerEnabled &&
                 computerOpen &&
                 message.id === computerAnchor && (
-                  <ComputerPanel
-                    agentName={agent.name}
-                    onClose={() => setDismissedComputerRun(runId)}
-                  />
+                  <Suspense fallback={<p role="status">Loading desktop…</p>}>
+                    <ComputerPanel
+                      agentName={agent.name}
+                      onClose={() => setDismissedComputerRun(runId)}
+                    />
+                  </Suspense>
                 )}
             </Fragment>
           ))}
+          {computerEnabled &&
+            computerOpen &&
+            !messages.some((message) => message.id === computerAnchor) && (
+              <Suspense fallback={<p role="status">Loading desktop…</p>}>
+                <ComputerPanel
+                  agentName={agent.name}
+                  onClose={() => setDismissedComputerRun(runId)}
+                />
+              </Suspense>
+            )}
           {busy && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />
           )}
         </div>
       </ScrollArea>
       {computerEnabled && manualComputerOpen && (
-        <ComputerPanel
-          agentName={agent.name}
-          fullScreen
-          onClose={() => setManualComputerOpen(false)}
-        />
+        <Suspense fallback={<p role="status">Loading desktop…</p>}>
+          <ComputerPanel
+            agentName={agent.name}
+            fullScreen
+            onClose={() => setManualComputerOpen(false)}
+          />
+        </Suspense>
       )}
       {error && (
         <div role="alert" {...stylex.props(styles.error)}>
@@ -174,6 +235,7 @@ export function Conversation({
       <Composer
         agentName={agent.name}
         busy={busy}
+        loading={loading}
         status={busy ? liveStatus : undefined}
         onSend={(text) => {
           followReply.current = true;

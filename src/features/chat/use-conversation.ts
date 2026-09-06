@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getConversation, sendMessage, stopMessage } from "./functions";
-import type { Message } from "./schema";
+import { mergeEntries, type Entry } from "./timeline";
 
-export function useConversation(
-  agentId: string,
-  initialMessages: readonly Message[],
-) {
-  const [messages, setMessages] = useState<readonly Message[]>(initialMessages);
+export function useConversation(agentId: string) {
+  const [entries, setEntries] = useState<readonly Entry[]>([]);
+  const messages = useMemo(
+    () => entries.map((entry) => entry.message),
+    [entries],
+  );
+  const [loading, setLoading] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [before, setBefore] = useState<number | null>(null);
+  const cursor = useRef<number | undefined>(undefined);
+  const paging = useRef(false);
+  const [computerAnchor, setComputerAnchor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [runId, setRunId] = useState<string | null>(null);
@@ -16,7 +23,9 @@ export function useConversation(
   async function reload() {
     const version = ++generation.current;
     try {
-      const result = await getConversation({ data: agentId });
+      const result = await getConversation({
+        data: { agentId, since: cursor.current },
+      });
       if (!mounted.current || version !== generation.current) return;
       if (!result.ok) {
         setError(result.error);
@@ -24,8 +33,20 @@ export function useConversation(
       }
       if (submitting.current) return;
       setError(undefined);
-      setMessages(result.value.messages);
+      if (cursor.current === undefined) setBefore(result.value.before);
+      cursor.current = result.value.revision;
+      setEntries((current) =>
+        mergeEntries(
+          current,
+          result.value.entries.filter(
+            (entry) =>
+              !current.length || entry.position >= current[0]!.position,
+          ),
+        ),
+      );
+      setLoading(false);
       setBusy(result.value.busy);
+      setComputerAnchor(result.value.computerAnchor);
       setRunId(result.value.runId);
     } catch {
       if (mounted.current && version === generation.current)
@@ -47,17 +68,45 @@ export function useConversation(
       clearTimeout(timer);
     };
   }, [agentId]);
+  async function loadOlder() {
+    if (before === null || paging.current) return;
+    paging.current = true;
+    setLoadingOlder(true);
+    const revision = cursor.current;
+    try {
+      const result = await getConversation({ data: { agentId, before } });
+      if (!mounted.current) return;
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setEntries((current) => mergeEntries(result.value.entries, current));
+      setBefore(result.value.before);
+      // Replay changes made while the older page was in flight.
+      generation.current++;
+      cursor.current = revision;
+    } catch {
+      if (mounted.current)
+        setError("Could not load older messages. Try again.");
+    } finally {
+      paging.current = false;
+      if (mounted.current) setLoadingOlder(false);
+    }
+  }
   async function send(text: string) {
-    if (submitting.current || busy || !text.trim()) return;
+    if (submitting.current || loading || busy || !text.trim()) return;
     generation.current++;
     submitting.current = true;
     setBusy(true);
     setError(undefined);
     const messageId = crypto.randomUUID();
     setRunId(messageId);
-    setMessages((messages) => [
-      ...messages,
-      { id: messageId, role: "user", text },
+    setEntries((entries) => [
+      ...entries,
+      {
+        position: (entries.at(-1)?.position ?? 0) + 0.5,
+        message: { id: messageId, role: "user", text },
+      },
     ]);
     try {
       const result = await sendMessage({ data: { agentId, messageId, text } });
@@ -81,5 +130,18 @@ export function useConversation(
     if (!result?.ok) setError("Could not stop the run. Try again.");
     else await reload();
   }
-  return { messages, busy, runId, error, send, stop, reload };
+  return {
+    messages,
+    computerAnchor,
+    busy,
+    runId,
+    error,
+    send,
+    stop,
+    reload,
+    loading,
+    loadingOlder,
+    before,
+    loadOlder,
+  };
 }

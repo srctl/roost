@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 2)
+        if (version > 3)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -89,6 +89,25 @@ export function withAgentStore<A>(
             );
             CREATE INDEX IF NOT EXISTS delegations_source ON delegations(sourceAgentId);
             PRAGMA user_version = 2;
+            COMMIT;`);
+        }
+        if (version < 3) {
+          db.exec(`BEGIN IMMEDIATE;
+            ALTER TABLE timeline ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;
+            CREATE TABLE timeline_revision (id INTEGER PRIMARY KEY, value INTEGER NOT NULL);
+            INSERT INTO timeline_revision VALUES (1, 0);
+            CREATE INDEX timeline_agent_position ON timeline(agentId, position);
+            CREATE INDEX timeline_agent_revision ON timeline(agentId, revision);
+            CREATE INDEX runs_active_agent ON runs(agentId, status) WHERE status IN ('running','queued');
+            CREATE TRIGGER timeline_insert_revision AFTER INSERT ON timeline BEGIN
+              UPDATE timeline_revision SET value=value+1 WHERE id=1;
+              UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
+            END;
+            CREATE TRIGGER timeline_update_revision AFTER UPDATE OF message ON timeline WHEN OLD.message != NEW.message BEGIN
+              UPDATE timeline_revision SET value=value+1 WHERE id=1;
+              UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
+            END;
+            PRAGMA user_version = 3;
             COMMIT;`);
         }
         return run(db, directory);

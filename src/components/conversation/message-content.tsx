@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Markdown, { type Components } from "react-markdown";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../../styles/tokens.stylex";
@@ -35,9 +36,13 @@ const components: Components = {
   img: ({ alt }) => <span>{alt}</span>,
 };
 
-export function MessageContent({ children }: { children: string }) {
+export const MessageContent = memo(function MessageContent({
+  children,
+}: {
+  children: string;
+}) {
   return <Markdown components={components}>{children}</Markdown>;
-}
+});
 
 const styles = stylex.create({
   paragraph: {

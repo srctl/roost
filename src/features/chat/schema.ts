@@ -12,6 +12,7 @@ export const Message = Schema.Struct({
   title: Schema.optional(Schema.String),
   status: Schema.optional(Schema.String),
   details: Schema.optional(Schema.String),
+  truncated: Schema.optional(Schema.Boolean),
   referenceId: Schema.optional(Schema.String),
   noticeKind: Schema.optional(
     Schema.Literal("soul", "automation", "run", "delegation"),
