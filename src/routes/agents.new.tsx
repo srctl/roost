@@ -1,7 +1,6 @@
 import { CodexConnection } from "../components/codex-connection";
 import { useState, useRef, type FormEvent } from "react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { Effect } from "effect";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../components/ui/button";
 import { Avatar } from "../components/ui/primitives";
@@ -40,29 +39,24 @@ function CreateAgentPage() {
     const id = attempt.current.id;
     setBusy(true);
     setError(undefined);
-    await Effect.runPromise(
-      Effect.tryPromise(async () => {
-        const result = await createAgent({ data: { ...values, id } });
-        if (!result.ok) {
-          setError(result.error);
-          return;
-        }
-        await router.invalidate();
-        await navigate({
-          to: "/agents/$agentId",
-          params: { agentId: result.value.id },
-        });
-      }).pipe(
-        Effect.catchAll(() =>
-          Effect.sync(() =>
-            setError(
-              "Could not save the agent. Check your connection and try again.",
-            ),
-          ),
-        ),
-        Effect.ensuring(Effect.sync(() => setBusy(false))),
-      ),
-    );
+    try {
+      const result = await createAgent({ data: { ...values, id } });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      await router.invalidate();
+      await navigate({
+        to: "/agents/$agentId",
+        params: { agentId: result.value.id },
+      });
+    } catch {
+      setError(
+        "Could not save the agent. Check your connection and try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <section {...stylex.props(styles.page)}>
