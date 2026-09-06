@@ -5,6 +5,12 @@ and open it as a web app. Roost provides a standalone manifest, app icons, and a
 Apple touch icon. The page and browser chrome follow the device's light/dark
 appearance. The installed iOS status bar overlays a safe-area-padded header.
 
+Startup at `/` reopens the last agent visited in this browser or home-screen app.
+The choice is stored locally on the device. If the agent is missing, storage is
+unavailable, or no agent has been visited yet, startup shows the agent list.
+Direct links keep their destination. Tap **roost** in navigation to open the list
+without being redirected; an empty workspace offers **Create an agent**.
+
 On phones, the document stays fixed while the conversation or settings content
 scrolls inside it. While the keyboard is closed, browser tabs use the dynamic
 viewport (`100dvh`), while installed standalone apps use the full viewport

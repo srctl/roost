@@ -8,10 +8,12 @@ import { MobileNavigation } from "./components/mobile-navigation";
 import { Sidebar } from "./components/sidebar";
 import { Route } from "./routes/__root";
 import { colors } from "./styles/tokens.stylex";
+import { useAgentStartup } from "./features/agents/use-agent-startup";
 
 export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const agents = Route.useLoaderData();
+  useAgentStartup(agents.ok ? agents.value : undefined);
   const chatting = useRouterState({
     select: (state) =>
       state.matches.some((match) => match.routeId === "/agents/$agentId"),
