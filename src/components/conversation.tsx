@@ -142,12 +142,18 @@ export function Conversation({
               {computerEnabled &&
                 computerOpen &&
                 message.id === computerAnchor && (
-                  <ComputerPanel onClose={() => setComputerOpen(false)} />
+                  <ComputerPanel
+                    agentName={agent.name}
+                    onClose={() => setComputerOpen(false)}
+                  />
                 )}
             </Fragment>
           ))}
           {computerEnabled && computerOpen && !computerAnchor && (
-            <ComputerPanel onClose={() => setComputerOpen(false)} />
+            <ComputerPanel
+              agentName={agent.name}
+              onClose={() => setComputerOpen(false)}
+            />
           )}
           {busy && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />

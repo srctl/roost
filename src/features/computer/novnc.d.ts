@@ -5,6 +5,8 @@ declare module "@novnc/novnc/lib/rfb.js" {
     scaleViewport: boolean;
     resizeSession: boolean;
     background: string;
+    focusOnClick: boolean;
+    sendKey(keysym: number, code?: string, down?: boolean): void;
     disconnect(): void;
     focus(): void;
   }

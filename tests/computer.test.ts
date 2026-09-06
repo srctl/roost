@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Effect } from "effect";
+import { desktopKeys } from "../src/features/computer/keyboard";
 import { computerPreviewAnchor } from "../src/features/computer/preview";
 import type { Message } from "../src/features/chat/schema";
 import {
@@ -117,4 +118,12 @@ test("human control blocks agent screenshots and input; expired control disconne
     delete process.env.ROOST_DESKTOP_DISPLAY;
     delete process.env.ROOST_DESKTOP_ORIGIN;
   }
+});
+
+test("mobile keyboard text preserves Unicode and sends editing keys as X11 keysyms", () => {
+  assert.deepEqual(
+    desktopKeys("Azé界😀"),
+    [65, 122, 233, 0x0100754c, 0x0101f600],
+  );
+  assert.deepEqual(desktopKeys("\b\t\n"), [0xff08, 0xff09, 0xff0d]);
 });

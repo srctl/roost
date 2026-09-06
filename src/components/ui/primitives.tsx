@@ -39,6 +39,20 @@ const paths = {
       <circle cx="9" cy="17" r="2" />
     </>
   ),
+  "chevron-left": <path d="m14 6-6 6 6 6" />,
+  pointer: <path d="m5 3 14 10-7 1-3 7z" />,
+  recenter: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2v5m0 10v5M2 12h5m10 0h5" />
+    </>
+  ),
+  keyboard: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="3" />
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10" />
+    </>
+  ),
   "chevron-down": <path d="m8 10 4 4 4-4" />,
   "chevron-right": <path d="m10 8 4 4-4 4" />,
   more: (

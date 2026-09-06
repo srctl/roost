@@ -1,14 +1,51 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import type RFB from "@novnc/novnc/lib/rfb.js";
 import { openComputer, controlComputer } from "../features/computer/functions";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
+import { Dialog } from "@base-ui/react/dialog";
+import { ComputerInput } from "./computer-input";
 import { colors } from "../styles/tokens.stylex";
 
-export function ComputerPanel({ onClose }: { onClose: () => void }) {
+export function ComputerPanel({
+  onClose,
+  agentName,
+}: {
+  onClose: () => void;
+  agentName: string;
+}) {
   const screen = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
+  const desktop = useRef<HTMLDivElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  const expandButton = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const mountScreen = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    screen.current = node;
+    if (desktop.current) node.appendChild(desktop.current);
+  }, []);
+  useEffect(() => {
+    if (client.current) client.current.focusOnClick = !expanded;
+    if (!expanded) return;
+    const viewport = window.visualViewport;
+    const resize = () => {
+      if (!popup.current || !viewport) return;
+      Object.assign(popup.current.style, {
+        height: `${viewport.height}px`,
+        width: `${viewport.width}px`,
+        top: `${viewport.offsetTop}px`,
+        left: `${viewport.offsetLeft}px`,
+      });
+    };
+    resize();
+    viewport?.addEventListener("resize", resize);
+    viewport?.addEventListener("scroll", resize);
+    return () => {
+      viewport?.removeEventListener("resize", resize);
+      viewport?.removeEventListener("scroll", resize);
+    };
+  }, [expanded]);
   const client = useRef<RFB | null>(null);
   const session = useRef<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -41,12 +78,21 @@ export function ComputerPanel({ onClose }: { onClose: () => void }) {
         const url = new URL("/api/desktop/socket", window.location.href);
         url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
         url.searchParams.set("ticket", result.value.id);
-        rfb = new Client(screen.current, url.href);
+        const target = document.createElement("div");
+        Object.assign(target.style, {
+          width: "100%",
+          height: "100%",
+          minHeight: "0",
+        });
+        screen.current.appendChild(target);
+        desktop.current = target;
+        rfb = new Client(target, url.href);
         client.current = rfb;
         rfb.viewOnly = true;
         rfb.scaleViewport = true;
         rfb.resizeSession = false; // Watching never changes the desktop's geometry.
-        rfb.background = "#171a16";
+        rfb.background = "#080a08";
+        rfb.focusOnClick = !popup.current;
         rfb.addEventListener("connect", () => {
           if (current) setConnected(true);
         });
@@ -70,6 +116,8 @@ export function ComputerPanel({ onClose }: { onClose: () => void }) {
     return () => {
       current = false;
       rfb?.disconnect();
+      desktop.current?.remove();
+      desktop.current = null;
       client.current = null;
       session.current = null;
     };
@@ -127,79 +175,174 @@ export function ComputerPanel({ onClose }: { onClose: () => void }) {
       setBusy(false);
     }
   }
+  const status = connected
+    ? controlling
+      ? "You’re in control"
+      : "Live · watching"
+    : error
+      ? "Disconnected"
+      : "Connecting…";
+  const control = connected ? (
+    <Button
+      disabled={busy}
+      onClick={() => void toggleControl()}
+      xstyle={controlling ? styles.active : undefined}
+    >
+      {controlling ? "Return control" : "Take control"}
+    </Button>
+  ) : error ? (
+    <Button onClick={() => setAttempt((value) => value + 1)}>Reconnect</Button>
+  ) : null;
+  const display = (
+    <div
+      ref={mountScreen}
+      {...stylex.props(styles.screen)}
+      aria-label="Remote desktop"
+    />
+  );
+  const notice = error && (
+    <p role="alert" {...stylex.props(styles.error)}>
+      {error}
+    </p>
+  );
   return (
-    <div ref={panel} {...stylex.props(styles.panel)}>
-      <div {...stylex.props(styles.toolbar)}>
-        <span {...stylex.props(styles.title)}>
-          <Icon name="monitor" /> Computer
-        </span>
-        <span role="status" {...stylex.props(styles.status)}>
-          {connected
-            ? controlling
-              ? "You’re in control · agent input paused"
-              : "Live · watching"
-            : error
-              ? "Disconnected"
-              : "Connecting…"}
-        </span>
-        <div {...stylex.props(styles.actions)}>
-          {connected && (
-            <Button
-              disabled={busy}
-              onClick={() => void toggleControl()}
-              xstyle={controlling ? styles.active : undefined}
-            >
-              {controlling ? "Return control" : "Take control"}
-            </Button>
-          )}
-          {error && !connected && (
-            <Button onClick={() => setAttempt((value) => value + 1)}>
-              Reconnect
-            </Button>
-          )}
-          <Button
-            aria-label="Toggle desktop full screen"
-            onClick={() => {
-              void (
-                document.fullscreenElement
-                  ? document.exitFullscreen()
-                  : panel.current?.requestFullscreen()
-              )?.catch(() =>
-                setError("Full screen is unavailable in this browser."),
-              );
-            }}
-          >
-            <Icon name="expand" />
-          </Button>
-          <Button aria-label="Close desktop" onClick={onClose}>
-            <Icon name="close" />
-          </Button>
+    <Dialog.Root open={expanded} onOpenChange={setExpanded}>
+      {!expanded && (
+        <div {...stylex.props(styles.panel)}>
+          <div {...stylex.props(styles.toolbar)}>
+            <span {...stylex.props(styles.title)}>
+              <Icon name="monitor" /> Computer
+            </span>
+            <span role="status" {...stylex.props(styles.status)}>
+              {status}
+            </span>
+            <div {...stylex.props(styles.actions)}>
+              {control}
+              <Dialog.Trigger
+                render={
+                  <Button ref={expandButton} aria-label="Expand desktop" />
+                }
+              >
+                <Icon name="expand" />
+              </Dialog.Trigger>
+              <Button aria-label="Close desktop" onClick={onClose}>
+                <Icon name="close" />
+              </Button>
+            </div>
+          </div>
+          {notice}
+          {display}
+          <p {...stylex.props(styles.note)}>
+            This machine’s shared desktop and signed-in browser. Closing the
+            preview leaves them running.
+          </p>
         </div>
-      </div>
-      {error && (
-        <p role="alert" {...stylex.props(styles.error)}>
-          {error}
-        </p>
       )}
-      <div
-        ref={screen}
-        {...stylex.props(styles.screen)}
-        aria-label="Remote desktop"
-      />
-      <p {...stylex.props(styles.note)}>
-        This machine’s shared desktop and signed-in browser. Closing the preview
-        leaves them running.
-      </p>
-    </div>
+      <Dialog.Portal>
+        <Dialog.Backdrop {...stylex.props(styles.backdrop)} />
+        <Dialog.Popup
+          ref={popup}
+          finalFocus={expandButton}
+          {...stylex.props(styles.expanded)}
+        >
+          <div {...stylex.props(styles.expandedHeader)}>
+            <Dialog.Close
+              render={
+                <Button
+                  aria-label="Back to conversation"
+                  xstyle={styles.back}
+                />
+              }
+            >
+              <Icon name="chevron-left" size={22} />
+            </Dialog.Close>
+            <div {...stylex.props(styles.heading)}>
+              <Dialog.Title {...stylex.props(styles.expandedTitle)}>
+                {agentName}’s computer
+              </Dialog.Title>
+              <Dialog.Description
+                role="status"
+                {...stylex.props(styles.expandedStatus)}
+              >
+                {status}
+              </Dialog.Description>
+            </div>
+            {control}
+          </div>
+          {notice}
+          <ComputerInput
+            client={client}
+            desktop={desktop}
+            enabled={connected && controlling}
+          >
+            {display}
+          </ComputerInput>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
+
 const styles = stylex.create({
+  backdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 30,
+    backgroundColor: "#080a08",
+  },
+  expanded: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100dvh",
+    zIndex: 31,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    backgroundColor: "#080a08",
+    color: "#eceee8",
+    fontFamily:
+      "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    fontSize: 13,
+    lineHeight: 1.5,
+    paddingTop: "env(safe-area-inset-top)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+    paddingLeft: "env(safe-area-inset-left)",
+    paddingRight: "env(safe-area-inset-right)",
+    outline: "none",
+  },
+  expandedHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    paddingBlock: 10,
+    paddingInline: 12,
+    flexShrink: 0,
+  },
+  back: {
+    borderRadius: "50%",
+    minWidth: 44,
+    minHeight: 44,
+    backgroundColor: "#20231e",
+    color: "#eceee8",
+  },
+  heading: { flex: 1, minWidth: 0 },
+  expandedTitle: {
+    fontSize: 16,
+    fontWeight: 500,
+    margin: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  expandedStatus: { fontSize: 11, color: colors.muted, margin: 0 },
   panel: {
     display: "flex",
     flexDirection: "column",
     flexShrink: 0,
     minHeight: 180,
-    height: { default: "38svh", ":fullscreen": "100%" },
+    height: "38svh",
     backgroundColor: colors.background,
     borderWidth: 1,
     borderStyle: "solid",
@@ -230,7 +373,9 @@ const styles = stylex.create({
     flexGrow: 1,
     minHeight: 0,
     overflow: "hidden",
-    backgroundColor: "#171a16",
+    backgroundColor: "#080a08",
+    width: "100%",
+    height: "100%",
   },
   note: {
     margin: 0,

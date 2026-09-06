@@ -6,7 +6,14 @@ computer action in that turn. It stays there through subsequent actions and
 moves when a later turn uses the computer. There is only one live preview;
 older messages do not show duplicate live screens. Click the monitor beside an
 agent's settings to reopen it, or to connect before the agent has used the computer.
-Expand it for a larger view.
+Expand it for an edge-to-edge view with a back button. This uses an in-app
+full-page dialog instead of the browser Fullscreen API, including on iPhone.
+The same VNC connection stays open when expanding or returning to chat.
+After taking control, use **Trackpad** to slide the pointer, tap to click, and
+scroll with two fingers. **Direct touch** clicks where you tap. **Recenter pointer**
+moves it to the middle. The keyboard button opens the phone keyboard; Tab and
+Enter are also available in the bottom bar. The view follows the visible viewport
+as the keyboard opens and closes. It does not resize the remote desktop.
 **Take control** enables pointer and keyboard input for sign-ins; **Return
 control** resumes agent access. Closing the preview leaves the desktop and
 browser running. Reconnect after a dropped connection.
