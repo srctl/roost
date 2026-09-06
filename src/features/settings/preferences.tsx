@@ -5,7 +5,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Effect } from "effect";
 
 const key = "roost.showActivityDetails";
 const responseStyleKey = "roost.responseStyle";
@@ -23,23 +22,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [responseStyle, setStyle] = useState<ResponseStyle>("codex");
   const [error, setError] = useState<string>();
   useEffect(() => {
-    Effect.runSync(
-      Effect.try(() => ({
-        show: localStorage.getItem(key) === "true",
-        style: localStorage.getItem(responseStyleKey),
-      })).pipe(
-        Effect.match({
-          onSuccess: ({ show, style }) => {
-            setShow(show);
-            setStyle(style === "messages" ? "messages" : "codex");
-          },
-          onFailure: () =>
-            setError(
-              "Browser storage is unavailable. This preference will last until you reload.",
-            ),
-        }),
-      ),
-    );
+    try {
+      const show = localStorage.getItem(key) === "true";
+      const style = localStorage.getItem(responseStyleKey);
+      setShow(show);
+      setStyle(style === "messages" ? "messages" : "codex");
+    } catch {
+      setError(
+        "Browser storage is unavailable. This preference will last until you reload.",
+      );
+    }
   }, []);
   function setShowActivityDetails(show: boolean) {
     setShow(show);
@@ -50,17 +42,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     savePreference(responseStyleKey, style);
   }
   function savePreference(storageKey: string, value: string) {
-    Effect.runSync(
-      Effect.try(() => localStorage.setItem(storageKey, value)).pipe(
-        Effect.match({
-          onSuccess: () => setError(undefined),
-          onFailure: () =>
-            setError(
-              "Could not save this preference. It will last until you reload.",
-            ),
-        }),
-      ),
-    );
+    try {
+      localStorage.setItem(storageKey, value);
+      setError(undefined);
+    } catch {
+      setError(
+        "Could not save this preference. It will last until you reload.",
+      );
+    }
   }
   return (
     <Preferences.Provider

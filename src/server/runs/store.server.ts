@@ -1,3 +1,4 @@
+import { writeTransaction } from "../transaction.server";
 import { deliverDelegationResults } from "../delegations/store.server";
 import { assertAvailable, isMaintenance } from "../maintenance.server";
 import { randomUUID } from "node:crypto";
@@ -68,8 +69,7 @@ export const enqueueChat = (input: SendMessage) =>
       throw new AgentStoreError({
         message: "This message ID has already been used.",
       });
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    return writeTransaction(db, () => {
       insertRun(db, {
         id: input.messageId,
         agentId: input.agentId,
@@ -80,12 +80,8 @@ export const enqueueChat = (input: SendMessage) =>
         role: "user",
         text: input.text,
       });
-      db.exec("COMMIT");
       return { id: input.messageId };
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
+    });
   });
 export const runAutomationNow = (
   agentId: string,
@@ -131,9 +127,8 @@ export const cancelRun = (agentId: string, id: string) =>
   });
 
 export const schedulerTick = (owner: string, now = Date.now()) =>
-  withAgentStore((db) => {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
       const lease = db
         .prepare("SELECT owner,heartbeat FROM worker_lease WHERE id=1")
         .get();
@@ -141,10 +136,8 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
         lease &&
         lease.owner !== owner &&
         Number(lease.heartbeat) > now - 30000
-      ) {
-        db.exec("COMMIT");
+      )
         return false;
-      }
       if (lease?.owner !== owner) {
         const abandoned = db
           .prepare("SELECT * FROM runs WHERE status='running'")
@@ -180,10 +173,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
       db.prepare(
         "INSERT INTO worker_lease (id,owner,heartbeat) VALUES (1,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,heartbeat=excluded.heartbeat",
       ).run(owner, now);
-      if (isMaintenance(db)) {
-        db.exec("COMMIT");
-        return true;
-      }
+      if (isMaintenance(db)) return true;
       deliverDelegationResults(db, now);
       for (const automation of readAutomations(db)) {
         const { start, end } = scheduleWindow(automation.schedule);
@@ -227,13 +217,9 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
           "UPDATE automations SET nextRunAt=?,enabled=? WHERE id=?",
         ).run(next, Number(next !== null), automation.id);
       }
-      db.exec("COMMIT");
       return true;
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  });
+    }),
+  );
 export const claimRun = (owner: string, allowBackground = true) =>
   withAgentStore((db) => {
     const now = Date.now();
@@ -245,50 +231,40 @@ export const claimRun = (owner: string, allowBackground = true) =>
       Run | undefined;
   });
 export const persistRun = (run: Run, messages: readonly Message[]) =>
-  withAgentStore((db) => {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
       if (
         !db
           .prepare(
             "SELECT id FROM runs WHERE id=? AND status='running' AND owner=?",
           )
           .get(run.id, run.owner)
-      ) {
-        db.exec("COMMIT");
+      )
         return;
-      }
       db.prepare("UPDATE runs SET messages=? WHERE id=?").run(
         JSON.stringify(messages),
         run.id,
       );
       if (run.kind !== "automation")
         for (const message of messages) putMessage(db, run.agentId, message);
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  });
+    }),
+  );
 export const finishRun = (
   run: Run,
   status: string,
   messages: readonly Message[],
   error?: string,
 ) =>
-  withAgentStore((db) => {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
       if (
         !db
           .prepare(
             "SELECT id FROM runs WHERE id=? AND status='running' AND owner=?",
           )
           .get(run.id, run.owner)
-      ) {
-        db.exec("COMMIT");
+      )
         return;
-      }
       const answer = [...messages]
         .reverse()
         .find((message) => message.role === "assistant")
@@ -345,9 +321,5 @@ export const finishRun = (
             error ??
             "This run was stopped. Its partial output is available in run history.",
         });
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  });
+    }),
+  );

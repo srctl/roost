@@ -1,3 +1,4 @@
+import { writeTransaction } from "../transaction.server";
 import { randomUUID } from "node:crypto";
 import { Schema } from "effect";
 import { Automation, AutomationInput } from "../../features/automations/schema";
@@ -47,8 +48,7 @@ export const saveAutomation = (
       },
     };
     requireAgent(db, data.agentId);
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    return writeTransaction(db, () => {
       const owner = db
         .prepare("SELECT agentId FROM automations WHERE id=?")
         .get(data.id);
@@ -65,10 +65,8 @@ export const saveAutomation = (
           current.prompt === data.prompt &&
           current.notification === data.notification &&
           JSON.stringify(current.schedule) === JSON.stringify(data.schedule)
-        ) {
-          db.exec("COMMIT");
+        )
           return current;
-        }
         throw new AgentStoreError({
           message: "This automation already exists. Reload before editing.",
         });
@@ -122,17 +120,13 @@ export const saveAutomation = (
         title: current ? "Automation updated" : "Automation created",
         text: `${data.name} · ${scheduleLabel(data.schedule)} · ${data.notification === "always" ? "Report every run" : "Only notify when needed"}`,
       });
-      db.exec("COMMIT");
       return {
         ...data,
         revision,
         enabled: current?.enabled ?? true,
         nextRunAt: current?.enabled === false ? null : next,
       };
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
+    });
   });
 export const toggleAutomation = (
   agentId: string,
@@ -140,9 +134,8 @@ export const toggleAutomation = (
   revision: number,
   enabled: boolean,
 ) =>
-  withAgentStore((db) => {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
       const automation = readAutomations(db, agentId).find((a) => a.id === id);
       if (!automation || automation.revision !== revision)
         throw new AgentStoreError({
@@ -171,9 +164,5 @@ export const toggleAutomation = (
         title: enabled ? "Automation resumed" : "Automation paused",
         text: automation.name,
       });
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  });
+    }),
+  );
