@@ -7,10 +7,8 @@ import { colors } from "../../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { Inspector } from "../ui/inspector";
 import { SoulChangeDetails } from "../soul-change";
-import {
-  AgentAutomationSettings,
-  RunInspector,
-} from "../agent-automation-settings";
+import { AgentAutomationSettings } from "../agent-automation-settings";
+import { RunInspector } from "../run-details";
 
 export function ConversationNotice({
   agentId,
@@ -20,6 +18,7 @@ export function ConversationNotice({
   message: Message;
 }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div {...stylex.props(styles.notice)}>
       <div>
@@ -71,6 +70,7 @@ export function ConversationNotice({
     </div>
   );
 }
+
 const styles = stylex.create({
   notice: {
     fontSize: 12,

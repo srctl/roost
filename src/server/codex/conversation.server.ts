@@ -27,7 +27,8 @@ import type { ThreadReadParams } from "./protocol/v2/ThreadReadParams";
 
 import type { Automation } from "../../features/automations/schema";
 import { readSoul } from "../agents/soul.server";
-import { openAgentServer, soulTools } from "./agent-runtime.server";
+import { openAgentServer } from "./agent-runtime.server";
+import { agentTools } from "./agent-tools.server";
 import { Message as MessageSchema } from "../../features/chat/schema";
 
 import { Item, messageFromItem } from "./conversation-items.server";
@@ -40,27 +41,33 @@ const Turn = Schema.Struct({
     Schema.NullOr(Schema.Struct({ message: Schema.String })),
   ),
 });
+
 const Thread = Schema.Struct({
   thread: Schema.Struct({ id: Schema.String, turns: Schema.Array(Turn) }),
 });
+
 const Delta = Schema.Struct({
   threadId: Schema.String,
   turnId: Schema.String,
   itemId: Schema.String,
   delta: Schema.String,
 });
+
 const Completed = Schema.Struct({ threadId: Schema.String, turn: Turn });
+
 const ItemEvent = Schema.Struct({
   threadId: Schema.String,
   turnId: Schema.String,
   item: Item,
 });
+
 export function messagesFromTurns(
   turns: readonly (typeof Turn.Type)[],
 ): Message[] {
   return turns.flatMap((turn) =>
     turn.items.flatMap((item) => {
       const message = messageFromItem(item, turn.status === "inProgress");
+
       return message ? [message] : [];
     }),
   );
@@ -70,6 +77,7 @@ export function messagesFromTurns(
 const state = globalThis as typeof globalThis & {
   roostChatSends?: Set<string>;
 };
+
 const active = (state.roostChatSends ??= new Set<string>());
 
 export const readConversation = (agentId: string) =>
@@ -89,6 +97,7 @@ export const readConversation = (agentId: string) =>
           includeTurns: true,
         } satisfies ThreadReadParams)
         .pipe(Effect.flatMap(Schema.decodeUnknown(Thread)));
+
       return {
         messages: [
           ...Schema.decodeUnknownSync(Schema.Array(MessageSchema))(
@@ -108,6 +117,7 @@ export function sendConversation(
   kind: Run["kind"] = automation ? "automation" : "chat",
 ) {
   const isolated = kind === "automation" || kind === "delegation";
+
   return Effect.scoped(
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
@@ -211,9 +221,9 @@ export function sendConversation(
             : ({
                 ...options,
                 ephemeral: false,
-                dynamicTools: [...soulTools, ...computerTools],
+                dynamicTools: [...agentTools, ...computerTools],
               } satisfies ThreadStartParams & {
-                dynamicTools: typeof soulTools;
+                dynamicTools: typeof agentTools;
               }),
         )
         .pipe(Effect.flatMap(Schema.decodeUnknown(Thread)));
@@ -325,6 +335,7 @@ export function sendConversation(
       if (previous.some((message) => message.id === input.messageId)) {
         emit({ type: "history", messages: previous });
         emit({ type: "done", status: "completed" });
+
         return;
       }
       emit({

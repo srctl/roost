@@ -18,6 +18,7 @@ export function readAutomations(
         )
         .all(agentId)
     : db.prepare("SELECT * FROM automations").all();
+
   return rows.map((row) =>
     Schema.decodeUnknownSync(Automation)({
       ...row,
@@ -26,8 +27,10 @@ export function readAutomations(
     }),
   );
 }
+
 export const listAutomations = (agentId: string) =>
   withAgentStore((db) => readAutomations(db, agentId));
+
 export const deleteAutomation = (
   agentId: string,
   id: string,
@@ -36,17 +39,24 @@ export const deleteAutomation = (
   withAgentStore((db) =>
     writeTransaction(db, () => {
       const automation = readAutomations(db, agentId).find((a) => a.id === id);
-      if (!automation || automation.revision !== revision)
+
+      if (!automation || automation.revision !== revision) {
         throw new AgentStoreError({
           message:
             "This automation changed or was deleted. Reload before deleting.",
         });
+      }
+
       db.prepare("DELETE FROM automations WHERE id=? AND agentId=?").run(
         id,
         agentId,
       );
       db.prepare(
-        "UPDATE runs SET cancelRequested=1, status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END, finishedAt=CASE WHEN status='queued' THEN ? ELSE finishedAt END WHERE automationId=? AND agentId=? AND status IN ('queued','running')",
+        `UPDATE runs
+         SET cancelRequested = 1,
+             status = CASE WHEN status = 'queued' THEN 'cancelled' ELSE status END,
+             finishedAt = CASE WHEN status = 'queued' THEN ? ELSE finishedAt END
+         WHERE automationId = ? AND agentId = ? AND status IN ('queued', 'running')`,
       ).run(Date.now(), id, agentId);
       putMessage(db, agentId, {
         id: randomUUID(),
@@ -57,10 +67,13 @@ export const deleteAutomation = (
       });
     }),
   );
+
 export function requireAgent(db: DatabaseSync, id: string) {
-  if (!db.prepare("SELECT id FROM agents WHERE id = ?").get(id))
+  if (!db.prepare("SELECT id FROM agents WHERE id = ?").get(id)) {
     throw new AgentStoreError({ message: "Agent not found." });
+  }
 }
+
 export const saveAutomation = (
   input: AutomationInput,
   expectedRevision?: number,
@@ -77,37 +90,48 @@ export const saveAutomation = (
       },
     };
     requireAgent(db, data.agentId);
+
     return writeTransaction(db, () => {
       const owner = db
         .prepare("SELECT agentId FROM automations WHERE id=?")
         .get(data.id);
-      if (owner && owner.agentId !== data.agentId)
+
+      if (owner && owner.agentId !== data.agentId) {
         throw new AgentStoreError({
           message: "This automation ID has already been used.",
         });
+      }
+
       const current = readAutomations(db, data.agentId).find(
         (a) => a.id === data.id,
       );
+
       if (current && expectedRevision === undefined) {
         if (
           current.name === data.name &&
           current.prompt === data.prompt &&
           current.notification === data.notification &&
           JSON.stringify(current.schedule) === JSON.stringify(data.schedule)
-        )
+        ) {
           return current;
+        }
+
         throw new AgentStoreError({
           message: "This automation already exists. Reload before editing.",
         });
       }
+
       if (
         expectedRevision !== undefined &&
         (!current || current.revision !== expectedRevision)
-      )
+      ) {
         throw new AgentStoreError({
           message: "This automation changed. Reload before saving.",
         });
+      }
+
       let next: number | null;
+
       try {
         new Intl.DateTimeFormat("en-US", { timeZone: data.schedule.timezone });
         next = nextOccurrence(data.schedule, Date.now());
@@ -119,13 +143,26 @@ export const saveAutomation = (
               : "Choose a valid schedule and IANA timezone.",
         });
       }
-      if (!next)
+
+      if (!next) {
         throw new AgentStoreError({
           message: "No future runs match this schedule and date range.",
         });
+      }
+
       const revision = (current?.revision ?? 0) + 1;
       db.prepare(
-        "INSERT INTO automations (id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,prompt=excluded.prompt,schedule=excluded.schedule,notification=excluded.notification,revision=excluded.revision,nextRunAt=excluded.nextRunAt WHERE automations.agentId=excluded.agentId",
+        `INSERT INTO automations (
+           id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           prompt = excluded.prompt,
+           schedule = excluded.schedule,
+           notification = excluded.notification,
+           revision = excluded.revision,
+           nextRunAt = excluded.nextRunAt
+         WHERE automations.agentId = excluded.agentId`,
       ).run(
         data.id,
         data.agentId,
@@ -149,6 +186,7 @@ export const saveAutomation = (
         title: current ? "Automation updated" : "Automation created",
         text: `${data.name} · ${scheduleLabel(data.schedule)} · ${data.notification === "always" ? "Report every run" : "Only notify when needed"}`,
       });
+
       return {
         ...data,
         revision,
@@ -157,6 +195,7 @@ export const saveAutomation = (
       };
     });
   });
+
 export const toggleAutomation = (
   agentId: string,
   id: string,
@@ -166,25 +205,34 @@ export const toggleAutomation = (
   withAgentStore((db) =>
     writeTransaction(db, () => {
       const automation = readAutomations(db, agentId).find((a) => a.id === id);
-      if (!automation || automation.revision !== revision)
+
+      if (!automation || automation.revision !== revision) {
         throw new AgentStoreError({
           message: "This automation changed. Reload before updating.",
         });
+      }
+
       const next = enabled
         ? nextOccurrence(automation.schedule, Date.now())
         : null;
-      if (enabled && !next)
+
+      if (enabled && !next) {
         throw new AgentStoreError({
           message:
             "Edit this automation to choose a schedule and date range with future runs.",
         });
+      }
+
       db.prepare(
         "UPDATE automations SET enabled=?, nextRunAt=?, revision=revision+1 WHERE id=?",
       ).run(Number(enabled), next, id);
-      if (!enabled)
+
+      if (!enabled) {
         db.prepare(
           "UPDATE runs SET status='cancelled', finishedAt=? WHERE automationId=? AND status='queued'",
         ).run(Date.now(), id);
+      }
+
       putMessage(db, agentId, {
         id: randomUUID(),
         role: "notice",

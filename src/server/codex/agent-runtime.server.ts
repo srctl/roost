@@ -1,35 +1,12 @@
-import {
-  delegateTask,
-  DelegateTask,
-  listDelegations,
-} from "../delegations/store.server";
-import { listAgents } from "../agents/store.server";
-import { computerAction } from "../computer/tools.server";
-import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import { mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import {
-  Context,
-  Effect,
-  Layer,
-  ManagedRuntime,
-  Schema,
-  JSONSchema,
-} from "effect";
+import { Context, Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
+import { computerAction } from "../computer/tools.server";
 import { CodexError, openAppServer, openHostServer } from "./app-server.server";
-import { readSoul, patchSoul, SoulPatch } from "../agents/soul.server";
-import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
-import type { DynamicToolCallResponse } from "./protocol/v2/DynamicToolCallResponse";
+import { handleAgentTool } from "./agent-tools.server";
 import type { LoginAccountParams } from "./protocol/v2/LoginAccountParams";
-import { AutomationInput } from "../../features/automations/schema";
-import {
-  listAutomations,
-  saveAutomation,
-  toggleAutomation,
-  deleteAutomation,
-} from "../automations/store.server";
-import { runAutomationNow } from "../runs/store.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
 
 const hostHome = () =>
@@ -43,6 +20,7 @@ const Auth = Schema.Struct({
     ),
   ),
 });
+
 const HostConfig = Schema.Struct({
   config: Schema.Struct({
     features: Schema.optional(
@@ -62,22 +40,28 @@ const hostCredentials = Effect.scoped(
     yield* host.initialize;
     // The host owns refresh-token rotation; isolated homes only receive access tokens.
     yield* host.request("account/read", { refreshToken: true });
+
     return yield* Effect.try({
       try: () => {
         const auth = Schema.decodeUnknownSync(Auth)(
           JSON.parse(readFileSync(join(hostHome(), "auth.json"), "utf8")),
         );
-        if (auth.tokens)
+
+        if (auth.tokens) {
           return {
             type: "chatgptAuthTokens",
             accessToken: auth.tokens.access_token,
             chatgptAccountId: auth.tokens.account_id,
           } satisfies LoginAccountParams;
-        if (auth.OPENAI_API_KEY)
+        }
+
+        if (auth.OPENAI_API_KEY) {
           return {
             type: "apiKey",
             apiKey: auth.OPENAI_API_KEY,
           } satisfies LoginAccountParams;
+        }
+
         throw new Error();
       },
       catch: () =>
@@ -88,112 +72,6 @@ const hostCredentials = Effect.scoped(
   }),
 );
 
-const SaveAutomationTool = Schema.Struct({
-  ...AutomationInput.omit("agentId").fields,
-  expectedRevision: Schema.optional(Schema.Number),
-});
-const ToggleAutomationTool = Schema.Struct({
-  id: Schema.UUID,
-  revision: Schema.Number,
-  enabled: Schema.Boolean,
-});
-const RunAutomationTool = Schema.Struct({
-  id: Schema.UUID,
-  requestId: Schema.UUID,
-});
-const DeleteAutomationTool = Schema.Struct({
-  id: Schema.UUID,
-  revision: Schema.NonNegativeInt,
-});
-
-export const soulTools: DynamicToolSpec[] = [
-  {
-    type: "function",
-    name: "roost_list_agents",
-    description:
-      "List the other agents and their stated responsibilities. Use this to find a specialist before delegating. Each agent has separate soul, memory, and conversation history.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-  {
-    type: "function",
-    name: "roost_delegate_task",
-    description:
-      "Assign a concrete part of the user's request to an existing specialist agent asynchronously. Supply a stable requestId UUID, target agentId from roost_list_agents, and a self-contained task including relevant context and the user's authorization limits. Do not pass whole conversations or private memory stores. Returns immediately: finish your handoff reply and remain available, do not wait or poll. A result or failure automatically wakes you in a later turn. Only user chat turns can delegate; delegated jobs, result updates, and automations cannot delegate further. Never delegate to yourself or duplicate outstanding work. All agents share the same desktop and must wait for its owner to finish.",
-    inputSchema: JSONSchema.make(DelegateTask) as unknown as JsonValue,
-  },
-  {
-    type: "function",
-    name: "roost_list_delegations",
-    description:
-      "Inspect tasks you assigned or received, for a user-requested status check. Results are delivered automatically; do not poll this tool while waiting.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-  {
-    type: "function",
-    name: "roost_read_soul",
-    description:
-      "Read your own persistent SOUL.md and its current revision before editing it.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-  {
-    type: "function",
-    name: "roost_update_soul",
-    description:
-      "Apply exact targeted edits to your soul after the user explicitly requests a lasting change or agrees to your proposed change. Read the soul first, preserve unrelated text, and supply a short reason. Do not store schedules or personal facts here.",
-    inputSchema: JSONSchema.make(SoulPatch) as unknown as JsonValue,
-  },
-  {
-    type: "function",
-    name: "roost_list_automations",
-    description:
-      "Read the current time and server timezone, and list your saved automations, IDs, schedules, enablement, and revisions. Call this before scheduling relative times.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-  {
-    type: "function",
-    name: "roost_save_automation",
-    description:
-      "Create or edit an automation for this agent when explicitly requested by the user. Use a stable UUID for a creation; for an edit use the existing id and expectedRevision from the list tool. Prefer ONE cron automation for multiple daily times: kind=cron, expression='0 8-22/2 * * *' means every two hours from 08:00 through 22:00 daily. Cron uses five fields: minute hour day-of-month month day-of-week. Timezone must be an IANA name. Recurring schedules accept optional startsOn and endsOn as inclusive YYYY-MM-DD calendar dates in that timezone. Do not invent an end date for a condition such as until delivered. Weekly days are 0=Sunday through 6=Saturday. One-time timestamps need an explicit offset. Ask if the task or intended time is unclear. Schedules do not expand your permissions.",
-    inputSchema: JSONSchema.make(SaveAutomationTool) as unknown as JsonValue,
-  },
-  {
-    type: "function",
-    name: "roost_set_automation_enabled",
-    description:
-      "Pause or resume an existing automation at the user's request. Read its current revision first. Pausing cancels queued runs; an active run continues until explicitly stopped.",
-    inputSchema: JSONSchema.make(ToggleAutomationTool) as unknown as JsonValue,
-  },
-  {
-    type: "function",
-    name: "roost_delete_automation",
-    description:
-      "Delete one of this agent's automations only when explicitly requested by the user. Read its current ID and revision from the list tool first. Deletion removes the schedule, cancels queued runs, and requests cancellation of active runs. Past run history is retained. This cannot be undone; use pause for a temporary stop.",
-    inputSchema: JSONSchema.make(DeleteAutomationTool) as unknown as JsonValue,
-  },
-  {
-    type: "function",
-    name: "roost_run_automation",
-    description:
-      "Queue one immediate run of a saved automation at the user's request. Use a stable requestId UUID so retries don't create duplicate runs.",
-    inputSchema: JSONSchema.make(RunAutomationTool) as unknown as JsonValue,
-  },
-];
 const ToolCall = Schema.Struct({
   threadId: Schema.String,
   namespace: Schema.NullOr(Schema.String),
@@ -204,13 +82,18 @@ const ToolCall = Schema.Struct({
 // config/read includes null defaults; thread overrides are converted to TOML,
 // which has no null value. Omit those defaults instead of turning them into strings.
 function omitNulls(value: JsonValue): JsonValue {
-  if (Array.isArray(value)) return value.map(omitNulls);
-  if (value && typeof value === "object")
+  if (Array.isArray(value)) {
+    return value.map(omitNulls);
+  }
+
+  if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([, entry]) => entry != null)
         .map(([key, entry]) => [key, omitNulls(entry!)]),
     );
+  }
+
   return value;
 }
 
@@ -225,6 +108,7 @@ const makeAgentServer = (
       Effect.gen(function* () {
         const host = yield* openHostServer();
         yield* host.initialize;
+
         return yield* host
           .request("config/read", { includeLayers: false })
           .pipe(Effect.flatMap(Schema.decodeUnknown(HostConfig)));
@@ -277,120 +161,43 @@ const makeAgentServer = (
     client.onRequest = async (method, params) => {
       if (method === "account/chatgptAuthTokens/refresh") {
         const auth = await Effect.runPromise(hostCredentials);
-        if (auth.type !== "chatgptAuthTokens") throw new Error();
+
+        if (auth.type !== "chatgptAuthTokens") {
+          throw new Error();
+        }
+
         return {
           accessToken: auth.accessToken,
           chatgptAccountId: auth.chatgptAccountId,
           chatgptPlanType: null,
         };
       }
-      if (method !== "item/tool/call") throw new Error();
-      const call = Schema.decodeUnknownSync(ToolCall)(params);
-      if (call.threadId !== threadId || call.namespace !== null)
+
+      if (method !== "item/tool/call") {
         throw new Error();
-      if (call.tool === "roost_computer")
+      }
+
+      const call = Schema.decodeUnknownSync(ToolCall)(params);
+
+      if (call.threadId !== threadId || call.namespace !== null) {
+        throw new Error();
+      }
+
+      if (call.tool === "roost_computer") {
         return Effect.runPromise(computerAction(agentId, call.arguments), {
           signal: toolSignal,
         });
-      const action = Effect.gen(function* () {
-        if (call.tool === "roost_list_agents")
-          return (yield* listAgents())
-            .filter((agent) => agent.id !== agentId)
-            .map(({ id, name, instructions }) => ({
-              id,
-              name,
-              responsibility: instructions,
-            }));
-        if (call.tool === "roost_list_delegations")
-          return yield* listDelegations(agentId);
-        if (call.tool === "roost_delegate_task") {
-          if (!runId)
-            return yield* new CodexError({
-              message: "There is no active run to delegate from.",
-            });
-          return yield* delegateTask(
-            agentId,
-            runId,
-            yield* Schema.decodeUnknown(DelegateTask)(call.arguments),
-          );
-        }
-        if (call.tool === "roost_read_soul") return yield* readSoul(agentId);
-        if (call.tool === "roost_list_automations")
-          return {
-            automations: yield* listAutomations(agentId),
-            currentTime: new Date().toISOString(),
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          };
-        if (!allowMutations)
-          return yield* new CodexError({
-            message: "Background runs cannot change souls or automations.",
-          });
-        if (call.tool === "roost_update_soul")
-          return yield* patchSoul(
-            agentId,
-            yield* Schema.decodeUnknown(SoulPatch)(call.arguments),
-          );
-        if (call.tool === "roost_save_automation") {
-          const args = yield* Schema.decodeUnknown(SaveAutomationTool)(
-            call.arguments,
-          );
-          return yield* saveAutomation(
-            { ...args, agentId },
-            args.expectedRevision,
-          );
-        }
-        if (call.tool === "roost_set_automation_enabled") {
-          const args = yield* Schema.decodeUnknown(ToggleAutomationTool)(
-            call.arguments,
-          );
-          yield* toggleAutomation(
-            agentId,
-            args.id,
-            args.revision,
-            args.enabled,
-          );
-          return { updated: true };
-        }
-        if (call.tool === "roost_run_automation") {
-          const args = yield* Schema.decodeUnknown(RunAutomationTool)(
-            call.arguments,
-          );
-          return yield* runAutomationNow(agentId, args.id, args.requestId);
-        }
-        if (call.tool === "roost_delete_automation") {
-          const args = yield* Schema.decodeUnknown(DeleteAutomationTool)(
-            call.arguments,
-          );
-          yield* deleteAutomation(agentId, args.id, args.revision);
-          return { deleted: true };
-        }
-        return yield* new CodexError({ message: "Unknown Roost tool." });
-      });
-      return Effect.runPromise(
-        action.pipe(
-          Effect.match({
-            onSuccess: (value): DynamicToolCallResponse => ({
-              success: true,
-              contentItems: [
-                { type: "inputText", text: JSON.stringify(value) },
-              ],
-            }),
-            onFailure: (error): DynamicToolCallResponse => ({
-              success: false,
-              contentItems: [
-                {
-                  type: "inputText",
-                  text:
-                    "message" in error ? error.message : "Invalid soul update.",
-                },
-              ],
-            }),
-          }),
-        ),
+      }
+
+      return handleAgentTool(
+        { agentId, runId, allowMutations },
+        call.tool,
+        call.arguments,
       );
     };
     yield* client.initialize;
     yield* client.request("account/login/start", credentials);
+
     return {
       client,
       bindThread: (
@@ -414,6 +221,7 @@ const AgentClient =
   Context.GenericTag<Effect.Effect.Success<ReturnType<typeof makeAgentServer>>>(
     "RoostAgentClient",
   );
+
 type RuntimeEntry = {
   runtime: ManagedRuntime.ManagedRuntime<
     Context.Tag.Identifier<typeof AgentClient>,
@@ -422,9 +230,11 @@ type RuntimeEntry = {
   users: number;
   idle?: ReturnType<typeof setTimeout>;
 };
+
 const globals = globalThis as typeof globalThis & {
   roostAgentRuntimes?: Map<string, RuntimeEntry>;
 };
+
 const runtimes = (globals.roostAgentRuntimes ??= new Map<
   string,
   RuntimeEntry
@@ -436,6 +246,7 @@ export const closeAgentRuntimes = async () => {
   await Promise.all(
     entries.map((entry) => {
       clearTimeout(entry.idle);
+
       return entry.runtime.dispose();
     }),
   );
@@ -448,6 +259,7 @@ export const refreshAgentRuntimes = async () => {
   await Promise.all(
     idle.map((entry) => {
       clearTimeout(entry.idle);
+
       return entry.runtime.dispose();
     }),
   );
@@ -462,6 +274,7 @@ export const openAgentServer = (
     const entry = yield* Effect.acquireRelease(
       Effect.sync(() => {
         let entry = runtimes.get(codexHome);
+
         if (!entry) {
           entry = {
             users: 0,
@@ -474,21 +287,32 @@ export const openAgentServer = (
           };
           runtimes.set(codexHome, entry);
         }
+
         clearTimeout(entry.idle);
         entry.users++;
+
         return entry;
       }),
       (entry) =>
         Effect.sync(() => {
           entry.users--;
-          if (entry.users) return;
-          if (runtimes.get(codexHome) !== entry) {
-            void entry.runtime.dispose();
+
+          if (entry.users) {
             return;
           }
+
+          if (runtimes.get(codexHome) !== entry) {
+            void entry.runtime.dispose();
+
+            return;
+          }
+
           entry.idle = setTimeout(
             () => {
-              if (runtimes.get(codexHome) === entry) runtimes.delete(codexHome);
+              if (runtimes.get(codexHome) === entry) {
+                runtimes.delete(codexHome);
+              }
+
               void entry.runtime.dispose();
             },
             10 * 60 * 1000,
@@ -496,6 +320,7 @@ export const openAgentServer = (
           entry.idle.unref();
         }),
     );
+
     return yield* Effect.promise(() =>
       entry.runtime.runPromiseExit(AgentClient),
     ).pipe(
@@ -506,7 +331,10 @@ export const openAgentServer = (
       ),
       Effect.tapError(() =>
         Effect.promise(async () => {
-          if (runtimes.get(codexHome) === entry) runtimes.delete(codexHome);
+          if (runtimes.get(codexHome) === entry) {
+            runtimes.delete(codexHome);
+          }
+
           await entry.runtime.dispose();
         }),
       ),
