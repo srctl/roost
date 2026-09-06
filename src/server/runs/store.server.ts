@@ -1,3 +1,4 @@
+import { deliverDelegationResults } from "../delegations/store.server";
 import { assertAvailable, isMaintenance } from "../maintenance.server";
 import { randomUUID } from "node:crypto";
 import type { Message, SendMessage } from "../../features/chat/schema";
@@ -11,7 +12,7 @@ import type { DatabaseSync } from "node:sqlite";
 export type Run = {
   id: string;
   agentId: string;
-  kind: "chat" | "automation";
+  kind: "chat" | "automation" | "delegation" | "handoff";
   prompt: string;
   status: string;
   automationId: string | null;
@@ -155,7 +156,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
                 ? ({ ...message, status: "interrupted" } as Message)
                 : message,
           );
-          if (run.kind === "chat")
+          if (run.kind !== "automation")
             for (const message of messages)
               putMessage(db, run.agentId, message);
           db.prepare(
@@ -183,6 +184,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
         db.exec("COMMIT");
         return true;
       }
+      deliverDelegationResults(db, now);
       for (const automation of readAutomations(db)) {
         const { start, end } = scheduleWindow(automation.schedule);
         if (now > end) {
@@ -259,7 +261,7 @@ export const persistRun = (run: Run, messages: readonly Message[]) =>
         JSON.stringify(messages),
         run.id,
       );
-      if (run.kind === "chat")
+      if (run.kind !== "automation")
         for (const message of messages) putMessage(db, run.agentId, message);
       db.exec("COMMIT");
     } catch (error) {
@@ -290,10 +292,14 @@ export const finishRun = (
         .reverse()
         .find((message) => message.role === "assistant")
         ?.text?.trim();
-      if (status === "completed" && run.kind === "automation" && !answer) {
+      if (
+        status === "completed" &&
+        (run.kind === "automation" || run.kind === "delegation") &&
+        !answer
+      ) {
         status = "failed";
         error =
-          "The automation finished without a final response. Check its output before retrying.";
+          "The task finished without a final response. Check its output before retrying.";
       }
       db.prepare(
         "UPDATE runs SET status=?,messages=?,error=?,finishedAt=? WHERE id=?",
@@ -304,7 +310,7 @@ export const finishRun = (
         Date.now(),
         run.id,
       );
-      if (run.kind === "chat")
+      if (run.kind !== "automation")
         for (const message of messages) putMessage(db, run.agentId, message);
       if (status === "completed" && run.kind === "automation") {
         const automation = JSON.parse(run.automationSnapshot!) as Automation;

@@ -268,16 +268,20 @@ export function AgentAutomationSettings({
       )}
       <h3 {...stylex.props(styles.heading)}>Recent runs</h3>
       <p {...stylex.props(styles.help)}>
-        Includes chat and scheduled runs. Pausing cancels queued work; use Stop
-        for a run already in progress.
+        Includes chats, delegated tasks, and scheduled runs. Pausing cancels
+        queued work; use Stop for a run already in progress.
       </p>
       {!runs.length && <p {...stylex.props(styles.help)}>No runs yet.</p>}
       {runs.map((run) => (
         <div key={run.id} {...stylex.props(styles.run)}>
           <Button onClick={() => setRunId(run.id)} xstyle={styles.runButton}>
             <span {...stylex.props(styles.runName)}>
-              {run.kind === "chat"
-                ? "Chat"
+              {run.kind !== "automation"
+                ? {
+                    chat: "Chat",
+                    delegation: "Delegated task",
+                    handoff: "Specialist update",
+                  }[run.kind]
                 : ((
                     JSON.parse(
                       run.automationSnapshot ?? "null",

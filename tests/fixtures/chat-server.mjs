@@ -94,6 +94,28 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         },
       ],
     };
+    if (params.input[0].text.startsWith("delegate:")) {
+      const target = params.input[0].text.slice("delegate:".length);
+      const delegated = await requestTool({
+        threadId: thread.id,
+        turnId: turn.id,
+        callId: "delegate-call",
+        namespace: null,
+        tool: "roost_delegate_task",
+        arguments: {
+          requestId: randomUUID(),
+          agentId: target,
+          task: "specialist task",
+        },
+      });
+      if (!delegated.result?.success)
+        throw new Error(JSON.stringify(delegated));
+      turn.items[1].text = "I handed it to Shopping.";
+    }
+    if (params.input[0].text === "specialist task") {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      turn.items[1].text = "Specialist finished. Nothing purchased.";
+    }
     if (params.input[0].text === "soul") {
       const call = {
         threadId: thread.id,

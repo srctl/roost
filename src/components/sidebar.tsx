@@ -1,3 +1,5 @@
+import { useAgentActivity } from "../features/agents/activity";
+import { AgentWorking } from "./agent-working";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { Button } from "./ui/button";
@@ -16,6 +18,7 @@ export function Sidebar({
   onNavigate?: () => void;
   drawer?: boolean;
 }) {
+  const activity = useAgentActivity();
   return (
     <aside
       id={drawer ? "mobile-agent-sidebar" : "agent-sidebar"}
@@ -48,6 +51,9 @@ export function Sidebar({
           >
             <Avatar character={agent.character} size={24} />
             <span {...stylex.props(styles.name)}>{agent.name}</span>
+            {activity[agent.id] && (
+              <AgentWorking activity={activity[agent.id]!} />
+            )}
           </Link>
         ))}
         <Link

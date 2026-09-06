@@ -13,7 +13,9 @@ export const Message = Schema.Struct({
   status: Schema.optional(Schema.String),
   details: Schema.optional(Schema.String),
   referenceId: Schema.optional(Schema.String),
-  noticeKind: Schema.optional(Schema.Literal("soul", "automation", "run")),
+  noticeKind: Schema.optional(
+    Schema.Literal("soul", "automation", "run", "delegation"),
+  ),
 });
 export type Message = typeof Message.Type;
 export const ChatEvent = Schema.Union(

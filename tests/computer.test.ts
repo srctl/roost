@@ -131,3 +131,30 @@ test("mobile keyboard text preserves Unicode and sends editing keys as X11 keysy
   );
   assert.deepEqual(desktopKeys("\b\t\n"), [0xff08, 0xff09, 0xff0d]);
 });
+
+test("waiting for a shared desktop is cancellable and never replays stale input", async () => {
+  process.env.ROOST_DESKTOP_DISPLAY = ":1";
+  process.env.ROOST_DESKTOP_ORIGIN = "https://roost.test";
+  const controller = new AbortController();
+  try {
+    beginComputerAction("owner");
+    endComputerAction();
+    const stale = await Effect.runPromise(
+      computerAction("waiting", { action: "key", key: "Return" }),
+    );
+    assert.equal(stale.success, false);
+    const pending = Effect.runPromise(
+      computerAction("waiting", { action: "screenshot" }),
+      { signal: controller.signal },
+    );
+    controller.abort();
+    await assert.rejects(pending);
+    assert.equal(computerStatus().agentId, "owner");
+  } finally {
+    controller.abort();
+    releaseComputer("owner");
+    releaseComputer("waiting");
+    delete process.env.ROOST_DESKTOP_DISPLAY;
+    delete process.env.ROOST_DESKTOP_ORIGIN;
+  }
+});

@@ -89,14 +89,18 @@ async function execute(run: Run, signal: AbortSignal) {
   let error: string | undefined;
   try {
     await Effect.runPromise(ensureTimeline(run.agentId), { signal });
-    const oldIds = new Set(
-      (await Effect.runPromise(readTimeline(run.agentId))).map((m) => m.id),
+    const timeline = await Effect.runPromise(readTimeline(run.agentId));
+    const oldIds = new Set(timeline.map((m) => m.id));
+    const taskNotice = timeline.find(
+      (m) => m.id === run.id && m.role === "notice",
     );
     oldIds.delete(run.id);
     const emit = (event: ChatEvent) => {
-      messages = mergeEvent(messages, event).filter(
-        (message) => !oldIds.has(message.id),
-      );
+      messages = mergeEvent(messages, event)
+        .filter((message) => !oldIds.has(message.id))
+        .map((message) =>
+          taskNotice && message.id === run.id ? taskNotice : message,
+        );
       if (event.type === "error") {
         status = "failed";
         error = event.message;
@@ -110,6 +114,7 @@ async function execute(run: Run, signal: AbortSignal) {
         { agentId: run.agentId, messageId: run.id, text: run.prompt },
         emit,
         run.automationSnapshot ? JSON.parse(run.automationSnapshot) : undefined,
+        run.kind,
       ).pipe(
         Effect.catchAll((cause) =>
           Effect.sync(() => {

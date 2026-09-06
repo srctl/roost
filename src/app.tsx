@@ -1,3 +1,4 @@
+import { AgentActivityProvider } from "./features/agents/activity";
 import { PreferencesProvider } from "./features/settings/preferences";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
@@ -71,42 +72,47 @@ export function App() {
   }, []);
   return (
     <PreferencesProvider>
-      <div ref={shell} {...stylex.props(styles.app)}>
-        {!collapsed && (
-          <div {...stylex.props(styles.desktopNavigation)}>
-            <Sidebar
-              agents={agents.ok ? agents.value : []}
-              onCollapse={() => setCollapsed(true)}
-            />
-          </div>
-        )}
-        {collapsed && (
-          <div {...stylex.props(styles.expand)}>
-            <Button
-              aria-label="Expand sidebar"
-              aria-expanded={false}
-              aria-controls="agent-sidebar"
-              onClick={() => setCollapsed(false)}
-            >
-              <Icon name="panel" />
-            </Button>
-          </div>
-        )}
-        {!chatting && (
-          <header {...stylex.props(styles.mobileHeader)}>
-            <MobileNavigation />
-            <Link to="/" {...stylex.props(styles.brand)}>
-              roost
-            </Link>
-          </header>
-        )}
-        <main
-          {...stylex.props(styles.workspace, chatting && styles.chatWorkspace)}
-        >
-          {!agents.ok && <p role="alert">{agents.error}</p>}
-          <Outlet />
-        </main>
-      </div>
+      <AgentActivityProvider>
+        <div ref={shell} {...stylex.props(styles.app)}>
+          {!collapsed && (
+            <div {...stylex.props(styles.desktopNavigation)}>
+              <Sidebar
+                agents={agents.ok ? agents.value : []}
+                onCollapse={() => setCollapsed(true)}
+              />
+            </div>
+          )}
+          {collapsed && (
+            <div {...stylex.props(styles.expand)}>
+              <Button
+                aria-label="Expand sidebar"
+                aria-expanded={false}
+                aria-controls="agent-sidebar"
+                onClick={() => setCollapsed(false)}
+              >
+                <Icon name="panel" />
+              </Button>
+            </div>
+          )}
+          {!chatting && (
+            <header {...stylex.props(styles.mobileHeader)}>
+              <MobileNavigation />
+              <Link to="/" {...stylex.props(styles.brand)}>
+                roost
+              </Link>
+            </header>
+          )}
+          <main
+            {...stylex.props(
+              styles.workspace,
+              chatting && styles.chatWorkspace,
+            )}
+          >
+            {!agents.ok && <p role="alert">{agents.error}</p>}
+            <Outlet />
+          </main>
+        </div>
+      </AgentActivityProvider>
     </PreferencesProvider>
   );
 }

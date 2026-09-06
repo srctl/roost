@@ -371,7 +371,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     );
     const migrated = await run(getAgentConversation(a.id));
     assert.notEqual(migrated.threadId, original.threadId);
-    assert.equal(migrated.toolVersion, 4);
+    assert.equal(migrated.toolVersion, 5);
     assert.ok(
       JSON.parse(migrated.archive).some(
         (m: { text: string }) => m.text === "delayed",
@@ -398,6 +398,113 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
       native.instructionUpdates.some((m: { content: { text: string }[] }) =>
         m.content[0]!.text.includes("Check soul"),
       ),
+    );
+  } finally {
+    await stop?.();
+    await closeAgentRuntimes();
+    for (const [key, value] of Object.entries({
+      ROOST_DATA_DIR: old.data,
+      CODEX_HOME: old.home,
+      ROOST_CODEX_BINARY: old.binary,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("dynamic delegation runs a specialist independently and wakes the parent's existing conversation", async () => {
+  const directory = mkdtempSync("/tmp/roost-agent-team-");
+  const old = {
+    data: process.env.ROOST_DATA_DIR,
+    home: process.env.CODEX_HOME,
+    binary: process.env.ROOST_CODEX_BINARY,
+  };
+  process.env.ROOST_DATA_DIR = directory;
+  process.env.CODEX_HOME = directory;
+  process.env.ROOST_CODEX_BINARY = fileURLToPath(
+    new URL("./fixtures/chat-server.mjs", import.meta.url),
+  );
+  writeFileSync(
+    join(directory, "auth.json"),
+    JSON.stringify({ OPENAI_API_KEY: "fake" }),
+  );
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    const guy = await create("Guy"),
+      shopping = await create("Shopping");
+    const id = randomUUID();
+    await run(
+      enqueueChat({
+        agentId: guy.id,
+        messageId: id,
+        text: `delegate:${shopping.id}`,
+      }),
+    );
+    stop = startWorker();
+    await until(
+      async () =>
+        (await run(listRuns(guy.id))).find((r) => r.id === id)?.status ===
+        "completed",
+    );
+    const parent = await run(getAgentConversation(guy.id));
+    const question = randomUUID();
+    await run(
+      enqueueChat({
+        agentId: guy.id,
+        messageId: question,
+        text: "Another question",
+      }),
+    );
+    await until(
+      async () =>
+        (await run(listRuns(guy.id))).find((r) => r.id === question)?.status ===
+        "completed",
+    );
+    assert.equal((await run(listRuns(shopping.id)))[0]!.status, "running");
+    await until(async () =>
+      (await run(listRuns(guy.id))).some(
+        (r) => r.kind === "handoff" && r.status === "completed",
+      ),
+    );
+    const child = (await run(listRuns(shopping.id)))[0]!;
+    assert.equal(child.status, "completed");
+    assert.equal((await run(getAgentConversation(shopping.id))).threadId, null);
+    assert.equal(
+      (await run(getAgentConversation(guy.id))).threadId,
+      parent.threadId,
+    );
+    const childNative = JSON.parse(
+      readFileSync(
+        join(
+          directory,
+          "agents",
+          shopping.id,
+          "codex",
+          `fake-${child.threadId}.json`,
+        ),
+        "utf8",
+      ),
+    );
+    assert.match(childNative.options.developerInstructions, /delegated task/);
+    assert.equal(childNative.turns.length, 1);
+    const timeline = await run(readTimeline(shopping.id));
+    assert.equal(timeline.find((m) => m.id === child.id)?.role, "notice");
+    assert.ok(
+      timeline.some(
+        (m) => m.text === "Specialist finished. Nothing purchased.",
+      ),
+    );
+    const returns = (await run(listRuns(guy.id))).filter(
+      (r) => r.kind === "handoff",
+    );
+    assert.equal(returns.length, 1);
+    assert.equal(returns[0]!.threadId, parent.threadId);
+    assert.equal(
+      (await run(readTimeline(guy.id))).find((m) => m.id === returns[0]!.id)
+        ?.role,
+      "notice",
     );
   } finally {
     await stop?.();

@@ -1,3 +1,9 @@
+import {
+  delegateTask,
+  DelegateTask,
+  listDelegations,
+} from "../delegations/store.server";
+import { listAgents } from "../agents/store.server";
 import { computerAction } from "../computer/tools.server";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -96,6 +102,35 @@ const RunAutomationTool = Schema.Struct({
 });
 
 export const soulTools: DynamicToolSpec[] = [
+  {
+    type: "function",
+    name: "roost_list_agents",
+    description:
+      "List the other agents and their stated responsibilities. Use this to find a specialist before delegating. Each agent has separate soul, memory, and conversation history.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "roost_delegate_task",
+    description:
+      "Assign a concrete part of the user's request to an existing specialist agent asynchronously. Supply a stable requestId UUID, target agentId from roost_list_agents, and a self-contained task including relevant context and the user's authorization limits. Do not pass whole conversations or private memory stores. Returns immediately: finish your handoff reply and remain available, do not wait or poll. A result or failure automatically wakes you in a later turn. Only user chat turns can delegate; delegated jobs, result updates, and automations cannot delegate further. Never delegate to yourself or duplicate outstanding work. All agents share the same desktop and must wait for its owner to finish.",
+    inputSchema: JSONSchema.make(DelegateTask) as unknown as JsonValue,
+  },
+  {
+    type: "function",
+    name: "roost_list_delegations",
+    description:
+      "Inspect tasks you assigned or received, for a user-requested status check. Results are delivered automatically; do not poll this tool while waiting.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
   {
     type: "function",
     name: "roost_read_soul",
@@ -225,6 +260,8 @@ const makeAgentServer = (
     );
     let threadId: string | undefined;
     let allowMutations = false;
+    let runId: string | undefined;
+    let toolSignal: AbortSignal | undefined;
     client.onRequest = async (method, params) => {
       if (method === "account/chatgptAuthTokens/refresh") {
         const auth = await Effect.runPromise(hostCredentials);
@@ -240,8 +277,31 @@ const makeAgentServer = (
       if (call.threadId !== threadId || call.namespace !== null)
         throw new Error();
       if (call.tool === "roost_computer")
-        return Effect.runPromise(computerAction(agentId, call.arguments));
+        return Effect.runPromise(computerAction(agentId, call.arguments), {
+          signal: toolSignal,
+        });
       const action = Effect.gen(function* () {
+        if (call.tool === "roost_list_agents")
+          return (yield* listAgents())
+            .filter((agent) => agent.id !== agentId)
+            .map(({ id, name, instructions }) => ({
+              id,
+              name,
+              responsibility: instructions,
+            }));
+        if (call.tool === "roost_list_delegations")
+          return yield* listDelegations(agentId);
+        if (call.tool === "roost_delegate_task") {
+          if (!runId)
+            return yield* new CodexError({
+              message: "There is no active run to delegate from.",
+            });
+          return yield* delegateTask(
+            agentId,
+            runId,
+            yield* Schema.decodeUnknown(DelegateTask)(call.arguments),
+          );
+        }
         if (call.tool === "roost_read_soul") return yield* readSoul(agentId);
         if (call.tool === "roost_list_automations")
           return {
@@ -251,7 +311,7 @@ const makeAgentServer = (
           };
         if (!allowMutations)
           return yield* new CodexError({
-            message: "Automated runs cannot change souls or automations.",
+            message: "Background runs cannot change souls or automations.",
           });
         if (call.tool === "roost_update_soul")
           return yield* patchSoul(
@@ -314,7 +374,14 @@ const makeAgentServer = (
     yield* client.request("account/login/start", credentials);
     return {
       client,
-      bindThread: (id: string, mutations = true) => {
+      bindThread: (
+        id: string,
+        mutations = true,
+        activeRunId?: string,
+        signal?: AbortSignal,
+      ) => {
+        toolSignal = signal;
+        runId = activeRunId;
         threadId = id;
         allowMutations = mutations;
       },

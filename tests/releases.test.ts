@@ -102,13 +102,27 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 1);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 2);
         assert.equal(
           db.prepare("SELECT maintenance FROM runtime_control").get()
             ?.maintenance,
           0,
         );
-        db.exec("PRAGMA user_version=2");
+        db.exec("DROP TABLE delegations; PRAGMA user_version=1");
+      }, directory),
+    );
+    await run(
+      withAgentStore((db) => {
+        assert.equal(
+          db.prepare("SELECT COUNT(*) AS count FROM delegations").get()?.count,
+          0,
+        );
+        assert.equal(
+          db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
+          "Scout",
+        );
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 2);
+        db.exec("PRAGMA user_version=3");
       }, directory),
     );
     await assert.rejects(
@@ -229,7 +243,7 @@ test("failed update health restores release, database, soul files, and prior ser
                   "changed during migration",
                 );
                 const db = new DatabaseSync(join(root, "data/roost.sqlite"));
-                db.exec("PRAGMA user_version=2");
+                db.exec("PRAGMA user_version=3");
                 db.close();
                 throw new Error("bad health");
               }

@@ -7,7 +7,9 @@ export function computerPreviewAnchor(
 ) {
   if (!runId) return;
   const start = messages.findIndex(
-    (message) => message.role === "user" && message.id === runId,
+    (message) =>
+      (message.role === "user" || message.role === "notice") &&
+      message.id === runId,
   );
   if (start === -1) return;
   for (const message of messages.slice(start + 1)) {

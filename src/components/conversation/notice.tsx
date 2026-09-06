@@ -33,7 +33,16 @@ export function ConversationNotice({
           Connect Codex
         </Link>
       )}
-      {message.referenceId && (
+      {message.noticeKind === "delegation" && message.referenceId && (
+        <Link
+          to="/agents/$agentId"
+          params={{ agentId: message.referenceId }}
+          {...stylex.props(styles.link)}
+        >
+          Open agent
+        </Link>
+      )}
+      {message.referenceId && message.noticeKind !== "delegation" && (
         <Button onClick={() => setOpen(true)} xstyle={styles.link}>
           {message.noticeKind === "soul" ? "View change" : "View details"}
         </Button>

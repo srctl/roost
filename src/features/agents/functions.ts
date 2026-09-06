@@ -1,3 +1,4 @@
+import { readAgentActivity } from "../../server/agents/activity.server";
 import { available } from "../../server/available";
 import {
   readSoul,
@@ -86,3 +87,7 @@ export const undoAgentSoul = createServerFn({ method: "POST" })
     ),
   )
   .handler(({ data }) => result(undoSoulChange(data.agentId, data.id)));
+
+export const getAgentActivity = createServerFn({ method: "GET" })
+  .middleware([available])
+  .handler(() => result(readAgentActivity()));
