@@ -20,14 +20,39 @@ export function App() {
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
-    const resize = () =>
-      shell.current?.style.setProperty(
-        "--roost-viewport-height",
-        `${viewport.height}px`,
+    const resize = () => {
+      // Safari pans the visual viewport when opening the keyboard. Follow both
+      // its size and position, but leave pinch zoom to the browser.
+      if (viewport.scale !== 1 || !shell.current) return;
+      const style = shell.current.style;
+      style.setProperty("--roost-viewport-height", `${viewport.height}px`);
+      style.setProperty("--roost-viewport-top", `${viewport.offsetTop}px`);
+      const keyboardOpen =
+        document.activeElement?.matches("input, textarea, [contenteditable]") &&
+        document.documentElement.clientHeight - viewport.height > 100;
+      style.setProperty(
+        "--roost-bottom-inset",
+        keyboardOpen ? "0px" : "env(safe-area-inset-bottom)",
       );
+    };
     resize();
     viewport.addEventListener("resize", resize);
-    return () => viewport.removeEventListener("resize", resize);
+    viewport.addEventListener("scroll", resize);
+    document.addEventListener("focusin", resize);
+    document.addEventListener("focusout", resize);
+    return () => {
+      viewport.removeEventListener("resize", resize);
+      viewport.removeEventListener("scroll", resize);
+      document.removeEventListener("focusin", resize);
+      document.removeEventListener("focusout", resize);
+    };
+  }, []);
+  useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      void navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .catch((error: unknown) => console.warn("Offline setup failed", error));
+    }
   }, []);
   return (
     <PreferencesProvider>
@@ -105,6 +130,12 @@ const styles = stylex.create({
     overflow: { default: "visible", "@media (max-width: 700px)": "hidden" },
   },
   app: {
+    position: { default: "relative", "@media (max-width: 700px)": "fixed" },
+    top: {
+      default: "auto",
+      "@media (max-width: 700px)": "var(--roost-viewport-top, 0px)",
+    },
+    width: "100%",
     display: "flex",
     minHeight: { default: "100svh", "@media (max-width: 700px)": 0 },
     height: {

@@ -3,6 +3,8 @@ import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
 import stylesheet from "../styles/reset.css?url";
+import * as stylex from "@stylexjs/stylex";
+import { colors } from "../styles/tokens.stylex";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -15,9 +17,23 @@ export const Route = createRootRoute({
       },
       { title: "Roost" },
       { name: "description", content: "Roost — a home for your AI agents." },
+      { name: "color-scheme", content: "light dark" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      {
+        name: "apple-mobile-web-app-status-bar-style",
+        content: "black-translucent",
+      },
+      { name: "apple-mobile-web-app-title", content: "Roost" },
     ],
     links: [
       { rel: "stylesheet", href: stylesheet },
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
+        crossOrigin: "use-credentials",
+      },
+      { rel: "icon", href: "/icons/roost.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       ...(import.meta.env.DEV
         ? [{ rel: "stylesheet", href: "/virtual:stylex.css" }]
         : []),
@@ -34,9 +50,20 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" {...stylex.props(styles.document)}>
       <head>
         <HeadContent />
+        {/* Router metadata deduplicates by name; both theme variants are needed. */}
+        <meta
+          name="theme-color"
+          content="#FFFFFF"
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content="#20221E"
+          media="(prefers-color-scheme: dark)"
+        />
       </head>
       <body>
         {children}
@@ -45,3 +72,11 @@ function RootDocument({ children }: { children: ReactNode }) {
     </html>
   );
 }
+
+const styles = stylex.create({
+  document: {
+    backgroundColor: colors.background,
+    color: colors.foreground,
+    colorScheme: "light dark",
+  },
+});

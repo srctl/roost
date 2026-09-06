@@ -111,7 +111,8 @@ const styles = stylex.create({
     paddingInline: { default: 0, "@media (max-width: 700px)": 12 },
     paddingBottom: {
       default: 0,
-      "@media (max-width: 700px)": "max(12px, env(safe-area-inset-bottom))",
+      "@media (max-width: 700px)":
+        "max(12px, var(--roost-bottom-inset, env(safe-area-inset-bottom)))",
     },
   },
   progress: {
@@ -140,7 +141,7 @@ const styles = stylex.create({
     gap: 10,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: colors.border,
+    borderColor: { default: colors.border, ":focus-within": colors.accent },
     borderRadius: 14,
     padding: 10,
     boxShadow: "0 2px 8px #00000003",
@@ -159,6 +160,7 @@ const styles = stylex.create({
     backgroundColor: "transparent",
     color: colors.foreground,
     borderWidth: 0,
+    outline: "none",
     padding: 3,
     fontSize: { default: 12, "@media (max-width: 700px)": 16 },
     lineHeight: 1.5,
