@@ -1,3 +1,4 @@
+import { CodexConnection } from "../components/codex-connection";
 import { useState, useRef, type FormEvent } from "react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -72,6 +73,7 @@ function CreateAgentPage() {
       {!connection.ok ? (
         <div role="alert" {...stylex.props(styles.error)}>
           <p>{connection.error}</p>
+          <CodexConnection />
           <Button onClick={() => void router.invalidate()}>
             Retry connection
           </Button>

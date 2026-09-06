@@ -1,4 +1,5 @@
 import { Effect, Queue, Schema } from "effect";
+import { codexErrorMessage } from "./auth-errors.server";
 import { CodexError, openHostServer } from "./app-server.server";
 import {
   getAgentConversation,
@@ -29,6 +30,9 @@ const Turn = Schema.Struct({
   id: Schema.String,
   status: Schema.String,
   items: Schema.Array(Item),
+  error: Schema.optional(
+    Schema.NullOr(Schema.Struct({ message: Schema.String })),
+  ),
 });
 const Thread = Schema.Struct({
   thread: Schema.Struct({ id: Schema.String, turns: Schema.Array(Turn) }),
@@ -420,8 +424,10 @@ export function sendConversation(
           if (result.turn.status === "failed")
             emit({
               type: "error",
-              message:
+              message: codexErrorMessage(
+                result.turn.error,
                 "The agent could not finish its reply. You can send another message to try again.",
+              ),
             });
           emit({ type: "done", status: result.turn.status });
         }

@@ -24,7 +24,6 @@ Requires Node.js 22.13+ and pnpm 9.15.0 (via Corepack).
 
 ```sh
 corepack pnpm install --frozen-lockfile
-codex login          # Authenticate the CLI on this machine
 corepack pnpm dev     # One development server for the full application
 corepack pnpm check   # Typecheck, regression tests, formatting, and build
 ```
@@ -84,8 +83,11 @@ page is styled before hydration.
 
 ## Codex boundary
 
-Install the Codex CLI and run `codex login` using the same operating-system user
-that runs Roost. `ROOST_CODEX_BINARY` optionally selects an alternate executable.
+Install the Codex CLI, then open **Settings → Connect Codex** in Roost. Copy the
+one-time code and follow the OpenAI sign-in link. This works from a browser on
+another machine; no SSH or localhost callback is needed. The login applies to
+all agents on this Roost installation. You can also use `codex login` with
+`cli_auth_credentials_store="file"` as the same operating-system user that runs Roost. `ROOST_CODEX_BINARY` optionally selects an alternate executable.
 The installed executable determines which models appear. On this machine,
 0.152.1 omits Astra while the app-bundled 0.153.4 includes it. To use the latter:
 

@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import type { Message } from "../../features/chat/schema";
@@ -26,6 +28,11 @@ export function ConversationNotice({
           <span {...stylex.props(styles.reason)}> · {message.text}</span>
         )}
       </div>
+      {message.text === CODEX_SIGN_IN_REQUIRED && (
+        <Link to="/settings" {...stylex.props(styles.link)}>
+          Connect Codex
+        </Link>
+      )}
       {message.referenceId && (
         <Button onClick={() => setOpen(true)} xstyle={styles.link}>
           {message.noticeKind === "soul" ? "View change" : "View details"}

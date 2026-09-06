@@ -1,3 +1,4 @@
+import { CodexConnection } from "../components/codex-connection";
 import { createFileRoute } from "@tanstack/react-router";
 import { Switch } from "@base-ui/react/switch";
 import { Radio } from "@base-ui/react/radio";
@@ -20,6 +21,7 @@ function SettingsPage() {
     <section {...stylex.props(styles.page)}>
       <h1 {...stylex.props(styles.title)}>Settings</h1>
       <p {...stylex.props(styles.muted)}>Make Roost feel right for you.</p>
+      <CodexConnection />
       <section
         {...stylex.props(styles.responseSetting)}
         aria-labelledby="response-style-label"

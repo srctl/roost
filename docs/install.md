@@ -36,7 +36,12 @@ roost setup --repository srctl/roost --skip-login
 
 Setup supports `--port 3000`, `--skip-login`, and `--login`. With no existing
 file-based Codex login, interactive setup starts device authentication.
-For a noninteractive installation, complete login afterward:
+For a noninteractive installation, open **Settings → Connect Codex** in the
+Roost UI afterward. Copy the device code, open the OpenAI sign-in page, and
+enter the code. Roost updates automatically when sign-in finishes. Use
+**Reconnect Codex** if a saved login expires or becomes invalid.
+
+The terminal flow remains available:
 
 ```sh
 roost setup --login

@@ -1,6 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { Data, Effect, Schema } from "effect";
+import { codexErrorMessage } from "./auth-errors.server";
+import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import type { InitializeParams } from "./protocol/InitializeParams";
 import type { GetAccountParams } from "./protocol/v2/GetAccountParams";
 import type { ModelListParams } from "./protocol/v2/ModelListParams";
@@ -118,8 +120,10 @@ class AppServer {
         resume(
           Effect.fail(
             new CodexError({
-              message:
+              message: codexErrorMessage(
+                message.error,
                 "Codex rejected the request. Check your CLI configuration and try again.",
+              ),
             }),
           ),
         );
@@ -213,6 +217,8 @@ export const openHostServer = () =>
     "memories.generate_memories=false",
     "-c",
     "memories.use_memories=false",
+    "-c",
+    'cli_auth_credentials_store="file"',
   ]);
 
 const AccountResponse = Schema.Struct({
@@ -251,7 +257,7 @@ export const getCodexConnection = Effect.scoped(
       );
     if (account.requiresOpenaiAuth && !account.account) {
       return yield* new CodexError({
-        message: "Sign in with `codex login` on this machine, then retry.",
+        message: CODEX_SIGN_IN_REQUIRED,
       });
     }
     const models: Array<{

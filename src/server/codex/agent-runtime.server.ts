@@ -1,3 +1,4 @@
+import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import { mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -73,8 +74,7 @@ const hostCredentials = Effect.scoped(
       },
       catch: () =>
         new CodexError({
-          message:
-            "Roost needs Codex file-based login credentials. Set cli_auth_credentials_store to file and run codex login, then retry.",
+          message: CODEX_SIGN_IN_REQUIRED,
         }),
     });
   }),
@@ -352,6 +352,18 @@ export const closeAgentRuntimes = async () => {
   );
 };
 
+// A new host login must replace cached access tokens without interrupting replies.
+export const refreshAgentRuntimes = async () => {
+  const idle = [...runtimes.values()].filter((entry) => entry.users === 0);
+  runtimes.clear();
+  await Promise.all(
+    idle.map((entry) => {
+      clearTimeout(entry.idle);
+      return entry.runtime.dispose();
+    }),
+  );
+};
+
 export const openAgentServer = (
   agentId: string,
   codexHome: string,
@@ -381,6 +393,10 @@ export const openAgentServer = (
         Effect.sync(() => {
           entry.users--;
           if (entry.users) return;
+          if (runtimes.get(codexHome) !== entry) {
+            void entry.runtime.dispose();
+            return;
+          }
           entry.idle = setTimeout(
             () => {
               if (runtimes.get(codexHome) === entry) runtimes.delete(codexHome);
