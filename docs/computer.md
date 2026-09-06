@@ -14,7 +14,13 @@ browser running. Reconnect after a dropped connection.
 Agents use `roost_computer` to see screenshots, click, move, scroll, type, and
 press keys in that same session. This operates the existing Chrome profile,
 including its sign-ins; it does not start a separate headless browser or copy
-cookies. Passwords and MFA belong in the viewer, entered by the user.
+cookies. For ordinary retail purchases, the agent presents the checkout details
+and asks for confirmation in Roost. After the user confirms, it may place that
+specific order, including clicking the final purchase button. Changed checkout
+details require a new confirmation. Other sensitive confirmations, passwords,
+MFA, and authentication challenges still belong in the viewer, handled by the user.
+This purchase confirmation behavior is enforced by the agent instructions; the
+desktop adapter does not independently recognize or block checkout buttons.
 
 All agents share this computer. Roost serializes their desktop access and blocks
 agent screenshots and input while a viewer has control. Control expires if its

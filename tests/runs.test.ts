@@ -226,7 +226,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     await run(
       withAgentStore((db) =>
         db
-          .prepare("DELETE FROM agent_tool_versions WHERE threadId=?")
+          .prepare("UPDATE agent_tool_versions SET version=3 WHERE threadId=?")
           .run(original.threadId!),
       ),
     );
@@ -283,7 +283,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     );
     const migrated = await run(getAgentConversation(a.id));
     assert.notEqual(migrated.threadId, original.threadId);
-    assert.equal(migrated.toolVersion, 3);
+    assert.equal(migrated.toolVersion, 4);
     assert.ok(
       JSON.parse(migrated.archive).some(
         (m: { text: string }) => m.text === "delayed",
