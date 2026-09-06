@@ -246,5 +246,4 @@ preference is saved in browser storage and applies across agents.
 - [Roost design in Paper](https://app.paper.design/file/01M1SGGYR7NBNRDNV5601QMK3C/6-0)
 
 `src/assets` contains the pixel logo and Moss, Wisp, and Peach characters from
-Paper. Conversation components now render live messages; the document and
-activity components remain available for future work.
+Paper. Conversation components render live messages and tool activity.
