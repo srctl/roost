@@ -1,6 +1,7 @@
 import { ComputerPanel } from "./computer-panel";
 import { getComputerStatus } from "../features/computer/functions";
-import { useEffect, useRef, useState } from "react";
+import { computerPreviewAnchor } from "../features/computer/preview";
+import { Fragment, useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { TypingIndicator } from "./conversation/typing-indicator";
@@ -31,6 +32,10 @@ export function Conversation({
   );
   const [computerEnabled, setComputerEnabled] = useState(false);
   const [computerOpen, setComputerOpen] = useState(false);
+  const computerAnchor = computerPreviewAnchor(messages);
+  useEffect(() => {
+    if (computerAnchor) setComputerOpen(true);
+  }, [computerAnchor]);
   useEffect(() => {
     let current = true;
     void getComputerStatus()
@@ -56,7 +61,14 @@ export function Conversation({
   useEffect(() => {
     if (viewport.current && followReply.current)
       viewport.current.scrollTop = viewport.current.scrollHeight;
-  }, [messages, busy, responseStyle, showActivityDetails]);
+  }, [
+    messages,
+    busy,
+    responseStyle,
+    showActivityDetails,
+    computerOpen,
+    computerEnabled,
+  ]);
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
@@ -95,7 +107,6 @@ export function Conversation({
           <AgentSettings agent={agent} />
         </div>
       </header>
-      {computerOpen && <ComputerPanel onClose={() => setComputerOpen(false)} />}
       <ScrollArea
         label="Conversation history"
         viewportRef={viewport}
@@ -115,26 +126,28 @@ export function Conversation({
               </p>
             </div>
           )}
-          {messages.map((message) =>
-            message.role === "user" ? (
-              <UserMessage key={message.id}>{message.text}</UserMessage>
-            ) : message.role === "notice" ? (
-              <ConversationNotice
-                key={message.id}
-                agentId={agent.id}
-                message={message}
-              />
-            ) : message.role === "activity" ? (
-              <ToolActivity key={message.id} message={message} />
-            ) : (
-              <AgentMessage
-                key={message.id}
-                name={agent.name}
-                title={message.title}
-              >
-                {message.text}
-              </AgentMessage>
-            ),
+          {messages.map((message) => (
+            <Fragment key={message.id}>
+              {message.role === "user" ? (
+                <UserMessage>{message.text}</UserMessage>
+              ) : message.role === "notice" ? (
+                <ConversationNotice agentId={agent.id} message={message} />
+              ) : message.role === "activity" ? (
+                <ToolActivity message={message} />
+              ) : (
+                <AgentMessage name={agent.name} title={message.title}>
+                  {message.text}
+                </AgentMessage>
+              )}
+              {computerEnabled &&
+                computerOpen &&
+                message.id === computerAnchor && (
+                  <ComputerPanel onClose={() => setComputerOpen(false)} />
+                )}
+            </Fragment>
+          ))}
+          {computerEnabled && computerOpen && !computerAnchor && (
+            <ComputerPanel onClose={() => setComputerOpen(false)} />
           )}
           {busy && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />

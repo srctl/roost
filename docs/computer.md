@@ -1,7 +1,12 @@
 # Shared computer and browser
 
-Roost can show and operate the machine's existing X11 desktop. Click the monitor
-beside an agent's settings to open the live preview. Expand it for a larger view.
+Roost can show and operate the machine's existing X11 desktop. The live preview
+appears in the conversation when an agent uses the computer, beneath its first
+computer action in that turn. It stays there through subsequent actions and
+moves when a later turn uses the computer. There is only one live preview;
+older messages do not show duplicate live screens. Click the monitor beside an
+agent's settings to reopen it, or to connect before the agent has used the computer.
+Expand it for a larger view.
 **Take control** enables pointer and keyboard input for sign-ins; **Return
 control** resumes agent access. Closing the preview leaves the desktop and
 browser running. Reconnect after a dropped connection.

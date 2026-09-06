@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Effect } from "effect";
+import { computerPreviewAnchor } from "../src/features/computer/preview";
+import type { Message } from "../src/features/chat/schema";
 import {
   createViewer,
   connectViewer,
@@ -16,6 +18,35 @@ import {
   computerAction,
   computerTools,
 } from "../src/server/computer/tools.server";
+
+test("the live preview stays with a turn's first computer action and moves only when a later turn uses the computer", () => {
+  const messages: Message[] = [
+    { id: "user-1", role: "user", text: "Look it up" },
+  ];
+  assert.equal(computerPreviewAnchor(messages), undefined);
+  messages.push({
+    id: "computer-1",
+    role: "activity",
+    title: "roost_computer",
+    text: "",
+  });
+  messages.push({
+    id: "computer-2",
+    role: "activity",
+    title: "roost_computer",
+    text: "",
+  });
+  messages.push({ id: "reply", role: "assistant", text: "Found it" });
+  messages.push({ id: "user-2", role: "user", text: "Thanks" });
+  assert.equal(computerPreviewAnchor(messages), "computer-1");
+  messages.push({
+    id: "computer-3",
+    role: "activity",
+    title: "roost_computer",
+    text: "",
+  });
+  assert.equal(computerPreviewAnchor(messages), "computer-3");
+});
 
 test("desktop tickets require the configured origin, expire, and can only connect once", () => {
   const oldDisplay = process.env.ROOST_DESKTOP_DISPLAY;
