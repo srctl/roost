@@ -41,6 +41,57 @@ const create = (name: string) =>
     }),
   );
 
+test("timeline failures roll back run changes so queuing and completion can be retried", async () => {
+  const directory = mkdtempSync("/tmp/roost-run-rollback-");
+  const old = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = directory;
+  const failTimelineWrites = () =>
+    run(
+      withAgentStore((db) =>
+        db.exec(`CREATE TRIGGER fail_timeline BEFORE INSERT ON timeline BEGIN
+          SELECT RAISE(ABORT, 'Timeline unavailable');
+        END;`),
+      ),
+    );
+  const restoreTimelineWrites = () =>
+    run(withAgentStore((db) => db.exec("DROP TRIGGER fail_timeline")));
+  try {
+    const agent = await create("Rollback");
+    const input = { agentId: agent.id, messageId: randomUUID(), text: "Hello" };
+    await failTimelineWrites();
+    await assert.rejects(
+      run(enqueueChat(input)),
+      /Could not access agent storage/,
+    );
+    assert.deepEqual(await run(listRuns(agent.id)), []);
+    assert.deepEqual(await run(readTimeline(agent.id)), []);
+
+    await restoreTimelineWrites();
+    await run(enqueueChat(input));
+    await run(schedulerTick("worker"));
+    const active = (await run(claimRun("worker")))!;
+    const messages = [
+      { id: randomUUID(), role: "assistant" as const, text: "Done" },
+    ];
+    await failTimelineWrites();
+    await assert.rejects(
+      run(finishRun(active, "completed", messages)),
+      /Could not access agent storage/,
+    );
+    assert.deepEqual((await run(listRuns(agent.id)))[0], active);
+    assert.equal((await run(readTimeline(agent.id))).length, 1);
+
+    await restoreTimelineWrites();
+    await run(finishRun(active, "completed", messages));
+    assert.equal((await run(listRuns(agent.id)))[0]!.status, "completed");
+    assert.deepEqual((await run(readTimeline(agent.id))).at(-1), messages[0]);
+  } finally {
+    if (old === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = old;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("bounded cron schedules persist, queue once, and expire without a late catch-up", async () => {
   const directory = mkdtempSync("/tmp/roost-cron-");
   const oldDirectory = process.env.ROOST_DATA_DIR;
