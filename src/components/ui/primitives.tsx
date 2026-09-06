@@ -55,6 +55,7 @@ const paths = {
     </>
   ),
   edit: <path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14z" />,
+  expand: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />,
   monitor: (
     <>
       <rect x="3" y="4" width="18" height="13" rx="2" />

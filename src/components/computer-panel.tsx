@@ -169,7 +169,7 @@ export function ComputerPanel({ onClose }: { onClose: () => void }) {
               );
             }}
           >
-            <Icon name="monitor" />
+            <Icon name="expand" />
           </Button>
           <Button aria-label="Close desktop" onClick={onClose}>
             <Icon name="close" />
