@@ -4,7 +4,7 @@ import type { Message, SendMessage } from "../../features/chat/schema";
 import type { Automation } from "../../features/automations/schema";
 import { withAgentStore, AgentStoreError } from "../agents/store.server";
 import { readAutomations, requireAgent } from "../automations/store.server";
-import { nextOccurrence } from "../automations/schedule";
+import { nextOccurrence, scheduleWindow } from "../automations/schedule";
 import { putMessage } from "./timeline.server";
 import type { DatabaseSync } from "node:sqlite";
 
@@ -184,7 +184,18 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
         return true;
       }
       for (const automation of readAutomations(db)) {
+        const { start, end } = scheduleWindow(automation.schedule);
+        if (now > end) {
+          db.prepare(
+            "UPDATE automations SET enabled=0,nextRunAt=NULL WHERE id=? AND (enabled<>0 OR nextRunAt IS NOT NULL)",
+          ).run(automation.id);
+          db.prepare(
+            "UPDATE runs SET status='cancelled',finishedAt=? WHERE automationId=? AND status='queued' AND scheduledFor IS NOT NULL",
+          ).run(now, automation.id);
+          continue;
+        }
         if (
+          now < start ||
           !automation.enabled ||
           automation.nextRunAt === null ||
           automation.nextRunAt > now

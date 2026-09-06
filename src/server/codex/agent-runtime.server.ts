@@ -129,7 +129,7 @@ export const soulTools: DynamicToolSpec[] = [
     type: "function",
     name: "roost_save_automation",
     description:
-      "Create or edit an automation for this agent when explicitly requested by the user. Use a stable UUID for a creation; for an edit use the existing id and expectedRevision from the list tool. Weekly days are 0=Sunday through 6=Saturday; timezone must be an IANA name. One-time timestamps need an explicit offset. Ask if the task or intended time is unclear. Schedules do not expand your permissions.",
+      "Create or edit an automation for this agent when explicitly requested by the user. Use a stable UUID for a creation; for an edit use the existing id and expectedRevision from the list tool. Prefer ONE cron automation for multiple daily times: kind=cron, expression='0 8-22/2 * * *' means every two hours from 08:00 through 22:00 daily. Cron uses five fields: minute hour day-of-month month day-of-week. Timezone must be an IANA name. Recurring schedules accept optional startsOn and endsOn as inclusive YYYY-MM-DD calendar dates in that timezone. Do not invent an end date for a condition such as until delivered. Weekly days are 0=Sunday through 6=Saturday. One-time timestamps need an explicit offset. Ask if the task or intended time is unclear. Schedules do not expand your permissions.",
     inputSchema: JSONSchema.make(SaveAutomationTool) as unknown as JsonValue,
   },
   {

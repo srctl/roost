@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import type { Automation, Schedule } from "../features/automations/schema";
 import { saveAgentAutomation } from "../features/automations/functions";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
+import { nextOccurrence } from "../server/automations/schedule";
 
 function localDate(timestamp: string) {
   const date = new Date(timestamp);
@@ -32,9 +33,23 @@ export function AutomationForm({
     automation?.schedule.kind === "weekly" ? automation.schedule.time : "09:00",
   );
   const [timezone, setTimezone] = useState(
-    automation?.schedule.kind === "weekly"
-      ? automation.schedule.timezone
-      : Intl.DateTimeFormat().resolvedOptions().timeZone,
+    automation?.schedule.timezone ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
+  const [expression, setExpression] = useState(
+    automation?.schedule.kind === "cron"
+      ? automation.schedule.expression
+      : "0 8-22/2 * * *",
+  );
+  const [startsOn, setStartsOn] = useState(
+    automation?.schedule.kind !== "once"
+      ? (automation?.schedule.startsOn ?? "")
+      : "",
+  );
+  const [endsOn, setEndsOn] = useState(
+    automation?.schedule.kind !== "once"
+      ? (automation?.schedule.endsOn ?? "")
+      : "",
   );
   const [days, setDays] = useState<readonly number[]>(
     automation?.schedule.kind === "weekly"
@@ -54,28 +69,59 @@ export function AutomationForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const preview = useMemo(() => {
+    try {
+      let schedule: Schedule;
+      if (kind === "once") {
+        if (!at) return { error: "Choose a date and time." };
+        schedule = {
+          kind,
+          at: new Date(at).toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+      } else {
+        const dates = {
+          ...(startsOn && { startsOn }),
+          ...(endsOn && { endsOn }),
+          timezone,
+        };
+        if (kind === "cron") schedule = { kind, expression, ...dates };
+        else if (kind === "interval") schedule = { kind, minutes, ...dates };
+        else {
+          if (!days.length) return { error: "Choose at least one day." };
+          schedule = { kind, time, days, ...dates };
+        }
+      }
+      const runs: number[] = [];
+      let after = Date.now();
+      for (let i = 0; i < 3; i++) {
+        const next = nextOccurrence(schedule, after);
+        if (next === null) break;
+        runs.push(next);
+        after = next;
+      }
+      return runs.length
+        ? { schedule, runs }
+        : { error: "No future runs match this schedule and date range." };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "Check the schedule.",
+      };
+    }
+  }, [kind, at, expression, timezone, startsOn, endsOn, minutes, time, days]);
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (!preview.schedule) return;
     setBusy(true);
     setError("");
     try {
-      const schedule: Schedule =
-        kind === "weekly"
-          ? { kind, time, timezone, days }
-          : kind === "interval"
-            ? { kind, minutes, timezone }
-            : {
-                kind,
-                at: new Date(at).toISOString(),
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              };
       const result = await saveAgentAutomation({
         data: {
           agentId,
           id,
           name,
           prompt,
-          schedule,
+          schedule: preview.schedule,
           notification,
           expectedRevision: automation?.revision,
         },
@@ -128,6 +174,7 @@ export function AutomationForm({
         >
           <option value="weekly">Days of the week</option>
           <option value="interval">Every few minutes or hours</option>
+          <option value="cron">Cron expression</option>
           <option value="once">Once</option>
         </select>
       </label>
@@ -165,18 +212,28 @@ export function AutomationForm({
                 {...stylex.props(styles.input)}
               />
             </label>
-            <label {...stylex.props(styles.label)}>
-              Timezone
-              <input
-                required
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                placeholder="America/Los_Angeles"
-                {...stylex.props(styles.input)}
-              />
-            </label>
           </div>
         </>
+      )}
+      {kind === "cron" && (
+        <label {...stylex.props(styles.label)}>
+          Cron expression
+          <input
+            required
+            maxLength={200}
+            value={expression}
+            onChange={(e) => setExpression(e.target.value)}
+            spellCheck={false}
+            {...stylex.props(styles.input)}
+          />
+          <span {...stylex.props(styles.help)}>
+            Minute · hour · day of month · month · day of week
+          </span>
+          <span {...stylex.props(styles.help)}>
+            <code>0 8-22/2 * * *</code> runs every two hours from 8 a.m. through
+            10 p.m.
+          </span>
+        </label>
       )}
       {kind === "interval" && (
         <label {...stylex.props(styles.label)}>
@@ -204,6 +261,63 @@ export function AutomationForm({
           />
         </label>
       )}
+      {kind !== "once" && (
+        <>
+          <label {...stylex.props(styles.label)}>
+            Timezone
+            <input
+              required
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              placeholder="America/Los_Angeles"
+              {...stylex.props(styles.input)}
+            />
+          </label>
+          <div {...stylex.props(styles.row)}>
+            <label {...stylex.props(styles.label)}>
+              Start date (optional)
+              <input
+                type="date"
+                value={startsOn}
+                onChange={(e) => setStartsOn(e.target.value)}
+                {...stylex.props(styles.input)}
+              />
+            </label>
+            <label {...stylex.props(styles.label)}>
+              End date (optional)
+              <input
+                type="date"
+                min={startsOn || undefined}
+                value={endsOn}
+                onChange={(e) => setEndsOn(e.target.value)}
+                {...stylex.props(styles.input)}
+              />
+            </label>
+          </div>
+          <p {...stylex.props(styles.help)}>
+            Both dates are included, in the timezone above. Leave blank to start
+            now or continue indefinitely. Runs already underway can finish.
+          </p>
+        </>
+      )}
+      <div aria-live="polite" {...stylex.props(styles.help)}>
+        {preview.error ?? (
+          <>
+            <strong>Next runs</strong>
+            <ul>
+              {preview.runs?.map((run) => (
+                <li key={run}>
+                  {new Date(run).toLocaleString(undefined, {
+                    timeZone: preview.schedule?.timezone,
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
       <label {...stylex.props(styles.label)}>
         Post to chat
         <select
@@ -223,7 +337,7 @@ export function AutomationForm({
       <div {...stylex.props(styles.actions)}>
         <Button
           type="submit"
-          disabled={busy || (kind === "weekly" && !days.length)}
+          disabled={busy || !preview.schedule}
           xstyle={styles.save}
         >
           {busy ? "Saving…" : "Save automation"}

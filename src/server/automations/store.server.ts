@@ -84,14 +84,18 @@ export const saveAutomation = (
       try {
         new Intl.DateTimeFormat("en-US", { timeZone: data.schedule.timezone });
         next = nextOccurrence(data.schedule, Date.now());
-      } catch {
+      } catch (error) {
         throw new AgentStoreError({
           message:
-            "Choose a valid schedule and IANA timezone, such as America/Los_Angeles.",
+            error instanceof Error
+              ? error.message
+              : "Choose a valid schedule and IANA timezone.",
         });
       }
       if (!next)
-        throw new AgentStoreError({ message: "Choose a future run time." });
+        throw new AgentStoreError({
+          message: "No future runs match this schedule and date range.",
+        });
       const revision = (current?.revision ?? 0) + 1;
       db.prepare(
         "INSERT INTO automations (id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,prompt=excluded.prompt,schedule=excluded.schedule,notification=excluded.notification,revision=excluded.revision,nextRunAt=excluded.nextRunAt WHERE automations.agentId=excluded.agentId",
@@ -149,7 +153,8 @@ export const toggleAutomation = (
         : null;
       if (enabled && !next)
         throw new AgentStoreError({
-          message: "Edit this one-time automation to choose a future date.",
+          message:
+            "Edit this automation to choose a schedule and date range with future runs.",
         });
       db.prepare(
         "UPDATE automations SET enabled=?, nextRunAt=?, revision=revision+1 WHERE id=?",

@@ -40,6 +40,94 @@ const create = (name: string) =>
       model: "fake",
     }),
   );
+
+test("bounded cron schedules persist, queue once, and expire without a late catch-up", async () => {
+  const directory = mkdtempSync("/tmp/roost-cron-");
+  const oldDirectory = process.env.ROOST_DATA_DIR;
+  const clock = Date.now;
+  let now = Date.parse("2026-09-06T06:00:00Z");
+  process.env.ROOST_DATA_DIR = directory;
+  Date.now = () => now;
+  try {
+    const agent = await create("Delivery monitor");
+    const automation = await run(
+      saveAutomation({
+        agentId: agent.id,
+        id: randomUUID(),
+        name: "Check delivery",
+        prompt: "Check status",
+        schedule: {
+          kind: "cron",
+          expression: "0 8-22/2 * * *",
+          timezone: "America/Los_Angeles",
+          startsOn: "2026-09-06",
+          endsOn: "2026-09-06",
+        },
+        notification: "when-needed",
+      }),
+    );
+    assert.deepEqual(
+      (await run(listAutomations(agent.id)))[0]!.schedule,
+      automation.schedule,
+    );
+    await run(schedulerTick("cron"));
+    assert.equal((await run(listRuns(agent.id))).length, 0);
+    now = Date.parse("2026-09-06T15:00:00Z");
+    await run(schedulerTick("cron"));
+    await run(schedulerTick("cron"));
+    const running = await run(claimRun("cron"));
+    assert.equal(running?.scheduledFor, now);
+    now = Date.parse("2026-09-06T17:00:00Z");
+    await run(
+      withAgentStore((db) =>
+        db.prepare("UPDATE worker_lease SET heartbeat=?").run(now),
+      ),
+    );
+    await run(schedulerTick("cron"));
+    const manual = await run(
+      runAutomationNow(agent.id, automation.id, randomUUID()),
+    );
+    now = Date.parse("2026-09-07T07:00:00Z");
+    await run(
+      withAgentStore((db) =>
+        db.prepare("UPDATE worker_lease SET heartbeat=?").run(now),
+      ),
+    );
+    await run(schedulerTick("cron"));
+    const expired = (await run(listAutomations(agent.id)))[0]!;
+    assert.equal(expired.enabled, false);
+    assert.equal(expired.nextRunAt, null);
+    const runs = await run(listRuns(agent.id));
+    assert.equal(runs.length, 3);
+    assert.equal(runs.find((r) => r.id === running!.id)!.status, "running");
+    assert.equal(runs.find((r) => r.id === manual.id)!.status, "queued");
+    assert.equal(
+      runs.find((r) => r.scheduledFor === Date.parse("2026-09-06T17:00:00Z"))!
+        .status,
+      "cancelled",
+    );
+    await assert.rejects(
+      run(toggleAutomation(agent.id, automation.id, expired.revision, true)),
+      /future runs/,
+    );
+    const edited = await run(
+      saveAutomation(
+        {
+          ...expired,
+          schedule: { ...automation.schedule, endsOn: "2026-09-08" },
+        },
+        expired.revision,
+      ),
+    );
+    await run(toggleAutomation(agent.id, automation.id, edited.revision, true));
+    assert.ok((await run(listAutomations(agent.id)))[0]!.nextRunAt! > now);
+  } finally {
+    Date.now = clock;
+    if (oldDirectory === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = oldDirectory;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 async function until(check: () => Promise<boolean>) {
   const end = Date.now() + 15000;
   while (Date.now() < end) {
