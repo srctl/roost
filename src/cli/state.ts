@@ -21,6 +21,7 @@ export function activeRuns(root: string): number {
   if (!existsSync(path)) return 0;
   const db = new DatabaseSync(path, { readOnly: true });
   try {
+    db.exec("PRAGMA busy_timeout=5000");
     return Number(
       db
         .prepare("SELECT count(*) AS count FROM runs WHERE status='running'")

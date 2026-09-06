@@ -11,6 +11,8 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { Worker } from "node:worker_threads";
+import { once } from "node:events";
 import { Effect } from "effect";
 import { withAgentStore, saveAgent } from "../src/server/agents/store.server";
 import {
@@ -20,7 +22,7 @@ import {
   finishRun,
 } from "../src/server/runs/store.server";
 import { saveAutomation } from "../src/server/automations/store.server";
-import { maintenance, withLock } from "../src/cli/state";
+import { activeRuns, maintenance, withLock } from "../src/cli/state";
 import {
   activate,
   installRelease,
@@ -139,6 +141,28 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("the updater waits for a busy database when checking active runs", async () => {
+  const root = await mkdtemp("/tmp/roost-update-lock-");
+  const data = join(root, "data");
+  await run(withAgentStore(() => {}, data));
+  const writer = new Worker(
+    `const { DatabaseSync } = require("node:sqlite");
+     const { parentPort, workerData } = require("node:worker_threads");
+     const db = new DatabaseSync(workerData);
+     db.exec("BEGIN EXCLUSIVE");
+     parentPort.postMessage("locked");
+     setTimeout(() => { db.exec("COMMIT"); db.close(); }, 200);`,
+    { eval: true, workerData: join(data, "roost.sqlite"), execArgv: [] },
+  );
+  try {
+    await once(writer, "message");
+    assert.equal(activeRuns(root), 0);
+  } finally {
+    await writer.terminate();
+    await rm(root, { recursive: true, force: true });
   }
 });
 
