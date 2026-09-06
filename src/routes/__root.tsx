@@ -32,8 +32,8 @@ export const Route = createRootRoute({
         href: "/manifest.webmanifest",
         crossOrigin: "use-credentials",
       },
-      { rel: "icon", href: "/icons/roost.svg", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+      { rel: "icon", href: "/icons/roost.svg?v=2", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png?v=2" },
       ...(import.meta.env.DEV
         ? [{ rel: "stylesheet", href: "/virtual:stylex.css" }]
         : []),
