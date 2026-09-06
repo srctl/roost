@@ -6,8 +6,10 @@ Apple touch icon. The page and browser chrome follow the device's light/dark
 appearance. The installed iOS status bar overlays a safe-area-padded header.
 
 On phones, the document stays fixed while the conversation or settings content
-scrolls inside it. The app follows the visual viewport's height and top offset
-as Safari opens the keyboard. The composer uses 16px text to avoid input zoom and
+scrolls inside it. CSS fills the dynamic viewport while the keyboard is closed.
+While an input is focused and the keyboard reduces the available height, the app
+follows the visual viewport's height and top offset. On blur it removes those
+overrides, including when iOS retains a stale visual viewport size. The composer uses 16px text to avoid input zoom and
 removes the home-indicator inset while the keyboard occupies that space.
 
 Production builds register a small service worker that only supplies an offline
@@ -15,6 +17,12 @@ screen when a navigation cannot reach the server. It does not cache conversation
 credentials, API responses, or application bundles. Updates arrive on the next
 page load; an active conversation is never automatically reloaded. Roost still
 requires a connection to its server to send messages or control the computer.
+
+Home-screen icon links use versioned PNGs from Roost's public GitHub repository.
+iOS may fetch these without the browser's authentication cookie, so serving them
+behind the private exe.dev proxy can produce a blank icon. Only public branding
+assets use this URL; the app, conversations, and desktop remain authenticated.
+The SVG favicon and local PNG copies are also included in every release.
 
 After an update, reload the page. If iOS retains an old home-screen icon or launch
 appearance, remove the shortcut and add it again. Desktop WebKit emulation covers

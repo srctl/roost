@@ -33,7 +33,13 @@ export const Route = createRootRoute({
         crossOrigin: "use-credentials",
       },
       { rel: "icon", href: "/icons/roost.svg?v=2", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png?v=2" },
+      // iOS fetches home-screen icons without the private proxy's session cookie.
+      // Only these public branding assets are hosted outside this installation.
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "https://raw.githubusercontent.com/srctl/roost/v0.1.10/public/icons/apple-touch-icon.png",
+      },
       ...(import.meta.env.DEV
         ? [{ rel: "stylesheet", href: "/virtual:stylex.css" }]
         : []),

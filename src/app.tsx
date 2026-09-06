@@ -25,11 +25,18 @@ export function App() {
       // its size and position, but leave pinch zoom to the browser.
       if (viewport.scale !== 1 || !shell.current) return;
       const style = shell.current.style;
-      style.setProperty("--roost-viewport-height", `${viewport.height}px`);
-      style.setProperty("--roost-viewport-top", `${viewport.offsetTop}px`);
       const keyboardOpen =
         document.activeElement?.matches("input, textarea, [contenteditable]") &&
         document.documentElement.clientHeight - viewport.height > 100;
+      // Standalone iOS can retain a shorter visual viewport after dismissing
+      // the keyboard. Let CSS fill the screen whenever no keyboard is active.
+      if (keyboardOpen) {
+        style.setProperty("--roost-viewport-height", `${viewport.height}px`);
+        style.setProperty("--roost-viewport-top", `${viewport.offsetTop}px`);
+      } else {
+        style.removeProperty("--roost-viewport-height");
+        style.removeProperty("--roost-viewport-top");
+      }
       style.setProperty(
         "--roost-bottom-inset",
         keyboardOpen ? "0px" : "env(safe-area-inset-bottom)",
@@ -38,11 +45,17 @@ export function App() {
     resize();
     viewport.addEventListener("resize", resize);
     viewport.addEventListener("scroll", resize);
+    window.addEventListener("resize", resize);
+    window.addEventListener("pageshow", resize);
+    document.addEventListener("visibilitychange", resize);
     document.addEventListener("focusin", resize);
     document.addEventListener("focusout", resize);
     return () => {
       viewport.removeEventListener("resize", resize);
       viewport.removeEventListener("scroll", resize);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pageshow", resize);
+      document.removeEventListener("visibilitychange", resize);
       document.removeEventListener("focusin", resize);
       document.removeEventListener("focusout", resize);
     };
