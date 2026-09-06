@@ -8,10 +8,12 @@ import { nextOccurrence } from "../server/automations/schedule";
 
 function localDate(timestamp: string) {
   const date = new Date(timestamp);
+
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
 }
+
 export function AutomationForm({
   agentId,
   automation,
@@ -100,6 +102,7 @@ export function AutomationForm({
         runs.push(next);
         after = next;
       }
+
       return runs.length
         ? { schedule, runs }
         : { error: "No future runs match this schedule and date range." };
@@ -109,6 +112,7 @@ export function AutomationForm({
       };
     }
   }, [kind, at, expression, timezone, startsOn, endsOn, minutes, time, days]);
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (!preview.schedule) return;
@@ -128,6 +132,7 @@ export function AutomationForm({
       });
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       onSaved();
@@ -137,6 +142,7 @@ export function AutomationForm({
       setBusy(false);
     }
   }
+
   return (
     <form onSubmit={(event) => void save(event)} {...stylex.props(styles.form)}>
       <label {...stylex.props(styles.label)}>
@@ -349,6 +355,7 @@ export function AutomationForm({
     </form>
   );
 }
+
 const styles = stylex.create({
   form: { marginBlock: 16 },
   label: {

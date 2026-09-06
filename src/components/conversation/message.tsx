@@ -6,6 +6,7 @@ import { MessageContent } from "./message-content";
 
 export function UserMessage({ children }: { children: ReactNode }) {
   const { responseStyle } = usePreferences();
+
   return (
     <div
       {...stylex.props(
@@ -28,6 +29,7 @@ export function AgentMessage({
   children: string;
 }) {
   const { responseStyle } = usePreferences();
+
   return (
     <article
       aria-label={`${name} response`}
@@ -41,6 +43,7 @@ export function AgentMessage({
     </article>
   );
 }
+
 const styles = stylex.create({
   automation: { fontSize: 11, color: colors.muted, marginBottom: 6 },
   userMessage: {

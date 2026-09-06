@@ -6,6 +6,7 @@ export function writeTransaction<A>(db: DatabaseSync, run: () => A): A {
   try {
     const value = run();
     db.exec("COMMIT");
+
     return value;
   } catch (error) {
     db.exec("ROLLBACK");

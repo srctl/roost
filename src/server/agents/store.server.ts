@@ -156,6 +156,7 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
           });
         }
         db.exec("COMMIT");
+
         return agent;
       }
       const agent = { ...data, createdAt: new Date().toISOString() };
@@ -171,6 +172,7 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
         agent.createdAt,
       );
       db.exec("COMMIT");
+
       return agent;
     } catch (error) {
       db.exec("ROLLBACK");
@@ -190,6 +192,7 @@ export const getAgentConversation = (id: string) =>
     const row = db
       .prepare("SELECT threadId FROM conversations WHERE agentId = ?")
       .get(id);
+
     return {
       agent: Schema.decodeUnknownSync(Agent)(agent),
       workspace: join(root, "workspaces", id),
@@ -211,6 +214,7 @@ export const getAgentConversation = (id: string) =>
         typeof session?.instructions === "string" ? session.instructions : null,
     };
   });
+
 export const saveConversationThread = (
   agentId: string,
   threadId: string,

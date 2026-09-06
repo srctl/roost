@@ -41,6 +41,7 @@ export function AgentSettings({ agent }: { agent: Agent }) {
     </Sheet>
   );
 }
+
 const styles = stylex.create({
   header: {
     display: "flex",

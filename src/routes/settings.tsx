@@ -8,7 +8,9 @@ import { ToolActivity } from "../components/conversation/tool-activity";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { usePreferences } from "../features/settings/preferences";
 import { colors } from "../styles/tokens.stylex";
+
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
+
 function SettingsPage() {
   const {
     responseStyle,
@@ -17,6 +19,7 @@ function SettingsPage() {
     setShowActivityDetails,
     error,
   } = usePreferences();
+
   return (
     <section {...stylex.props(styles.page)}>
       <h1 {...stylex.props(styles.title)}>Settings</h1>
@@ -152,6 +155,7 @@ function SettingsPage() {
     </section>
   );
 }
+
 const styles = stylex.create({
   page: {
     maxWidth: 600,

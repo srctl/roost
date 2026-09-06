@@ -19,6 +19,7 @@ export function Sidebar({
   drawer?: boolean;
 }) {
   const activity = useAgentActivity();
+
   return (
     <aside
       id={drawer ? "mobile-agent-sidebar" : "agent-sidebar"}
@@ -77,6 +78,7 @@ export function Sidebar({
     </aside>
   );
 }
+
 const styles = stylex.create({
   sidebar: {
     width: 216,

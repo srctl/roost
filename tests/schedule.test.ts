@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextOccurrence } from "../src/server/automations/schedule";
 import type { Schedule } from "../src/features/automations/schema";
+
 const next = (time: string, days: number[], after: string) =>
   new Date(
     nextOccurrence(
@@ -9,6 +10,7 @@ const next = (time: string, days: number[], after: string) =>
       Date.parse(after),
     )!,
   ).toISOString();
+
 test("weekly schedules follow local time, skip a missing DST time, and run a repeated hour once", () => {
   assert.equal(
     next("09:00", [1, 2, 3, 4, 5], "2026-03-06T18:00:00Z"),

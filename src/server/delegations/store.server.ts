@@ -105,6 +105,7 @@ export const delegateTask = (
         });
       }
       db.exec("COMMIT");
+
       return {
         id: data.requestId,
         agentId: data.agentId,

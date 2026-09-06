@@ -18,6 +18,7 @@ import {
   listRuns,
 } from "../src/server/runs/store.server";
 import { readTimeline } from "../src/server/runs/timeline.server";
+
 const run = Effect.runPromise;
 
 test("delegation frees the parent, isolates work, and delivers terminal outcomes once behind active user work", async () => {
@@ -35,6 +36,7 @@ test("delegation frees the parent, isolates work, and delivers terminal outcomes
           model: "fake",
         }),
       );
+
     const guy = await create("Guy"),
       shopping = await create("Shopping");
     await run(

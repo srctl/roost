@@ -24,6 +24,7 @@ test("thinking exposes only the supplied summary, never raw reasoning content", 
     "",
   );
 });
+
 test("command and tool results retain output and failure state on history reload", () => {
   assert.deepEqual(
     messageFromItem({

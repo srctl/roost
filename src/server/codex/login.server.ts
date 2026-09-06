@@ -9,10 +9,12 @@ const DeviceLogin = Schema.Struct({
   verificationUrl: Schema.String,
   userCode: Schema.String,
 });
+
 const Completion = Schema.Struct({
   loginId: Schema.NullOr(Schema.String),
   success: Schema.Boolean,
 });
+
 const Account = Schema.Struct({
   account: Schema.NullOr(Schema.Struct({ type: Schema.String })),
 });
@@ -25,8 +27,11 @@ const globals = globalThis as typeof globalThis & {
     cancel?: () => Promise<void>;
   };
 };
+
 const state = (globals.roostLogin ??= { value: { status: "idle" } });
+
 export const getLogin = () => state.value;
+
 export const getAccount = Effect.scoped(
   Effect.gen(function* () {
     const client = yield* openHostServer();
@@ -34,6 +39,7 @@ export const getAccount = Effect.scoped(
     const result = yield* client
       .request("account/read", { refreshToken: false })
       .pipe(Effect.flatMap(Schema.decodeUnknown(Account)));
+
     // Cached presence is not proof that the token is still valid.
     return { configured: result.account !== null };
   }).pipe(Effect.catchAll(() => Effect.succeed({ configured: false }))),
@@ -45,14 +51,18 @@ export function startLogin(): Promise<CodexLogin> {
   state.starting = begin().finally(() => {
     state.starting = undefined;
   });
+
   return state.starting;
 }
 
 async function begin(): Promise<CodexLogin> {
   const scope = await Effect.runPromise(Scope.make());
   let finished = false;
+
   let unsubscribe = () => {};
+
   let timer: ReturnType<typeof setTimeout> | undefined;
+
   const finish = async (value: CodexLogin) => {
     if (finished) return;
     finished = true;
@@ -62,6 +72,7 @@ async function begin(): Promise<CodexLogin> {
     state.cancel = undefined;
     await Effect.runPromise(Scope.close(scope, Exit.void));
   };
+
   try {
     const client = await Effect.runPromise(
       openHostServer().pipe(Scope.extend(scope)),
@@ -70,9 +81,11 @@ async function begin(): Promise<CodexLogin> {
     // Register before starting: a completion can arrive alongside the RPC response.
     let earlyCompletion: typeof Completion.Type | undefined;
     let loginId: string | undefined;
+
     const completed = async (result: typeof Completion.Type) => {
       if (!loginId) {
         earlyCompletion = result;
+
         return;
       }
       if (result.loginId !== loginId || finished) return;
@@ -87,6 +100,7 @@ async function begin(): Promise<CodexLogin> {
             },
       );
     };
+
     unsubscribe = client.subscribe(
       (method, params) => {
         if (method !== "account/login/completed") return;
@@ -140,6 +154,7 @@ async function begin(): Promise<CodexLogin> {
       error:
         "Could not start Codex sign-in. Check that Codex is installed and this machine can reach OpenAI, then try again.",
     });
+
     return state.value;
   }
 }
@@ -150,6 +165,7 @@ export async function cancelLogin(loginId: string) {
     await state.cancel?.();
   return state.value;
 }
+
 export async function closeLogin() {
   await state.starting;
   await state.cancel?.();

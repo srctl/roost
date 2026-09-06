@@ -1,11 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/tokens.stylex";
 import type { AgentActivity } from "../server/agents/activity.server";
+
 const labels = {
   working: "Working",
   queued: "Queued",
   delegating: "Waiting on another agent",
 };
+
 export function AgentWorking({ activity }: { activity: AgentActivity }) {
   return (
     <span
@@ -35,10 +37,12 @@ export function AgentWorking({ activity }: { activity: AgentActivity }) {
     </span>
   );
 }
+
 const twinkle = stylex.keyframes({
   "0%, 100%": { transform: "translateY(0)", opacity: 1 },
   "50%": { transform: "translateY(-2px)", opacity: 0.6 },
 });
+
 const styles = stylex.create({
   container: {
     display: "inline-flex",

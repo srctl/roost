@@ -11,6 +11,7 @@ export const Route = createFileRoute("/")({ component: Home });
 function Home() {
   const result = RootRoute.useLoaderData();
   const router = useRouter();
+
   return (
     <section {...stylex.props(agentStyles.page)}>
       <header {...stylex.props(styles.header)}>

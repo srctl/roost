@@ -31,10 +31,12 @@ export function Composer({
   useLayoutEffect(() => {
     const element = input.current;
     if (!element) return;
+
     const resize = () => {
       element.style.height = "auto";
       element.style.height = `${element.scrollHeight}px`;
     };
+
     resize();
     let width = element.clientWidth;
     let frame = 0;
@@ -45,24 +47,28 @@ export function Composer({
       frame = requestAnimationFrame(resize);
     });
     observer.observe(element);
+
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
   }, [text]);
   const { responseStyle } = usePreferences();
+
   function keepInputFocus(event: MouseEvent<HTMLButtonElement>) {
     // Blurring before click dismisses the iOS keyboard and moves the button
     // away from the tap. Keep focus; the native click still submits the form.
     if (event.button === 0 && document.activeElement === input.current)
       event.preventDefault();
   }
+
   function submit(event: FormEvent) {
     event.preventDefault();
     if (loading || busy || !text.trim()) return;
     void onSend(text.trim());
     setText("");
   }
+
   return (
     <form onSubmit={submit} {...stylex.props(styles.composerArea)}>
       {busy && responseStyle === "codex" && (
@@ -119,6 +125,7 @@ export function Composer({
     </form>
   );
 }
+
 const styles = stylex.create({
   composerArea: {
     marginTop: "auto",

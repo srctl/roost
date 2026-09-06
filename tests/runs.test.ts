@@ -30,7 +30,9 @@ import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
 import { readSoul } from "../src/server/agents/soul.server";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+
 const run = Effect.runPromise;
+
 const create = (name: string) =>
   run(
     saveAgent({
@@ -146,6 +148,7 @@ test("timeline failures roll back run changes so queuing and completion can be r
   const directory = mkdtempSync("/tmp/roost-run-rollback-");
   const old = process.env.ROOST_DATA_DIR;
   process.env.ROOST_DATA_DIR = directory;
+
   const failTimelineWrites = () =>
     run(
       withAgentStore((db) =>
@@ -154,8 +157,10 @@ test("timeline failures roll back run changes so queuing and completion can be r
         END;`),
       ),
     );
+
   const restoreTimelineWrites = () =>
     run(withAgentStore((db) => db.exec("DROP TRIGGER fail_timeline")));
+
   try {
     const agent = await create("Rollback");
     const input = { agentId: agent.id, messageId: randomUUID(), text: "Hello" };
@@ -280,6 +285,7 @@ test("bounded cron schedules persist, queue once, and expire without a late catc
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
 async function until(check: () => Promise<boolean>) {
   const end = Date.now() + 15000;
   while (Date.now() < end) {

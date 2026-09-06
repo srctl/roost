@@ -1,5 +1,7 @@
 import { withAgentStore } from "./store.server";
+
 export type AgentActivity = "working" | "queued" | "delegating";
+
 export const readAgentActivity = () =>
   withAgentStore((db) => {
     const activity: Record<string, AgentActivity> = {};
@@ -16,5 +18,6 @@ export const readAgentActivity = () =>
       .all())
       activity[String(row.agentId)] =
         row.status === "running" ? "working" : "queued";
+
     return activity;
   });

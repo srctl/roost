@@ -24,21 +24,25 @@ export const Item = Schema.Struct({
   contentItems: Schema.optional(Schema.Unknown),
   success: Schema.optional(Schema.NullOr(Schema.Boolean)),
 });
+
 const TextParts = Schema.Array(
   Schema.Struct({ type: Schema.String, text: Schema.optional(Schema.String) }),
 );
+
 const print = (value: unknown) =>
   value == null
     ? ""
     : typeof value === "string"
       ? value
       : JSON.stringify(value, null, 2);
+
 export function messageFromItem(
   item: typeof Item.Type,
   running = false,
 ): Message | undefined {
   if (item.type === "userMessage") {
     const parts = Schema.decodeUnknownOption(TextParts)(item.content);
+
     return {
       id: item.clientId ?? item.id,
       role: "user",

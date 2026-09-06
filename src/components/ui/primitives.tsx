@@ -4,6 +4,7 @@ import wisp from "../../assets/wisp.svg";
 import peach from "../../assets/peach.svg";
 
 const characters = { moss, wisp, peach };
+
 export function Avatar({
   character,
   size = 32,
@@ -21,6 +22,7 @@ export function Avatar({
     />
   );
 }
+
 const paths = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   plus: <path d="M12 5v14M5 12h14" />,
@@ -70,6 +72,7 @@ const paths = {
   up: <path d="M12 19V5m-5 5 5-5 5 5" />,
   close: <path d="m6 6 12 12M6 18 18 6" />,
 };
+
 export function Icon({
   name,
   size = 16,
@@ -94,6 +97,7 @@ export function Icon({
     </svg>
   );
 }
+
 const styles = stylex.create({
   avatar: { display: "block", flexShrink: 0, imageRendering: "pixelated" },
   icon: { flexShrink: 0, display: "block" },

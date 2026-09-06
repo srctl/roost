@@ -35,6 +35,7 @@ test("souls persist independently, reject stale writes, and never read another a
           model: "fake",
         }),
       );
+
     const a = await create("Scout");
     const b = await create("Wisp");
     const initial = await Effect.runPromise(readSoul(a.id));

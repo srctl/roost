@@ -3,27 +3,35 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+
 const path = join(
   process.env.CODEX_HOME ?? process.env.ROOST_DATA_DIR,
   "fake-thread.json",
 );
+
 let thread = existsSync(path)
   ? JSON.parse(readFileSync(path, "utf8"))
   : { id: randomUUID(), turns: [] };
+
 const send = (message) => process.stdout.write(JSON.stringify(message) + "\n");
+
 const threadPath = (id) =>
   join(process.env.CODEX_HOME ?? process.env.ROOST_DATA_DIR, `fake-${id}.json`);
+
 const persist = () => {
   writeFileSync(path, JSON.stringify(thread));
   writeFileSync(threadPath(thread.id), JSON.stringify(thread));
 };
+
 const pendingTools = new Map();
+
 const requestTool = (params) =>
   new Promise((resolve) => {
     const id = randomUUID();
     pendingTools.set(id, resolve);
     send({ id, method: "item/tool/call", params });
   });
+
 createInterface({ input: process.stdin }).on("line", async (line) => {
   const message = JSON.parse(line);
   const { id, method, params } = message;
@@ -31,19 +39,23 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     const resolve = pendingTools.get(id);
     pendingTools.delete(id);
     resolve?.(message);
+
     return;
   }
   if (method === "account/read" || method === "account/login/start") {
     send({ id, result: {} });
+
     return;
   }
   if (method === "config/read") {
     send({ id, result: { config: { features: { apps: true }, apps: {} } } });
+
     return;
   }
   if (method === "initialized") return;
   if (method === "initialize") {
     send({ id, result: {} });
+
     return;
   }
   if (method === "thread/inject_items") {
@@ -53,6 +65,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     ];
     persist();
     send({ id, result: {} });
+
     return;
   }
   if (params?.threadId && existsSync(threadPath(params.threadId)))
@@ -70,10 +83,12 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
   if (method.startsWith("thread/")) {
     persist();
     send({ id, result: { thread } });
+
     return;
   }
   if (method === "turn/interrupt") {
     send({ id, result: {} });
+
     return;
   }
   if (method === "turn/start") {
@@ -153,6 +168,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
       await new Promise((resolve) => setTimeout(resolve, 200));
     if (params.input[0].text === "slow") {
       send({ id, result: { turn: { ...turn, status: "inProgress" } } });
+
       return;
     }
     if (params.input[0].text === "activity") {

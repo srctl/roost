@@ -36,8 +36,10 @@ import { applyUpdate } from "./update";
 const root = resolve(
   process.env.ROOST_HOME ?? join(homedir(), ".local/share/roost"),
 );
+
 const configPath = join(root, "config.json");
 const bundle = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
 const help = `Roost
 
   roost setup [--repository owner/repo] [--port 3000] [--skip-login]
@@ -51,6 +53,7 @@ Linux x64 with systemd. Setup installs a service under your account using sudo.
 Data and releases: ROOST_HOME (default ~/.local/share/roost).
 The listener stays on 127.0.0.1; use an SSH tunnel for remote access.
 `;
+
 function flags(args: string[], allowed: Record<string, "value" | "flag">) {
   const values: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {
@@ -65,8 +68,10 @@ function flags(args: string[], allowed: Record<string, "value" | "flag">) {
       values[name] = value;
     }
   }
+
   return values;
 }
+
 async function config() {
   if (!existsSync(configPath))
     throw new Error("Run roost setup from an extracted release first.");
@@ -75,6 +80,7 @@ async function config() {
     throw new Error("This installation belongs to another path or user.");
   return result;
 }
+
 async function start(c: Installation) {
   await service(c, "start");
   const release = await readRelease(join(root, "current"));
@@ -83,6 +89,7 @@ async function start(c: Installation) {
     `Roost ${release.version} is running at http://127.0.0.1:${c.port}`,
   );
 }
+
 async function login(c: Installation) {
   process.env.CODEX_HOME = join(c.home, ".codex");
   await command(join(root, "current/runtime/codex/bin/codex"), [
@@ -93,12 +100,14 @@ async function login(c: Installation) {
   ]);
   console.log(`Codex sign-in is stored for ${c.user}.`);
 }
+
 async function setup(options: Record<string, string>) {
   const user = userInfo();
   const old = existsSync(configPath) ? await config() : undefined;
   if (options["--login"]) {
     if (!old) throw new Error("Run roost setup first.");
     await login(old);
+
     return;
   }
   const release = await readRelease(bundle);
@@ -173,6 +182,7 @@ async function setup(options: Record<string, string>) {
     `Installed ${launcher}. Add ~/.local/bin to PATH if needed. Data: ${join(root, "data")}`,
   );
 }
+
 async function update(options: Record<string, string>) {
   const c = await config();
   if (!c.repository)
@@ -183,7 +193,9 @@ async function update(options: Record<string, string>) {
   const old = await readRelease(previous);
   const staging = await mkdtemp(join(root, "download-"));
   const abort = new AbortController();
+
   const interrupt = () => abort.abort(new Error("Update interrupted."));
+
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
   try {
@@ -196,6 +208,7 @@ async function update(options: Record<string, string>) {
     const next = await readRelease(unpacked);
     if (next.version === old.version) {
       console.log(`Already on Roost ${old.version}.`);
+
       return;
     }
     const a = next.version.split(".").map(Number),
@@ -228,14 +241,17 @@ async function update(options: Record<string, string>) {
     process.removeListener("SIGTERM", interrupt);
   }
 }
+
 async function main() {
   const [action, ...args] = process.argv.slice(2);
   if (!action || action === "--help" || action === "help") {
     console.log(help);
+
     return;
   }
   if (action === "--version") {
     console.log((await readRelease(bundle)).version);
+
     return;
   }
   if (process.platform !== "linux" || process.arch !== "x64")
@@ -252,11 +268,13 @@ async function main() {
       "--login": "flag",
     });
     await withLock(root, () => setup(options));
+
     return;
   }
   if (action === "update") {
     const options = flags(args, { "--version": "value" });
     await withLock(root, () => update(options));
+
     return;
   }
   if (action !== "server")
@@ -281,6 +299,7 @@ async function main() {
       /* @vite-ignore */ pathToFileURL(join(bundle, "app/server/index.mjs"))
         .href
     );
+
     return;
   }
   if (operation === "logs") {
@@ -292,10 +311,12 @@ async function main() {
       "100",
       ...(options["--follow"] ? ["--follow"] : ["--no-pager"]),
     ]);
+
     return;
   }
   if (operation === "start") {
     await withLock(root, () => start(c));
+
     return;
   }
   if (operation === "stop") {
@@ -305,10 +326,12 @@ async function main() {
         "Roost stopped. Active work is interrupted; saved conversations and queued work remain.",
       );
     });
+
     return;
   }
   throw new Error("Use roost server start, stop, or logs.");
 }
+
 Effect.runPromise(
   Effect.tryPromise({
     try: main,

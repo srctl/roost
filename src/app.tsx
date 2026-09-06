@@ -23,6 +23,7 @@ export function App() {
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
+
     const resize = () => {
       // Safari pans the visual viewport when opening the keyboard. Follow both
       // its size and position, but leave pinch zoom to the browser.
@@ -45,6 +46,7 @@ export function App() {
         keyboardOpen ? "0px" : "env(safe-area-inset-bottom)",
       );
     };
+
     resize();
     viewport.addEventListener("resize", resize);
     viewport.addEventListener("scroll", resize);
@@ -53,6 +55,7 @@ export function App() {
     document.addEventListener("visibilitychange", resize);
     document.addEventListener("focusin", resize);
     document.addEventListener("focusout", resize);
+
     return () => {
       viewport.removeEventListener("resize", resize);
       viewport.removeEventListener("scroll", resize);
@@ -70,6 +73,7 @@ export function App() {
         .catch((error: unknown) => console.warn("Offline setup failed", error));
     }
   }, []);
+
   return (
     <PreferencesProvider>
       <AgentActivityProvider>
@@ -116,6 +120,7 @@ export function App() {
     </PreferencesProvider>
   );
 }
+
 const styles = stylex.create({
   desktopNavigation: {
     display: { default: "flex", "@media (max-width: 700px)": "none" },

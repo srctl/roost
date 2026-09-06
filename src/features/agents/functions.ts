@@ -33,9 +33,11 @@ const result = <A, E extends { message: string }>(
 export const getAgents = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => result(listAgents()));
+
 export const getConnection = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => result(getCodexConnection));
+
 export const createAgent = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(CreateAgentInput))
@@ -51,6 +53,7 @@ export const createAgent = createServerFn({ method: "POST" })
         }
         const agent = yield* saveAgent(data);
         yield* readSoul(agent.id);
+
         return agent;
       }),
     ),
@@ -65,6 +68,7 @@ export const getAgentIdentity = createServerFn({ method: "GET" })
         const soul = yield* readSoul(data.agentId);
         const memories = yield* readAgentMemory(data.agentId);
         const changes = yield* listSoulChanges(data.agentId);
+
         return { soul, memories, changes };
       }),
     ),
@@ -79,6 +83,7 @@ export const getSoulHistory = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
   .handler(({ data }) => result(listSoulChanges(data.agentId)));
+
 export const undoAgentSoul = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(

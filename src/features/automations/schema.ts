@@ -1,10 +1,13 @@
 import { Schema } from "effect";
+
 const Short = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(200));
 const DateOnly = Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/));
+
 const DateWindow = {
   startsOn: Schema.optional(DateOnly),
   endsOn: Schema.optional(DateOnly),
 };
+
 export const Schedule = Schema.Union(
   Schema.Struct({
     kind: Schema.Literal("once"),
@@ -33,7 +36,9 @@ export const Schedule = Schema.Union(
     ...DateWindow,
   }),
 );
+
 export type Schedule = typeof Schedule.Type;
+
 export const AutomationInput = Schema.Struct({
   agentId: Schema.UUID,
   id: Schema.UUID,
@@ -42,11 +47,14 @@ export const AutomationInput = Schema.Struct({
   schedule: Schedule,
   notification: Schema.Literal("always", "when-needed"),
 });
+
 export type AutomationInput = typeof AutomationInput.Type;
+
 export const Automation = Schema.Struct({
   ...AutomationInput.fields,
   revision: Schema.Number,
   enabled: Schema.Boolean,
   nextRunAt: Schema.NullOr(Schema.Number),
 });
+
 export type Automation = typeof Automation.Type;

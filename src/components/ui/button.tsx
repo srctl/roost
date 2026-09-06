@@ -9,6 +9,7 @@ export function Button({
   ...props
 }: ButtonPrimitive.Props & { xstyle?: stylex.StyleXStyles }) {
   const base = stylex.props(styles.button, xstyle);
+
   return (
     <ButtonPrimitive
       data-slot="button"

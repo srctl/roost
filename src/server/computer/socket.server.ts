@@ -8,6 +8,7 @@ import {
 } from "./session.server";
 
 const sockets = new Map<string, Socket>();
+
 export default defineWebSocketHandler({
   upgrade(request) {
     const id = new URL(request.url).searchParams.get("ticket") ?? "";
@@ -35,6 +36,7 @@ export default defineWebSocketHandler({
     const data = message.uint8Array();
     if (data.length > 1024 * 1024) {
       peer.close(1009, "Message too large");
+
       return;
     }
     sockets.get(peer.id)?.write(data);

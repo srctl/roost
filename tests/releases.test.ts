@@ -30,7 +30,9 @@ import {
   validateArchive,
 } from "../src/cli/releases";
 import { applyUpdate } from "../src/cli/update";
+
 const run = Effect.runPromise;
+
 async function release(root: string, version: string) {
   const directory = join(root, "releases", version);
   for (const file of [
@@ -54,6 +56,7 @@ async function release(root: string, version: string) {
       schema: 1,
     }),
   );
+
   return directory;
 }
 
@@ -180,10 +183,12 @@ test("maintenance drains active work, preserves queued work, and pauses new sche
         model: "fake",
       }),
     );
+
     const send = () =>
       run(
         enqueueChat({ agentId: a.id, messageId: randomUUID(), text: "hello" }),
       );
+
     await send();
     await send();
     await run(schedulerTick("worker"));

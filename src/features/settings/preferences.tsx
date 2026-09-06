@@ -8,7 +8,9 @@ import {
 
 const key = "roost.showActivityDetails";
 const responseStyleKey = "roost.responseStyle";
+
 export type ResponseStyle = "messages" | "codex";
+
 const Preferences = createContext<{
   responseStyle: ResponseStyle;
   setResponseStyle: (style: ResponseStyle) => void;
@@ -33,14 +35,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       );
     }
   }, []);
+
   function setShowActivityDetails(show: boolean) {
     setShow(show);
     savePreference(key, String(show));
   }
+
   function setResponseStyle(style: ResponseStyle) {
     setStyle(style);
     savePreference(responseStyleKey, style);
   }
+
   function savePreference(storageKey: string, value: string) {
     try {
       localStorage.setItem(storageKey, value);
@@ -51,6 +56,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       );
     }
   }
+
   return (
     <Preferences.Provider
       value={{
@@ -65,6 +71,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     </Preferences.Provider>
   );
 }
+
 export function usePreferences() {
   const preferences = useContext(Preferences);
   if (!preferences) throw new Error("PreferencesProvider is missing");

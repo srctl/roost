@@ -38,6 +38,7 @@ export function ScrollArea({
     </Primitive.Root>
   );
 }
+
 const styles = stylex.create({
   root: { position: "relative", minHeight: 0, flex: 1, overflow: "hidden" },
   bounded: { maxHeight: 240, flex: "0 1 auto" },

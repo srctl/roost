@@ -46,6 +46,7 @@ export function nextOccurrence(
     schedule.kind === "interval" && after < start
       ? start
       : nextUnboundedOccurrence(schedule, Math.max(after, start - 1));
+
   return next !== null && next <= end ? next : null;
 }
 
@@ -71,6 +72,7 @@ function nextUnboundedOccurrence(
       timezone: schedule.timezone,
       mode: "5-part",
     });
+
     return cron.nextRun(new Date(after))?.getTime() ?? null;
   }
   const format = new Intl.DateTimeFormat("en-US", {
@@ -83,10 +85,12 @@ function nextUnboundedOccurrence(
     minute: "2-digit",
     hourCycle: "h23",
   });
+
   const parts = (time: number) =>
     Object.fromEntries(
       format.formatToParts(time).map((part) => [part.type, part.value]),
     );
+
   const [hour, minute] = schedule.time.split(":");
   for (
     let time = Math.floor(after / 60000) * 60000 + 60000;
@@ -127,6 +131,7 @@ export function scheduleLabel(schedule: Schedule) {
     schedule.startsOn && `From ${schedule.startsOn}`,
     schedule.endsOn && `Through ${schedule.endsOn}`,
   ].filter(Boolean);
+
   return [label, ...dates].join(" · ");
 }
 
@@ -147,5 +152,6 @@ function recurrenceLabel(schedule: Schedule) {
               (day) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day],
             )
             .join(", ");
+
   return `${label} at ${schedule.time} · ${schedule.timezone}`;
 }

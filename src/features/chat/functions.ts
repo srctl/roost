@@ -19,6 +19,7 @@ const result = <A, E>(effect: Effect.Effect<A, E>) =>
       }),
     ),
   );
+
 export const getConversation = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(
@@ -32,6 +33,7 @@ export const getConversation = createServerFn({ method: "GET" })
   )
   .handler(({ data }) => {
     startWorker();
+
     return result(
       Effect.gen(function* () {
         yield* ensureTimeline(data.agentId);
@@ -54,6 +56,7 @@ export const getConversation = createServerFn({ method: "GET" })
                 .get(data.agentId, data.agentId, String(run.id)),
             )
           : undefined;
+
         return {
           ...page,
           busy: !!run,
@@ -63,18 +66,22 @@ export const getConversation = createServerFn({ method: "GET" })
       }),
     );
   });
+
 export const sendMessage = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(SendMessage))
   .handler(({ data }) => {
     startWorker();
+
     return result(
       Effect.gen(function* () {
         yield* ensureTimeline(data.agentId);
+
         return yield* enqueueChat(data);
       }),
     );
   });
+
 export const stopMessage = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(
@@ -97,6 +104,7 @@ export const getActivityOutput = createServerFn({ method: "GET" })
         const row = db
           .prepare("SELECT message FROM timeline WHERE agentId=? AND id=?")
           .get(data.agentId, data.id);
+
         return row
           ? (JSON.parse(String(row.message)) as import("./schema").Message)
           : null;

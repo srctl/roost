@@ -21,6 +21,7 @@ export type Release = {
   schema: number;
   repository?: string;
 };
+
 export function validateRelease(value: unknown): Release {
   const r = value as Release;
   if (
@@ -35,6 +36,7 @@ export function validateRelease(value: unknown): Release {
     throw new Error("Unsupported or invalid Roost release manifest.");
   return r;
 }
+
 export async function readRelease(directory: string) {
   const release = validateRelease(
     JSON.parse(await readFile(join(directory, "release.json"), "utf8")),
@@ -49,8 +51,10 @@ export async function readRelease(directory: string) {
     if (!(await lstat(join(directory, file))).isFile())
       throw new Error(`Release is missing ${file}.`);
   }
+
   return release;
 }
+
 export async function activate(root: string, target: string) {
   const temporary = join(root, `.current-${randomUUID()}`);
   await symlink(target, temporary);
@@ -60,6 +64,7 @@ export async function activate(root: string, target: string) {
     await rm(temporary, { force: true });
   }
 }
+
 export async function installRelease(root: string, source: string) {
   const release = await readRelease(source);
   const destination = join(root, "releases", release.version);
@@ -72,8 +77,10 @@ export async function installRelease(root: string, source: string) {
     await rm(temporary, { recursive: true, force: true });
     throw error;
   }
+
   return { release, destination };
 }
+
 export function verifyDigest(bytes: Uint8Array, expected: string) {
   if (
     !/^sha256:[a-f0-9]{64}$/.test(expected) ||
@@ -81,6 +88,7 @@ export function verifyDigest(bytes: Uint8Array, expected: string) {
   )
     throw new Error("Release checksum verification failed.");
 }
+
 export function validateArchive(entries: string[]) {
   if (
     entries.some(
@@ -89,6 +97,7 @@ export function validateArchive(entries: string[]) {
   )
     throw new Error("Release archive contains unsafe paths.");
 }
+
 export async function downloadRelease(
   repository: string,
   directory: string,

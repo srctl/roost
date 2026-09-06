@@ -29,6 +29,7 @@ export type Run = {
   cancelRequested: number;
   automationSnapshot: string | null;
 };
+
 export function insertRun(
   db: DatabaseSync,
   run: {
@@ -54,6 +55,7 @@ export function insertRun(
     run.automation ? JSON.stringify(run.automation) : null,
   );
 }
+
 export const enqueueChat = (input: SendMessage) =>
   withAgentStore((db) => {
     requireAgent(db, input.agentId);
@@ -80,9 +82,11 @@ export const enqueueChat = (input: SendMessage) =>
         role: "user",
         text: input.text,
       });
+
       return { id: input.messageId };
     });
   });
+
 export const runAutomationNow = (
   agentId: string,
   id: string,
@@ -109,9 +113,11 @@ export const runAutomationNow = (
         prompt: automation.prompt,
         automation,
       });
+
       return { id: requestId };
     }),
   );
+
 export const listRuns = (agentId: string) =>
   withAgentStore(
     (db) =>
@@ -121,6 +127,7 @@ export const listRuns = (agentId: string) =>
         )
         .all(agentId) as Run[],
   );
+
 export const cancelRun = (agentId: string, id: string) =>
   withAgentStore((db) => {
     db.prepare(
@@ -219,12 +226,15 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
           "UPDATE automations SET nextRunAt=?,enabled=? WHERE id=?",
         ).run(next, Number(next !== null), automation.id);
       }
+
       return true;
     }),
   );
+
 export const claimRun = (owner: string, allowBackground = true) =>
   withAgentStore((db) => {
     const now = Date.now();
+
     return db
       .prepare(
         "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (? OR q.kind='chat') AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
@@ -232,6 +242,7 @@ export const claimRun = (owner: string, allowBackground = true) =>
       .get(owner, now, Number(allowBackground), owner, now - 30000) as
       Run | undefined;
   });
+
 export const persistRun = (run: Run, messages: readonly Message[]) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
@@ -251,6 +262,7 @@ export const persistRun = (run: Run, messages: readonly Message[]) =>
         for (const message of messages) putMessage(db, run.agentId, message);
     }),
   );
+
 export const finishRun = (
   run: Run,
   status: string,

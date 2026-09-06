@@ -11,6 +11,7 @@ export function putMessage(
     "INSERT INTO timeline (id, agentId, message) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET message = excluded.message WHERE timeline.agentId = excluded.agentId AND timeline.message != excluded.message",
   ).run(message.id, agentId, JSON.stringify(message));
 }
+
 export const readTimeline = (agentId: string) =>
   withAgentStore((db) =>
     db
@@ -22,6 +23,7 @@ export const readTimeline = (agentId: string) =>
   );
 
 export type TimelineEntry = { position: number; message: Message };
+
 export type TimelinePage = {
   entries: TimelineEntry[];
   revision: number;
@@ -72,6 +74,7 @@ export function readTimelinePage(
       }))
       .sort((a, b) => a.position - b.position);
     db.exec("COMMIT");
+
     return {
       entries,
       revision: cursor,

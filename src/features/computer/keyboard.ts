@@ -6,6 +6,7 @@ export function desktopKeys(text: string) {
     ];
     if (special) return special;
     const codepoint = character.codePointAt(0)!;
+
     return codepoint <= 0xff ? codepoint : 0x01000000 | codepoint;
   });
 }

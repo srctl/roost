@@ -50,6 +50,7 @@ function readText(path: string, maxBytes: number) {
 
 function snapshot(path: string) {
   const content = readText(path, 64000);
+
   return {
     content,
     revision: createHash("sha256").update(content).digest("hex"),
@@ -60,6 +61,7 @@ function snapshot(path: string) {
 export const readSoul = (agentId: string) =>
   Effect.gen(function* () {
     const { agent, soulPath } = yield* getAgentConversation(agentId);
+
     return yield* Effect.try({
       try: () => {
         mkdirSync(dirname(soulPath), { recursive: true, mode: 0o700 });
@@ -71,6 +73,7 @@ export const readSoul = (agentId: string) =>
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
         }
+
         return snapshot(soulPath);
       },
       catch: () =>
@@ -93,6 +96,7 @@ export const updateSoul = (
     );
     const { soulPath } = yield* getAgentConversation(data.agentId);
     yield* readSoul(data.agentId);
+
     return yield* withAgentStore((db) => {
       const current = snapshot(soulPath);
       if (current.revision !== data.revision)
@@ -137,6 +141,7 @@ export const updateSoul = (
           text: reason,
         });
         db.exec("COMMIT");
+
         return after;
       } catch (error) {
         db.exec("ROLLBACK");
@@ -153,6 +158,7 @@ export const SoulPatch = Schema.Struct({
     Schema.Struct({ before: Schema.String, after: Schema.String }),
   ).pipe(Schema.minItems(1), Schema.maxItems(20)),
 });
+
 export const patchSoul = (agentId: string, input: typeof SoulPatch.Type) =>
   Effect.gen(function* () {
     const data = yield* Schema.decodeUnknown(SoulPatch)(input);
@@ -166,11 +172,13 @@ export const patchSoul = (agentId: string, input: typeof SoulPatch.Type) =>
         });
       content = content.replace(edit.before, () => edit.after);
     }
+
     return yield* updateSoul(
       { agentId, content, revision: data.revision, reason: data.reason },
       "agent",
     );
   });
+
 export type SoulChange = {
   id: string;
   agentId: string;
@@ -182,6 +190,7 @@ export type SoulChange = {
   afterRevision: string;
   createdAt: string;
 };
+
 export const listSoulChanges = (agentId: string) =>
   withAgentStore(
     (db) =>
@@ -191,6 +200,7 @@ export const listSoulChanges = (agentId: string) =>
         )
         .all(agentId) as SoulChange[],
   );
+
 export const undoSoulChange = (agentId: string, id: string) =>
   Effect.gen(function* () {
     const changes = yield* listSoulChanges(agentId);
@@ -208,6 +218,7 @@ export const undoSoulChange = (agentId: string, id: string) =>
 export const readAgentMemory = (agentId: string) =>
   Effect.gen(function* () {
     const { codexHome } = yield* getAgentConversation(agentId);
+
     return yield* Effect.try({
       try: () =>
         ["memory_summary.md", "MEMORY.md"].flatMap((name) => {

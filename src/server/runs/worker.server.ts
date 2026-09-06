@@ -79,10 +79,12 @@ function mergeEvent(messages: Message[], event: ChatEvent): Message[] {
             ? { title: previous?.title ?? event.title, status: "inProgress" }
             : {}),
         };
+
   return previous
     ? messages.map((m) => (m.id === id ? next : m))
     : [...messages, next];
 }
+
 async function execute(run: Run, signal: AbortSignal) {
   let messages: Message[] = [];
   let status = "completed";
@@ -95,6 +97,7 @@ async function execute(run: Run, signal: AbortSignal) {
       (m) => m.id === run.id && m.role === "notice",
     );
     oldIds.delete(run.id);
+
     const emit = (event: ChatEvent) => {
       messages = mergeEvent(messages, event)
         .filter((message) => !oldIds.has(message.id))
@@ -109,6 +112,7 @@ async function execute(run: Run, signal: AbortSignal) {
         status = event.status;
       Effect.runSync(persistRun(run, messages));
     };
+
     await Effect.runPromise(
       sendConversation(
         { agentId: run.agentId, messageId: run.id, text: run.prompt },
@@ -153,10 +157,13 @@ type Worker = {
   tick: () => Promise<void>;
   tasks: Set<Promise<void>>;
 };
+
 const globalState = globalThis as typeof globalThis & {
   roostWorkers?: Map<string, Worker>;
 };
+
 const workers = (globalState.roostWorkers ??= new Map<string, Worker>());
+
 export function startWorker() {
   const root = resolve(process.env.ROOST_DATA_DIR ?? ".roost");
   let worker = workers.get(root);
@@ -184,6 +191,7 @@ export function startWorker() {
       if (!owns) {
         for (const controller of current.controllers.values())
           controller.abort();
+
         return;
       }
       const stops = await Effect.runPromise(
@@ -228,6 +236,7 @@ export function startWorker() {
     }
   };
   void current.tick();
+
   return async () => {
     current.stopped = true;
     clearInterval(current.timer);

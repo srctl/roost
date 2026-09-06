@@ -9,13 +9,16 @@ export type Installation = {
   port: number;
   repository?: string;
 };
+
 export const serviceName = (config: Installation) =>
   `roost-${config.uid}.service`;
+
 const quote = (value: string) =>
   `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%")}"`;
 
 export function serviceUnit(config: Installation) {
   const current = join(config.root, "current");
+
   return `[Unit]
 Description=Roost agent server (${config.user})
 After=network-online.target
@@ -37,6 +40,7 @@ UMask=0077
 WantedBy=multi-user.target
 `;
 }
+
 export function command(
   program: string,
   args: string[],
@@ -60,8 +64,10 @@ export function command(
     );
   });
 }
+
 export const service = (config: Installation, action: string) =>
   command("sudo", ["systemctl", action, serviceName(config)]);
+
 export const isActive = async (config: Installation) =>
   command(
     "systemctl",
@@ -71,6 +77,7 @@ export const isActive = async (config: Installation) =>
     () => true,
     () => false,
   );
+
 export async function waitForServer(config: Installation, version: string) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {

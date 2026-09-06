@@ -16,12 +16,14 @@ export function maintenance(root: string, enabled: boolean) {
     db.close();
   }
 }
+
 export function activeRuns(root: string): number {
   const path = join(root, "data/roost.sqlite");
   if (!existsSync(path)) return 0;
   const db = new DatabaseSync(path, { readOnly: true });
   try {
     db.exec("PRAGMA busy_timeout=5000");
+
     return Number(
       db
         .prepare("SELECT count(*) AS count FROM runs WHERE status='running'")
@@ -31,6 +33,7 @@ export function activeRuns(root: string): number {
     db.close();
   }
 }
+
 export async function withLock<T>(
   root: string,
   action: () => Promise<T>,
@@ -48,12 +51,14 @@ export async function withLock<T>(
   try {
     await lock.writeFile(String(process.pid));
     await lock.close();
+
     return await action();
   } finally {
     await lock.close();
     await rm(path, { force: true });
   }
 }
+
 export async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }

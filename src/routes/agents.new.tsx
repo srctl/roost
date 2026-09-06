@@ -12,6 +12,7 @@ export const Route = createFileRoute("/agents/new")({
   loader: () => getConnection(),
   component: CreateAgentPage,
 });
+
 function CreateAgentPage() {
   const connection = Route.useLoaderData();
   const router = useRouter();
@@ -19,6 +20,7 @@ function CreateAgentPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const attempt = useRef<{ key: string; id: string } | null>(null);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -31,6 +33,7 @@ function CreateAgentPage() {
     };
     if (!values.name || !values.instructions) {
       setError("Give your agent a name and instructions before saving.");
+
       return;
     }
     const key = JSON.stringify(values);
@@ -43,6 +46,7 @@ function CreateAgentPage() {
       const result = await createAgent({ data: { ...values, id } });
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       await router.invalidate();
@@ -58,6 +62,7 @@ function CreateAgentPage() {
       setBusy(false);
     }
   }
+
   return (
     <section {...stylex.props(styles.page)}>
       <h1 {...stylex.props(styles.title)}>Create an agent</h1>

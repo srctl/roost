@@ -20,6 +20,7 @@ export function useConversation(agentId: string) {
   const submitting = useRef(false);
   const mounted = useRef(true);
   const generation = useRef(0);
+
   async function reload() {
     const version = ++generation.current;
     try {
@@ -29,6 +30,7 @@ export function useConversation(agentId: string) {
       if (!mounted.current || version !== generation.current) return;
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       if (submitting.current) return;
@@ -53,21 +55,26 @@ export function useConversation(agentId: string) {
         setError("Disconnected from Roost. Your run continues on the server.");
     }
   }
+
   useEffect(() => {
     mounted.current = true;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+
     const poll = async () => {
       await reload();
       if (!cancelled) timer = setTimeout(() => void poll(), 1000);
     };
+
     void poll();
+
     return () => {
       cancelled = true;
       mounted.current = false;
       clearTimeout(timer);
     };
   }, [agentId]);
+
   async function loadOlder() {
     if (before === null || paging.current) return;
     paging.current = true;
@@ -78,6 +85,7 @@ export function useConversation(agentId: string) {
       if (!mounted.current) return;
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       setEntries((current) => mergeEntries(result.value.entries, current));
@@ -93,6 +101,7 @@ export function useConversation(agentId: string) {
       if (mounted.current) setLoadingOlder(false);
     }
   }
+
   async function send(text: string) {
     if (submitting.current || loading || busy || !text.trim()) return;
     generation.current++;
@@ -122,6 +131,7 @@ export function useConversation(agentId: string) {
       if (mounted.current) await reload();
     }
   }
+
   async function stop() {
     if (!runId) return;
     const result = await stopMessage({
@@ -130,6 +140,7 @@ export function useConversation(agentId: string) {
     if (!result?.ok) setError("Could not stop the run. Try again.");
     else await reload();
   }
+
   return {
     messages,
     computerAnchor,

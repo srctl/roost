@@ -23,11 +23,13 @@ function changedPassages(before: string, after: string) {
     left[left.length - 1 - end] === right[right.length - 1 - end]
   )
     end++;
+
   return {
     before: left.slice(start, left.length - end).join("\n"),
     after: right.slice(start, right.length - end).join("\n"),
   };
 }
+
 export function SoulChangeDetails({
   agentId,
   id,
@@ -50,6 +52,7 @@ export function SoulChangeDetails({
         if (!active) return;
         if (!result.ok) {
           setError(result.error);
+
           return;
         }
         const found = result.value.find((c) => c.id === id);
@@ -59,10 +62,12 @@ export function SoulChangeDetails({
       .catch(() => {
         if (active) setError("Could not load this change.");
       });
+
     return () => {
       active = false;
     };
   }, [agentId, id]);
+
   async function undo() {
     setBusy(true);
     setError("");
@@ -70,6 +75,7 @@ export function SoulChangeDetails({
       const result = await undoAgentSoul({ data: { agentId, id } });
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       setUndone(true);
@@ -80,7 +86,9 @@ export function SoulChangeDetails({
       setBusy(false);
     }
   }
+
   const passage = change && changedPassages(change.before, change.after);
+
   return (
     <Inspector title="Soul change" onClose={onClose}>
       {change ? (
@@ -112,6 +120,7 @@ export function SoulChangeDetails({
     </Inspector>
   );
 }
+
 const styles = stylex.create({
   meta: { fontSize: 12, color: colors.muted },
   label: { fontSize: 12, fontWeight: 500, marginTop: 24 },

@@ -11,12 +11,15 @@ import {
 export const getCodexAccount = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => Effect.runPromise(getAccount));
+
 export const getCodexLogin = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => getLogin());
+
 export const startCodexLogin = createServerFn({ method: "POST" })
   .middleware([available])
   .handler(() => startLogin());
+
 export const cancelCodexLogin = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(

@@ -37,6 +37,7 @@ export function CodexConnection() {
       .finally(() => {
         if (current) setLoading(false);
       });
+
     return () => {
       current = false;
     };
@@ -45,6 +46,7 @@ export function CodexConnection() {
     if (login.status !== "pending") return;
     let current = true;
     let timer: ReturnType<typeof setTimeout>;
+
     const poll = async () => {
       try {
         const next = await getCodexLogin();
@@ -61,12 +63,15 @@ export function CodexConnection() {
       }
       if (current) timer = setTimeout(poll, 2000);
     };
+
     timer = setTimeout(poll, 2000);
+
     return () => {
       current = false;
       clearTimeout(timer);
     };
   }, [login.status, router]);
+
   async function start() {
     if (busy) return;
     setBusy(true);
@@ -80,6 +85,7 @@ export function CodexConnection() {
       setBusy(false);
     }
   }
+
   async function cancel() {
     if (busy || login.status !== "pending") return;
     setBusy(true);
@@ -92,6 +98,7 @@ export function CodexConnection() {
       setBusy(false);
     }
   }
+
   return (
     <section
       {...stylex.props(styles.section)}
@@ -178,6 +185,7 @@ export function CodexConnection() {
     </section>
   );
 }
+
 const styles = stylex.create({
   section: {
     marginBlock: 28,

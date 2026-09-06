@@ -6,6 +6,7 @@ import { assertAvailable } from "./maintenance.server";
 export const available = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     await Effect.runPromise(withAgentStore(assertAvailable));
+
     return next();
   },
 );

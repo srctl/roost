@@ -38,6 +38,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
         if (cancelled) return;
         if (!result.ok) {
           setError(result.error);
+
           return;
         }
         setIdentity(result.value);
@@ -50,6 +51,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -66,6 +68,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
       });
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       const refreshed = await getAgentIdentity({ data: { agentId } });
@@ -89,6 +92,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
       const result = await getAgentIdentity({ data: { agentId } });
       if (!result.ok) {
         setError(result.error);
+
         return;
       }
       setIdentity((current) =>

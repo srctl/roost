@@ -36,6 +36,7 @@ export function Inspector({
     </Dialog.Root>
   );
 }
+
 const styles = stylex.create({
   backdrop: {
     position: "fixed",

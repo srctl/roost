@@ -31,13 +31,16 @@ const result = <A, E extends { message: string }>(
       }),
     ),
   );
+
 const AgentId = Schema.Struct({ agentId: Schema.UUID });
 const Entry = Schema.Struct({ ...AgentId.fields, id: Schema.UUID });
+
 export const getAgentAutomations = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(AgentId))
   .handler(({ data }) => {
     startWorker();
+
     return result(
       Effect.gen(function* () {
         return {
@@ -47,6 +50,7 @@ export const getAgentAutomations = createServerFn({ method: "GET" })
       }),
     );
   });
+
 export const saveAgentAutomation = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(
@@ -59,8 +63,10 @@ export const saveAgentAutomation = createServerFn({ method: "POST" })
   )
   .handler(({ data }) => {
     startWorker();
+
     return result(saveAutomation(data, data.expectedRevision));
   });
+
 export const toggleAgentAutomation = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(
@@ -77,6 +83,7 @@ export const toggleAgentAutomation = createServerFn({ method: "POST" })
       toggleAutomation(data.agentId, data.id, data.revision, data.enabled),
     ),
   );
+
 export const runAgentAutomation = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(
@@ -86,8 +93,10 @@ export const runAgentAutomation = createServerFn({ method: "POST" })
   )
   .handler(({ data }) => {
     startWorker();
+
     return result(runAutomationNow(data.agentId, data.id, data.requestId));
   });
+
 export const deleteAgentAutomation = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(
@@ -98,6 +107,7 @@ export const deleteAgentAutomation = createServerFn({ method: "POST" })
   .handler(({ data }) =>
     result(deleteAutomation(data.agentId, data.id, data.revision)),
   );
+
 export const stopAgentRun = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(Entry))

@@ -39,6 +39,7 @@ export function ComputerInput({
       setPointer(undefined);
     }
   }, [enabled]);
+
   function mouse(type: string, x = position.current.x, y = position.current.y) {
     const rfb = client.current;
     const canvas = desktop.current?.querySelector("canvas");
@@ -64,10 +65,12 @@ export function ComputerInput({
       }),
     );
   }
+
   function send(text: string) {
     if (!enabled || !client.current || client.current.viewOnly) return;
     for (const key of desktopKeys(text)) client.current.sendKey(key);
   }
+
   function flush(input: HTMLTextAreaElement) {
     // A leading space lets mobile keyboards generate backspace even with no local text.
     if (!input.value) send("\b");
@@ -75,6 +78,7 @@ export function ComputerInput({
     input.value = " ";
     input.setSelectionRange(1, 1);
   }
+
   return (
     <>
       <div ref={area} {...stylex.props(styles.area)}>
@@ -230,6 +234,7 @@ export function ComputerInput({
     </>
   );
 }
+
 const styles = stylex.create({
   area: {
     position: "relative",

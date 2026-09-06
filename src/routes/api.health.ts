@@ -9,6 +9,7 @@ export const Route = createFileRoute("/api/health")({
         await Effect.runPromise(
           withAgentStore((db) => db.prepare("SELECT 1").get()),
         );
+
         return Response.json({
           status: "ok",
           version: process.env.ROOST_RELEASE_VERSION ?? "dev",

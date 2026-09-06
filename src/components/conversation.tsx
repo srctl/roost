@@ -63,6 +63,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         if (current) setComputerEnabled(status.enabled);
       })
       .catch(() => {});
+
     return () => {
       current = false;
     };
@@ -110,11 +111,13 @@ export function Conversation({ agent }: { agent: Agent }) {
       });
     });
     observer.observe(element);
+
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
   }, []);
+
   return (
     <section
       {...stylex.props(styles.conversation)}
@@ -239,6 +242,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         status={busy ? liveStatus : undefined}
         onSend={(text) => {
           followReply.current = true;
+
           return send(text);
         }}
         onStop={stop}
@@ -246,6 +250,7 @@ export function Conversation({ agent }: { agent: Agent }) {
     </section>
   );
 }
+
 const styles = stylex.create({
   conversation: {
     display: "flex",

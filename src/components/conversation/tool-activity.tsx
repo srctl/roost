@@ -51,6 +51,7 @@ export const ToolActivity = memo(function ToolActivity({
       )}
     </>
   );
+
   return (
     <Collapsible
       open={showActivityDetails && open}
@@ -124,6 +125,7 @@ export const ToolActivity = memo(function ToolActivity({
     </Collapsible>
   );
 });
+
 const styles = stylex.create({
   activity: {
     marginBlock: 4,

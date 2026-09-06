@@ -8,6 +8,7 @@ import {
   createViewer,
   viewerControl,
 } from "../../server/computer/session.server";
+
 function mutation<T>(action: () => T) {
   if (!checkComputerOrigin(getRequest().headers.get("origin")))
     return {
@@ -23,12 +24,15 @@ function mutation<T>(action: () => T) {
     };
   }
 }
+
 export const getComputerStatus = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => computerStatus());
+
 export const openComputer = createServerFn({ method: "POST" })
   .middleware([available])
   .handler(() => mutation(createViewer));
+
 export const controlComputer = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(

@@ -24,12 +24,15 @@ test("device login survives requests, shares pending flow, and clears codes on c
   process.env.ROOST_CODEX_BINARY = fileURLToPath(
     new URL("./fixtures/login-server.mjs", import.meta.url),
   );
+
   const mode = (value: string) => writeFile(join(home, "mode"), value);
+
   const settle = async () => {
     for (let i = 0; i < 100 && getLogin().status === "pending"; i++)
       await setTimeout(20);
     assert.notEqual(getLogin().status, "pending");
   };
+
   try {
     await mode("waiting");
     const [first, concurrent] = await Promise.all([startLogin(), startLogin()]);

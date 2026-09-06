@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 import { openAppServer } from "../src/server/codex/app-server.server";
+
 const fixture = fileURLToPath(
   new URL("./fixtures/app-server.mjs", import.meta.url),
 );
@@ -13,6 +14,7 @@ test("handshake precedes calls and responses are correlated by id", async () => 
       Effect.gen(function* () {
         const client = yield* openAppServer(process.execPath, [fixture]);
         yield* client.initialize;
+
         return yield* Effect.all(
           [
             client.request("echo", { delay: 25, value: "first" }),
@@ -28,6 +30,7 @@ test("handshake precedes calls and responses are correlated by id", async () => 
     { value: "second" },
   ]);
 });
+
 for (const method of ["exit", "invalid"]) {
   test(`${method} fails pending calls without hanging`, async () => {
     await assert.rejects(
@@ -47,6 +50,7 @@ for (const method of ["exit", "invalid"]) {
     );
   });
 }
+
 test("missing CLI is a recoverable connection error", async () => {
   await assert.rejects(
     Effect.runPromise(

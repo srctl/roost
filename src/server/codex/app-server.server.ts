@@ -40,13 +40,19 @@ export function openAppServer(
 
 class AppServer {
   onRequest?: (method: string, params: unknown) => Promise<unknown>;
+
   get connected() {
     return !this.failure;
   }
+
   private nextId = 0;
+
   private readonly pending = new Map<number, Pending>();
+
   private failure: CodexError | undefined;
+
   private readonly lines;
+
   private readonly listeners = new Set<{
     message: (method: string, params: unknown) => void;
     error: (error: CodexError) => void;
@@ -85,6 +91,7 @@ class AppServer {
         message = value as Record<string, unknown>;
       } catch {
         this.fail("Codex returned an invalid protocol message.");
+
         return;
       }
       if (typeof message.method === "string") {
@@ -127,10 +134,12 @@ class AppServer {
             }),
           ),
         );
+
         return;
       }
       if ("result" in message) {
         resume(Effect.succeed(message.result));
+
         return;
       }
       resume(
@@ -158,11 +167,13 @@ class AppServer {
     return Effect.async<unknown, CodexError>((resume) => {
       if (this.failure) {
         resume(Effect.fail(this.failure));
+
         return;
       }
       const id = this.nextId++;
       this.pending.set(id, resume);
       this.send({ id, method, params });
+
       return Effect.sync(() => {
         this.pending.delete(id);
       });
@@ -188,6 +199,7 @@ class AppServer {
   close() {
     this.fail("The Codex connection is closed.");
     this.lines.close();
+
     return new Promise<void>((resolve) => {
       if (
         this.child.exitCode !== null ||
@@ -195,6 +207,7 @@ class AppServer {
         !this.child.pid
       ) {
         resolve();
+
         return;
       }
       const timer = setTimeout(() => this.child.kill("SIGKILL"), 2000);
@@ -225,6 +238,7 @@ const AccountResponse = Schema.Struct({
   account: Schema.NullOr(Schema.Unknown),
   requiresOpenaiAuth: Schema.Boolean,
 });
+
 const ModelPage = Schema.Struct({
   data: Schema.Array(
     Schema.Struct({

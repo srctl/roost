@@ -12,12 +12,16 @@ export function MobileNavigation() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 701px)");
+
     const closeOnDesktop = () => {
       if (desktop.matches) setOpen(false);
     };
+
     desktop.addEventListener("change", closeOnDesktop);
+
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger
@@ -43,6 +47,7 @@ export function MobileNavigation() {
     </Dialog.Root>
   );
 }
+
 const styles = stylex.create({
   trigger: {
     display: { default: "none", "@media (max-width: 700px)": "inline-flex" },

@@ -31,6 +31,7 @@ export function ComputerPanel({
     if (client.current) client.current.focusOnClick = !expanded;
     if (!expanded) return;
     const viewport = window.visualViewport;
+
     const resize = () => {
       if (!popup.current || !viewport) return;
       Object.assign(popup.current.style, {
@@ -40,9 +41,11 @@ export function ComputerPanel({
         left: `${viewport.offsetLeft}px`,
       });
     };
+
     resize();
     viewport?.addEventListener("resize", resize);
     viewport?.addEventListener("scroll", resize);
+
     return () => {
       viewport?.removeEventListener("resize", resize);
       viewport?.removeEventListener("scroll", resize);
@@ -61,12 +64,14 @@ export function ComputerPanel({
     setConnected(false);
     setControlling(false);
     setError(undefined);
+
     const connect = async () => {
       try {
         const result = await openComputer();
         if (!current) return;
         if (!result.ok) {
           setError(result.error);
+
           return;
         }
         const module = await import("@novnc/novnc/lib/rfb.js");
@@ -114,7 +119,9 @@ export function ComputerPanel({
         if (current) setError("Could not connect to this machine’s desktop.");
       }
     };
+
     void connect();
+
     return () => {
       current = false;
       rfb?.disconnect();
@@ -128,6 +135,7 @@ export function ComputerPanel({
     if (!controlling) return;
     let current = true;
     let timer: ReturnType<typeof setTimeout>;
+
     const renew = async () => {
       try {
         if (!session.current) throw new Error();
@@ -144,12 +152,15 @@ export function ComputerPanel({
       }
       if (current) timer = setTimeout(renew, 8000);
     };
+
     timer = setTimeout(renew, 8000);
+
     return () => {
       current = false;
       clearTimeout(timer);
     };
   }, [controlling]);
+
   async function toggleControl() {
     if (!session.current || !client.current || busy) return;
     setBusy(true);
@@ -163,6 +174,7 @@ export function ComputerPanel({
       if (!result.ok) {
         setError(result.error);
         setControlling(false);
+
         return;
       }
       setControlling(result.value.controlling);
@@ -177,6 +189,7 @@ export function ComputerPanel({
       setBusy(false);
     }
   }
+
   const status = connected
     ? controlling
       ? "You’re in control"
@@ -207,6 +220,7 @@ export function ComputerPanel({
       {error}
     </p>
   );
+
   return (
     <Dialog.Root
       open={expanded}
