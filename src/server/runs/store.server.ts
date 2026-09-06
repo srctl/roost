@@ -234,14 +234,15 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
       throw error;
     }
   });
-export const claimRun = (owner: string) =>
+export const claimRun = (owner: string, allowBackground = true) =>
   withAgentStore((db) => {
     const now = Date.now();
     return db
       .prepare(
-        "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
+        "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (? OR q.kind='chat') AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
       )
-      .get(owner, now, owner, now - 30000) as Run | undefined;
+      .get(owner, now, Number(allowBackground), owner, now - 30000) as
+      Run | undefined;
   });
 export const persistRun = (run: Run, messages: readonly Message[]) =>
   withAgentStore((db) => {

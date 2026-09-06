@@ -520,3 +520,92 @@ test("dynamic delegation runs a specialist independently and wakes the parent's 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("background work reserves capacity for user conversations", async () => {
+  const directory = mkdtempSync("/tmp/roost-reserved-chat-");
+  const old = {
+    data: process.env.ROOST_DATA_DIR,
+    home: process.env.CODEX_HOME,
+    binary: process.env.ROOST_CODEX_BINARY,
+  };
+  process.env.ROOST_DATA_DIR = directory;
+  process.env.CODEX_HOME = directory;
+  process.env.ROOST_CODEX_BINARY = fileURLToPath(
+    new URL("./fixtures/chat-server.mjs", import.meta.url),
+  );
+  writeFileSync(
+    join(directory, "auth.json"),
+    JSON.stringify({ OPENAI_API_KEY: "fake" }),
+  );
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    const guy = await create("Guy");
+    const specialists = [];
+    for (let i = 0; i < 4; i++) {
+      const agent = await create(`Specialist ${i}`);
+      specialists.push(agent);
+      const automation = await run(
+        saveAutomation({
+          agentId: agent.id,
+          id: randomUUID(),
+          name: "Work",
+          prompt: "slow",
+          schedule: { kind: "interval", minutes: 60 },
+          notification: "always",
+        }),
+      );
+      await run(runAutomationNow(agent.id, automation.id, randomUUID()));
+    }
+    stop = startWorker();
+    await until(
+      async () =>
+        (
+          await run(
+            withAgentStore((db) =>
+              db
+                .prepare(
+                  "SELECT count(*) AS count FROM runs WHERE status='running'",
+                )
+                .get(),
+            ),
+          )
+        )?.count === 3,
+    );
+    const chat = randomUUID();
+    await run(
+      enqueueChat({
+        agentId: guy.id,
+        messageId: chat,
+        text: "Still available?",
+      }),
+    );
+    await until(
+      async () =>
+        (await run(listRuns(guy.id))).find((r) => r.id === chat)?.status ===
+        "completed",
+    );
+    const background = await Promise.all(
+      specialists.map((a) => run(listRuns(a.id))),
+    );
+    assert.equal(
+      background.flat().filter((r) => r.status === "running").length,
+      3,
+    );
+    assert.equal(
+      background.flat().filter((r) => r.status === "queued").length,
+      1,
+    );
+  } finally {
+    await stop?.();
+    await closeAgentRuntimes();
+    for (const [key, value] of Object.entries({
+      ROOST_DATA_DIR: old.data,
+      CODEX_HOME: old.home,
+      ROOST_CODEX_BINARY: old.binary,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

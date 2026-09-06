@@ -149,6 +149,7 @@ type Worker = {
   ticking: boolean;
   stopped: boolean;
   controllers: Map<string, AbortController>;
+  background: Set<string>;
   tick: () => Promise<void>;
   tasks: Set<Promise<void>>;
 };
@@ -166,6 +167,7 @@ export function startWorker() {
       ticking: false,
       stopped: false,
       controllers: new Map(),
+      background: new Set(),
       tick: async () => {},
       tasks: new Set(),
     };
@@ -196,10 +198,14 @@ export function startWorker() {
       for (const stop of stops)
         current.controllers.get(String(stop.id))?.abort();
       while (!current.stopped && current.controllers.size < 4) {
-        const run = await Effect.runPromise(claimRun(current.owner));
+        // Keep one slot available for user conversations while specialists work.
+        const run = await Effect.runPromise(
+          claimRun(current.owner, current.background.size < 3),
+        );
         if (!run) break;
         const controller = new AbortController();
         current.controllers.set(run.id, controller);
+        if (run.kind !== "chat") current.background.add(run.id);
         const task = execute(run, controller.signal)
           .catch(() =>
             console.error(
@@ -208,6 +214,7 @@ export function startWorker() {
           )
           .finally(() => {
             current.controllers.delete(run.id);
+            current.background.delete(run.id);
             current.tasks.delete(task);
           });
         current.tasks.add(task);

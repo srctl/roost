@@ -13,6 +13,7 @@ Each assignment starts a separate task thread. Its messages appear in the
 specialist's conversation, with a link back to the assigning agent.
 
 Roost runs up to four agents concurrently and one turn at a time per agent.
+At most three background tasks run together, leaving a slot for user conversations.
 When a specialist finishes, fails, is stopped, or is interrupted by a restart,
 the durable scheduler queues one result turn for the originating agent. That
 turn uses the originating agent's conversation and produces a user-facing update.
