@@ -2,10 +2,12 @@
 
 Roost can show and operate the machine's existing X11 desktop. The live preview
 appears in the conversation when an agent uses the computer, beneath its first
-computer action in that turn. It stays there through subsequent actions and
-moves when a later turn uses the computer. There is only one live preview;
-older messages do not show duplicate live screens. Click the monitor beside an
-agent's settings to reopen it, or to connect before the agent has used the computer.
+computer action in that turn. It stays there through subsequent actions, then
+disappears when the run finishes or is stopped. Closing it dismisses it for the
+rest of that run; a later run can open its own preview. Saved history never opens
+a live screen. Click the monitor beside an agent's settings to open the desktop
+yourself, including when the agent is idle. A manually opened desktop stays open
+until you close it.
 Expand it for an edge-to-edge view with a back button. This uses an in-app
 full-page dialog instead of the browser Fullscreen API, including on iPhone.
 The same VNC connection stays open when expanding or returning to chat.

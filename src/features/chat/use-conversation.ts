@@ -9,7 +9,7 @@ export function useConversation(
   const [messages, setMessages] = useState<readonly Message[]>(initialMessages);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const runId = useRef<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const submitting = useRef(false);
   const mounted = useRef(true);
   const generation = useRef(0);
@@ -26,7 +26,7 @@ export function useConversation(
       setError(undefined);
       setMessages(result.value.messages);
       setBusy(result.value.busy);
-      runId.current = result.value.runId;
+      setRunId(result.value.runId);
     } catch {
       if (mounted.current && version === generation.current)
         setError("Disconnected from Roost. Your run continues on the server.");
@@ -54,6 +54,7 @@ export function useConversation(
     setBusy(true);
     setError(undefined);
     const messageId = crypto.randomUUID();
+    setRunId(messageId);
     setMessages((messages) => [
       ...messages,
       { id: messageId, role: "user", text },
@@ -61,7 +62,7 @@ export function useConversation(
     try {
       const result = await sendMessage({ data: { agentId, messageId, text } });
       if (!result.ok) throw new Error(result.error);
-      runId.current = result.value.id;
+      setRunId(result.value.id);
     } catch {
       if (mounted.current)
         setError(
@@ -73,12 +74,12 @@ export function useConversation(
     }
   }
   async function stop() {
-    if (!runId.current) return;
+    if (!runId) return;
     const result = await stopMessage({
-      data: { agentId, id: runId.current },
+      data: { agentId, id: runId },
     }).catch(() => null);
     if (!result?.ok) setError("Could not stop the run. Try again.");
     else await reload();
   }
-  return { messages, busy, error, send, stop, reload };
+  return { messages, busy, runId, error, send, stop, reload };
 }

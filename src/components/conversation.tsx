@@ -26,16 +26,29 @@ export function Conversation({
   agent: Agent;
   messages: readonly Message[];
 }) {
-  const { messages, busy, error, send, stop, reload } = useConversation(
+  const { messages, busy, runId, error, send, stop, reload } = useConversation(
     agent.id,
     initialMessages,
   );
   const [computerEnabled, setComputerEnabled] = useState(false);
-  const [computerOpen, setComputerOpen] = useState(false);
-  const computerAnchor = computerPreviewAnchor(messages);
-  useEffect(() => {
-    if (computerAnchor) setComputerOpen(true);
-  }, [computerAnchor]);
+  const [manualComputerOpen, setManualComputerOpen] = useState(false);
+  const [dismissedComputerRun, setDismissedComputerRun] = useState<
+    string | null
+  >(null);
+  const computerAnchor = manualComputerOpen
+    ? undefined
+    : computerPreviewAnchor(messages, runId);
+  const computerOpen =
+    manualComputerOpen || !!(computerAnchor && dismissedComputerRun !== runId);
+  function closeComputer() {
+    setManualComputerOpen(false);
+    setDismissedComputerRun(runId);
+  }
+  function toggleComputer() {
+    if (computerOpen) return closeComputer();
+    setDismissedComputerRun(null);
+    setManualComputerOpen(!computerAnchor);
+  }
   useEffect(() => {
     let current = true;
     void getComputerStatus()
@@ -99,7 +112,7 @@ export function Conversation({
             <Button
               aria-label="Show computer"
               aria-expanded={computerOpen}
-              onClick={() => setComputerOpen(!computerOpen)}
+              onClick={toggleComputer}
             >
               <Icon name="monitor" />
             </Button>
@@ -144,16 +157,13 @@ export function Conversation({
                 message.id === computerAnchor && (
                   <ComputerPanel
                     agentName={agent.name}
-                    onClose={() => setComputerOpen(false)}
+                    onClose={closeComputer}
                   />
                 )}
             </Fragment>
           ))}
           {computerEnabled && computerOpen && !computerAnchor && (
-            <ComputerPanel
-              agentName={agent.name}
-              onClose={() => setComputerOpen(false)}
-            />
+            <ComputerPanel agentName={agent.name} onClose={closeComputer} />
           )}
           {busy && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />

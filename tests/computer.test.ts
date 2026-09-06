@@ -20,11 +20,11 @@ import {
   computerTools,
 } from "../src/server/computer/tools.server";
 
-test("the live preview stays with a turn's first computer action and moves only when a later turn uses the computer", () => {
+test("the preview follows only the current run and disappears when it finishes", () => {
   const messages: Message[] = [
     { id: "user-1", role: "user", text: "Look it up" },
   ];
-  assert.equal(computerPreviewAnchor(messages), undefined);
+  assert.equal(computerPreviewAnchor(messages, "user-1"), undefined);
   messages.push({
     id: "computer-1",
     role: "activity",
@@ -38,15 +38,19 @@ test("the live preview stays with a turn's first computer action and moves only 
     text: "",
   });
   messages.push({ id: "reply", role: "assistant", text: "Found it" });
+  assert.equal(computerPreviewAnchor(messages, "user-1"), "computer-1");
+  assert.equal(computerPreviewAnchor(messages, null), undefined);
   messages.push({ id: "user-2", role: "user", text: "Thanks" });
-  assert.equal(computerPreviewAnchor(messages), "computer-1");
+  assert.equal(computerPreviewAnchor(messages, "user-2"), undefined);
+  assert.equal(computerPreviewAnchor(messages, "scheduled-run"), undefined);
   messages.push({
     id: "computer-3",
     role: "activity",
     title: "roost_computer",
     text: "",
   });
-  assert.equal(computerPreviewAnchor(messages), "computer-3");
+  assert.equal(computerPreviewAnchor(messages, "user-2"), "computer-3");
+  assert.equal(computerPreviewAnchor(messages, null), undefined);
 });
 
 test("desktop tickets require the configured origin, expire, and can only connect once", () => {
