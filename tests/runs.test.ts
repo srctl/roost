@@ -283,7 +283,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     );
     const migrated = await run(getAgentConversation(a.id));
     assert.notEqual(migrated.threadId, original.threadId);
-    assert.equal(migrated.toolVersion, 2);
+    assert.equal(migrated.toolVersion, 3);
     assert.ok(
       JSON.parse(migrated.archive).some(
         (m: { text: string }) => m.text === "delayed",
@@ -299,6 +299,11 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
           `fake-${migrated.threadId}.json`,
         ),
         "utf8",
+      ),
+    );
+    assert.ok(
+      native.options.dynamicTools.some(
+        (tool: { name: string }) => tool.name === "roost_computer",
       ),
     );
     assert.ok(

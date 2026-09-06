@@ -18,6 +18,9 @@ collapsed with its toggle. Leaving the page detaches the view; server-owned work
 continues until it finishes or you press Stop. Attachments and interactive tool
 approvals are not implemented yet.
 
+For a live desktop preview and agent access to the machine’s signed-in browser,
+see [shared computer setup](docs/computer.md).
+
 ## Development
 
 Requires Node.js 22.13+ and pnpm 9.15.0 (via Corepack).

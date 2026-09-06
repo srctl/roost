@@ -11,6 +11,13 @@ export default defineConfig({
     tanstackStart(),
     nitro({
       preset: "node-server",
+      features: { websocket: true },
+      handlers: [
+        {
+          route: "/api/desktop/socket",
+          handler: "./src/server/computer/socket.server.ts",
+        },
+      ],
       plugins: ["./src/server/worker-plugin.ts"],
     }),
     react(),

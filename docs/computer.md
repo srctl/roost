@@ -1,0 +1,60 @@
+# Shared computer and browser
+
+Roost can show and operate the machine's existing X11 desktop. Click the monitor
+beside an agent's settings to open the live preview. Expand it for a larger view.
+**Take control** enables pointer and keyboard input for sign-ins; **Return
+control** resumes agent access. Closing the preview leaves the desktop and
+browser running. Reconnect after a dropped connection.
+
+Agents use `roost_computer` to see screenshots, click, move, scroll, type, and
+press keys in that same session. This operates the existing Chrome profile,
+including its sign-ins; it does not start a separate headless browser or copy
+cookies. Passwords and MFA belong in the viewer, entered by the user.
+
+All agents share this computer. Roost serializes their desktop access and blocks
+agent screenshots and input while a viewer has control. Control expires if its
+heartbeat stops; the server disconnects that viewer before allowing agent input.
+After returning control, ask the agent to continue. Outside VNC clients and
+programs on the machine do not participate in this coordination.
+
+## Linux configuration
+
+Use the desktop described in [the setup record](remote-desktop-setup.md), or an
+existing X11 desktop owned by the same operating-system user as Roost. Install
+ImageMagick (`import`) and `xdotool`. Keep the VNC listener on loopback. The
+embedded client supports the existing trusted, single-user VNC session with no
+VNC password; it relies on Roost's protected HTTP/WebSocket access.
+
+For the installed systemd service, add a drop-in with:
+
+```ini
+[Service]
+Environment=ROOST_DESKTOP_DISPLAY=:1
+Environment=ROOST_DESKTOP_ORIGIN=https://roost-dev.exe.xyz
+Environment=ROOST_DESKTOP_VNC_PORT=5901
+```
+
+Use your actual origin (scheme and host, plus port if present), display, and VNC
+port. The port defaults to 5901. Reload systemd and restart Roost after changing
+the environment. No Chrome restart or remote debugging port is required.
+
+Computer access is disabled unless both DISPLAY and ORIGIN are configured.
+Roost's browser client connects through `/api/desktop/socket`, using a short-lived,
+single-use ticket and an exact Origin check. The server can only connect to its
+configured loopback VNC port. noVNC defaults to view-only; this is an interaction
+mode, not a separate user permission. Anyone authorized to use this Roost
+installation can take control of its shared desktop.
+
+Roost is still a single-user application. Keep it on loopback with SSH access,
+or behind a reverse proxy that authenticates **both HTTP and WebSocket** requests.
+On roost-dev, the existing private exe.dev HTTPS proxy provides that boundary.
+Origin checks and tickets do not replace authentication. Do not expose the
+no-auth VNC or noVNC listeners publicly.
+
+The first message after upgrading migrates an older conversation to a thread
+with the new tools. Visible history and the agent's private memory home are
+preserved. Desktop images are supplied to Codex as tool results; the preview
+itself streams directly from VNC. Recording and replay are not implemented.
+
+This adapter currently targets Linux X11. macOS and Wayland need different
+capture/input adapters; installing Roost alone does not provision a desktop.

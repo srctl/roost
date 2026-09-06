@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { ComputerPanel } from "./computer-panel";
+import { getComputerStatus } from "../features/computer/functions";
+import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { TypingIndicator } from "./conversation/typing-indicator";
@@ -8,7 +10,7 @@ import { ConversationNotice } from "./conversation/notice";
 import { MobileNavigation } from "./mobile-navigation";
 import { Composer } from "./conversation/composer";
 import { Button } from "./ui/button";
-import { Avatar } from "./ui/primitives";
+import { Avatar, Icon } from "./ui/primitives";
 import { AgentSettings } from "./agent-settings";
 import { colors } from "../styles/tokens.stylex";
 import type { Agent } from "../features/agents/schema";
@@ -27,6 +29,19 @@ export function Conversation({
     agent.id,
     initialMessages,
   );
+  const [computerEnabled, setComputerEnabled] = useState(false);
+  const [computerOpen, setComputerOpen] = useState(false);
+  useEffect(() => {
+    let current = true;
+    void getComputerStatus()
+      .then((status) => {
+        if (current) setComputerEnabled(status.enabled);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, []);
   const viewport = useRef<HTMLDivElement>(null);
   const { responseStyle, showActivityDetails } = usePreferences();
   const followReply = useRef(true);
@@ -68,9 +83,19 @@ export function Conversation({
         <Avatar character={agent.character} />
         <h1 {...stylex.props(styles.title)}>{agent.name}</h1>
         <div {...stylex.props(styles.settings)}>
+          {computerEnabled && (
+            <Button
+              aria-label="Show computer"
+              aria-expanded={computerOpen}
+              onClick={() => setComputerOpen(!computerOpen)}
+            >
+              <Icon name="monitor" />
+            </Button>
+          )}
           <AgentSettings agent={agent} />
         </div>
       </header>
+      {computerOpen && <ComputerPanel onClose={() => setComputerOpen(false)} />}
       <ScrollArea
         label="Conversation history"
         viewportRef={viewport}
@@ -178,7 +203,7 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  settings: { marginLeft: "auto" },
+  settings: { marginLeft: "auto", display: "flex", gap: 4 },
   history: {
     flex: 1,
     minHeight: 0,

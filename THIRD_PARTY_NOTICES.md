@@ -28,3 +28,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## noVNC
+
+The live desktop viewer bundles unmodified noVNC 1.5.0, licensed under MPL-2.0.
+Its source is available at https://github.com/novnc/noVNC/tree/v1.5.0 and in the
+`@novnc/novnc` npm package. Release archives include its license in `licenses/`.

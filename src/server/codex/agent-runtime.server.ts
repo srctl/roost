@@ -1,3 +1,4 @@
+import { computerAction } from "../computer/tools.server";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import { mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -238,6 +239,8 @@ const makeAgentServer = (
       const call = Schema.decodeUnknownSync(ToolCall)(params);
       if (call.threadId !== threadId || call.namespace !== null)
         throw new Error();
+      if (call.tool === "roost_computer")
+        return Effect.runPromise(computerAction(agentId, call.arguments));
       const action = Effect.gen(function* () {
         if (call.tool === "roost_read_soul") return yield* readSoul(agentId);
         if (call.tool === "roost_list_automations")
