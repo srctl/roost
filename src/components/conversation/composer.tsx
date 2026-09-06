@@ -1,4 +1,10 @@
-import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/primitives";
 import * as stylex from "@stylexjs/stylex";
@@ -45,6 +51,12 @@ export function Composer({
     };
   }, [text]);
   const { responseStyle } = usePreferences();
+  function keepInputFocus(event: MouseEvent<HTMLButtonElement>) {
+    // Blurring before click dismisses the iOS keyboard and moves the button
+    // away from the tap. Keep focus; the native click still submits the form.
+    if (event.button === 0 && document.activeElement === input.current)
+      event.preventDefault();
+  }
   function submit(event: FormEvent) {
     event.preventDefault();
     if (loading || busy || !text.trim()) return;
@@ -84,6 +96,7 @@ export function Composer({
           <Button
             key="stop"
             type="button"
+            onMouseDown={keepInputFocus}
             onClick={onStop}
             aria-label="Stop response"
             xstyle={styles.send}
@@ -94,6 +107,7 @@ export function Composer({
           <Button
             key="send"
             type="submit"
+            onMouseDown={keepInputFocus}
             disabled={loading || !text.trim()}
             aria-label="Send message"
             xstyle={styles.send}
