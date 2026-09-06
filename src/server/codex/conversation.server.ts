@@ -158,7 +158,7 @@ export function sendConversation(
         codexHome,
         workspace,
       );
-      if (!isolated && savedThreadId && toolVersion < 5) {
+      if (!isolated && savedThreadId && toolVersion < 6) {
         const old = yield* client
           .request("thread/read", {
             threadId: savedThreadId,

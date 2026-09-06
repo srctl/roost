@@ -88,28 +88,30 @@ export const runAutomationNow = (
   id: string,
   requestId: string,
 ) =>
-  withAgentStore((db) => {
-    const automation = readAutomations(db, agentId).find((a) => a.id === id);
-    if (!automation)
-      throw new AgentStoreError({ message: "Automation not found." });
-    const existing = db
-      .prepare("SELECT * FROM runs WHERE id=?")
-      .get(requestId) as Run | undefined;
-    if (
-      existing &&
-      (existing.agentId !== agentId || existing.automationId !== id)
-    )
-      throw new AgentStoreError({
-        message: "This run ID has already been used.",
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      const automation = readAutomations(db, agentId).find((a) => a.id === id);
+      if (!automation)
+        throw new AgentStoreError({ message: "Automation not found." });
+      const existing = db
+        .prepare("SELECT * FROM runs WHERE id=?")
+        .get(requestId) as Run | undefined;
+      if (
+        existing &&
+        (existing.agentId !== agentId || existing.automationId !== id)
+      )
+        throw new AgentStoreError({
+          message: "This run ID has already been used.",
+        });
+      insertRun(db, {
+        id: requestId,
+        agentId,
+        prompt: automation.prompt,
+        automation,
       });
-    insertRun(db, {
-      id: requestId,
-      agentId,
-      prompt: automation.prompt,
-      automation,
-    });
-    return { id: requestId };
-  });
+      return { id: requestId };
+    }),
+  );
 export const listRuns = (agentId: string) =>
   withAgentStore(
     (db) =>

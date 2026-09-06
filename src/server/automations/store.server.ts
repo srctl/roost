@@ -28,6 +28,35 @@ export function readAutomations(
 }
 export const listAutomations = (agentId: string) =>
   withAgentStore((db) => readAutomations(db, agentId));
+export const deleteAutomation = (
+  agentId: string,
+  id: string,
+  revision: number,
+) =>
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      const automation = readAutomations(db, agentId).find((a) => a.id === id);
+      if (!automation || automation.revision !== revision)
+        throw new AgentStoreError({
+          message:
+            "This automation changed or was deleted. Reload before deleting.",
+        });
+      db.prepare("DELETE FROM automations WHERE id=? AND agentId=?").run(
+        id,
+        agentId,
+      );
+      db.prepare(
+        "UPDATE runs SET cancelRequested=1, status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END, finishedAt=CASE WHEN status='queued' THEN ? ELSE finishedAt END WHERE automationId=? AND agentId=? AND status IN ('queued','running')",
+      ).run(Date.now(), id, agentId);
+      putMessage(db, agentId, {
+        id: randomUUID(),
+        role: "notice",
+        noticeKind: "automation",
+        title: "Automation deleted",
+        text: automation.name,
+      });
+    }),
+  );
 export function requireAgent(db: DatabaseSync, id: string) {
   if (!db.prepare("SELECT id FROM agents WHERE id = ?").get(id))
     throw new AgentStoreError({ message: "Agent not found." });

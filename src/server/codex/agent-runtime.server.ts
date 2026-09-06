@@ -27,6 +27,7 @@ import {
   listAutomations,
   saveAutomation,
   toggleAutomation,
+  deleteAutomation,
 } from "../automations/store.server";
 import { runAutomationNow } from "../runs/store.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
@@ -99,6 +100,10 @@ const ToggleAutomationTool = Schema.Struct({
 const RunAutomationTool = Schema.Struct({
   id: Schema.UUID,
   requestId: Schema.UUID,
+});
+const DeleteAutomationTool = Schema.Struct({
+  id: Schema.UUID,
+  revision: Schema.NonNegativeInt,
 });
 
 export const soulTools: DynamicToolSpec[] = [
@@ -173,6 +178,13 @@ export const soulTools: DynamicToolSpec[] = [
     description:
       "Pause or resume an existing automation at the user's request. Read its current revision first. Pausing cancels queued runs; an active run continues until explicitly stopped.",
     inputSchema: JSONSchema.make(ToggleAutomationTool) as unknown as JsonValue,
+  },
+  {
+    type: "function",
+    name: "roost_delete_automation",
+    description:
+      "Delete one of this agent's automations only when explicitly requested by the user. Read its current ID and revision from the list tool first. Deletion removes the schedule, cancels queued runs, and requests cancellation of active runs. Past run history is retained. This cannot be undone; use pause for a temporary stop.",
+    inputSchema: JSONSchema.make(DeleteAutomationTool) as unknown as JsonValue,
   },
   {
     type: "function",
@@ -344,6 +356,13 @@ const makeAgentServer = (
             call.arguments,
           );
           return yield* runAutomationNow(agentId, args.id, args.requestId);
+        }
+        if (call.tool === "roost_delete_automation") {
+          const args = yield* Schema.decodeUnknown(DeleteAutomationTool)(
+            call.arguments,
+          );
+          yield* deleteAutomation(agentId, args.id, args.revision);
+          return { deleted: true };
         }
         return yield* new CodexError({ message: "Unknown Roost tool." });
       });

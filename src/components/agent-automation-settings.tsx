@@ -6,6 +6,7 @@ import {
   toggleAgentAutomation,
   runAgentAutomation,
   stopAgentRun,
+  deleteAgentAutomation,
 } from "../features/automations/functions";
 import type { Automation } from "../features/automations/schema";
 import type { Run } from "../server/runs/store.server";
@@ -118,6 +119,7 @@ export function AgentAutomationSettings({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Automation | "new">();
+  const [deleting, setDeleting] = useState<Automation>();
   const [runId, setRunId] = useState<string>();
   async function reload() {
     const result = await getAgentAutomations({ data: { agentId } });
@@ -194,6 +196,13 @@ export function AgentAutomationSettings({
         <>
           <Button onClick={() => setEditing("new")}>＋ New automation</Button>
           {!loaded && !error && <p>Loading…</p>}
+          {loaded &&
+            selectedId &&
+            !automations.some((a) => a.id === selectedId) && (
+              <p {...stylex.props(styles.help)}>
+                This automation is no longer available.
+              </p>
+            )}
           {loaded && !automations.length && (
             <p {...stylex.props(styles.help)}>
               No automations yet. You can create one here or ask your agent in
@@ -261,7 +270,49 @@ export function AgentAutomationSettings({
                 >
                   Run now
                 </Button>
+                <Button
+                  disabled={busy}
+                  aria-label={`Delete ${a.name}`}
+                  onClick={() => setDeleting(a)}
+                >
+                  Delete
+                </Button>
               </div>
+              {deleting?.id === a.id && (
+                <div role="group" aria-label={`Delete ${deleting.name}?`}>
+                  <p {...stylex.props(styles.help)}>
+                    Delete “{deleting.name}”? This removes the schedule, cancels
+                    queued runs, and stops any run in progress. Past run history
+                    stays available. This cannot be undone.
+                  </p>
+                  <div {...stylex.props(styles.actions)}>
+                    <Button
+                      disabled={busy}
+                      onClick={() => setDeleting(undefined)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void action(async () => {
+                          const result = await deleteAgentAutomation({
+                            data: {
+                              agentId,
+                              id: deleting.id,
+                              revision: deleting.revision,
+                            },
+                          });
+                          if (result.ok) setDeleting(undefined);
+                          return result;
+                        })
+                      }
+                    >
+                      Delete automation
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </>
@@ -330,7 +381,7 @@ const styles = stylex.create({
     gap: 8,
   },
   name: { fontWeight: 500 },
-  actions: { display: "flex", gap: 4 },
+  actions: { display: "flex", flexWrap: "wrap", gap: 4 },
   run: {
     display: "flex",
     alignItems: "center",

@@ -188,8 +188,8 @@ require separate OS users/containers and connector credentials.
 
 ### Runs and automations
 
-Agent settings → Automations supports creating, editing, pausing, resuming, and
-running saved tasks. Agents expose the same operations through Roost dynamic
+Agent settings → Automations supports creating, editing, pausing, resuming,
+running, and deleting saved tasks. Agents expose the same operations through Roost dynamic
 tools, so a direct request such as “check my inbox every weekday at 9am Pacific”
 can create a schedule in chat. Schedules are structured data, never instructions
 embedded in the soul. New tool versions migrate an existing chat into a fresh
@@ -202,7 +202,10 @@ schedules follow daylight saving time: missing local times are skipped, and a
 repeated local minute runs once at its first occurrence. After downtime, missed
 occurrences coalesce into one catch-up; no unbounded backlog is replayed.
 Pausing or editing cancels queued occurrences. A running task continues until
-explicitly stopped.
+explicitly stopped. Deleting an automation removes its schedule, cancels queued
+runs, and requests cancellation of active runs. Past runs and their outputs stay
+in history. The settings UI asks for confirmation before deletion; agents can
+delete their own automations when explicitly asked in chat.
 
 The Nitro worker starts with the Node server. SQLite records pending and active
 runs, deduplicates occurrence/request IDs, and enforces one active run per agent.

@@ -12,6 +12,7 @@ import {
   saveAutomation,
   toggleAutomation,
   listAutomations,
+  deleteAutomation,
 } from "../src/server/automations/store.server";
 import {
   enqueueChat,
@@ -40,6 +41,106 @@ const create = (name: string) =>
       model: "fake",
     }),
   );
+
+test("deleting an automation cancels its work atomically and preserves history and other work", async () => {
+  const directory = mkdtempSync("/tmp/roost-delete-automation-");
+  const old = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = directory;
+  try {
+    const agent = await create("Owner");
+    const otherAgent = await create("Other");
+    const automation = await run(
+      saveAutomation({
+        id: randomUUID(),
+        agentId: agent.id,
+        name: "Delete me",
+        prompt: "Check updates",
+        schedule: { kind: "interval", minutes: 60, timezone: "UTC" },
+        notification: "always",
+      }),
+    );
+    const other = await run(
+      saveAutomation({ ...automation, id: randomUUID(), name: "Keep me" }),
+    );
+    await run(schedulerTick("delete-test"));
+    const completed = await run(
+      runAutomationNow(agent.id, automation.id, randomUUID()),
+    );
+    const first = (await run(claimRun("delete-test")))!;
+    await run(
+      finishRun(first, "completed", [
+        { id: randomUUID(), role: "assistant", text: "Saved result" },
+      ]),
+    );
+    await run(runAutomationNow(agent.id, automation.id, randomUUID()));
+    const active = (await run(claimRun("delete-test")))!;
+    const queued = await run(
+      runAutomationNow(agent.id, automation.id, randomUUID()),
+    );
+    const unrelated = await run(
+      runAutomationNow(agent.id, other.id, randomUUID()),
+    );
+    const chat = { agentId: agent.id, messageId: randomUUID(), text: "Hello" };
+    await run(enqueueChat(chat));
+    const before = await run(listRuns(agent.id));
+
+    await assert.rejects(
+      run(deleteAutomation(otherAgent.id, automation.id, automation.revision)),
+    );
+    await assert.rejects(
+      run(deleteAutomation(agent.id, automation.id, automation.revision + 1)),
+    );
+    await run(
+      withAgentStore((db) =>
+        db.exec(
+          "CREATE TRIGGER fail_delete_notice BEFORE INSERT ON timeline BEGIN SELECT RAISE(ABORT, 'unavailable'); END;",
+        ),
+      ),
+    );
+    await assert.rejects(
+      run(deleteAutomation(agent.id, automation.id, automation.revision)),
+    );
+    assert.equal((await run(listAutomations(agent.id))).length, 2);
+    assert.deepEqual(await run(listRuns(agent.id)), before);
+    await run(
+      withAgentStore((db) => db.exec("DROP TRIGGER fail_delete_notice")),
+    );
+
+    await run(deleteAutomation(agent.id, automation.id, automation.revision));
+    assert.deepEqual(await run(listAutomations(agent.id)), [other]);
+    const after = await run(listRuns(agent.id));
+    assert.deepEqual(
+      after.find((r) => r.id === completed.id),
+      before.find((r) => r.id === completed.id),
+    );
+    assert.equal(after.find((r) => r.id === queued.id)!.status, "cancelled");
+    assert.ok(after.find((r) => r.id === queued.id)!.finishedAt);
+    assert.equal(after.find((r) => r.id === active.id)!.cancelRequested, 1);
+    for (const id of [unrelated.id, chat.messageId])
+      assert.deepEqual(
+        after.find((r) => r.id === id),
+        before.find((r) => r.id === id),
+      );
+    const timeline = await run(readTimeline(agent.id));
+    assert.ok(timeline.some((m) => m.text === "Saved result"));
+    assert.equal(timeline.at(-1)!.title, "Automation deleted");
+    await assert.rejects(
+      run(runAutomationNow(agent.id, automation.id, randomUUID())),
+      /not found/,
+    );
+    await run(schedulerTick("delete-test", Date.now() + 3600001));
+    assert.equal(
+      (await run(listRuns(agent.id))).filter(
+        (r) => r.automationId === automation.id,
+      ).length,
+      3,
+    );
+  } finally {
+    if (old === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = old;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("timeline failures roll back run changes so queuing and completion can be retried", async () => {
   const directory = mkdtempSync("/tmp/roost-run-rollback-");
@@ -422,7 +523,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     );
     const migrated = await run(getAgentConversation(a.id));
     assert.notEqual(migrated.threadId, original.threadId);
-    assert.equal(migrated.toolVersion, 5);
+    assert.equal(migrated.toolVersion, 6);
     assert.ok(
       JSON.parse(migrated.archive).some(
         (m: { text: string }) => m.text === "delayed",

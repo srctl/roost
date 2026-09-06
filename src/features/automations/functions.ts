@@ -6,6 +6,7 @@ import {
   listAutomations,
   saveAutomation,
   toggleAutomation,
+  deleteAutomation,
 } from "../../server/automations/store.server";
 import {
   listRuns,
@@ -87,6 +88,16 @@ export const runAgentAutomation = createServerFn({ method: "POST" })
     startWorker();
     return result(runAutomationNow(data.agentId, data.id, data.requestId));
   });
+export const deleteAgentAutomation = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(
+      Schema.Struct({ ...Entry.fields, revision: Schema.NonNegativeInt }),
+    ),
+  )
+  .handler(({ data }) =>
+    result(deleteAutomation(data.agentId, data.id, data.revision)),
+  );
 export const stopAgentRun = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(Entry))
