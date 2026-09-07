@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FileAttachment } from "./files";
 import { getConversation, sendMessage, stopMessage } from "./functions";
-import { mergeEntries, type Entry } from "./timeline";
+import { type Entry, mergeEntries } from "./timeline";
 
 export function useConversation(agentId: string) {
   const [entries, setEntries] = useState<readonly Entry[]>([]);
@@ -21,7 +22,7 @@ export function useConversation(agentId: string) {
   const mounted = useRef(true);
   const generation = useRef(0);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     const version = ++generation.current;
     try {
       const result = await getConversation({
@@ -54,7 +55,7 @@ export function useConversation(agentId: string) {
       if (mounted.current && version === generation.current)
         setError("Disconnected from Roost. Your run continues on the server.");
     }
-  }
+  }, [agentId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -73,7 +74,7 @@ export function useConversation(agentId: string) {
       mounted.current = false;
       clearTimeout(timer);
     };
-  }, [agentId]);
+  }, [reload]);
 
   async function loadOlder() {
     if (before === null || paging.current) return;
@@ -102,8 +103,14 @@ export function useConversation(agentId: string) {
     }
   }
 
-  async function send(text: string) {
-    if (submitting.current || loading || busy || !text.trim()) return;
+  async function send(text: string, files: readonly FileAttachment[] = []) {
+    if (
+      submitting.current ||
+      loading ||
+      busy ||
+      (!text.trim() && !files.length)
+    )
+      return false;
     generation.current++;
     submitting.current = true;
     setBusy(true);
@@ -114,18 +121,32 @@ export function useConversation(agentId: string) {
       ...entries,
       {
         position: (entries.at(-1)?.position ?? 0) + 0.5,
-        message: { id: messageId, role: "user", text },
+        message: {
+          id: messageId,
+          role: "user",
+          text,
+          ...(files.length ? { files } : {}),
+        },
       },
     ]);
     try {
-      const result = await sendMessage({ data: { agentId, messageId, text } });
+      const result = await sendMessage({
+        data: {
+          agentId,
+          messageId,
+          text,
+          attachmentIds: files.map((file) => file.id),
+        },
+      });
       if (!result.ok) throw new Error(result.error);
       setRunId(result.value.id);
+      return true;
     } catch {
       if (mounted.current)
         setError(
           "Couldn't confirm the send. Check the conversation before resending.",
         );
+      return false;
     } finally {
       submitting.current = false;
       if (mounted.current) await reload();

@@ -15,8 +15,15 @@ runs; Codex retains its native thread history in each agent's private home.
 This first conversation pass supports text, sending, stopping, restored history,
 thinking summaries, and expandable tool calls and output. The sidebar can be
 collapsed with its toggle. Leaving the page detaches the view; server-owned work
-continues until it finishes or you press Stop. Attachments and interactive tool
-approvals are not implemented yet.
+continues until it finishes or you press Stop. You can upload files, paste screenshots,
+download agent outputs, and answer approval requests directly in the conversation.
+See [files and approvals](docs/files-and-approvals.md).
+
+Enable [push notifications](docs/notifications.md) for completed work, failures,
+and approval requests. Optional [dashboards](docs/dashboards.md), off by default,
+keep notes, metrics, tables, charts, links, and tasks outside the conversation.
+Agents can create and update these components with you.
+[PWA startup measurements](docs/pwa-startup.md) document launch improvements.
 
 For a live desktop preview and agent access to the machine’s signed-in browser,
 see [shared computer setup](docs/computer.md).
@@ -144,7 +151,7 @@ Open an agent's settings from the conversation header:
   soul changes, since resume overrides alone do not replace existing messages.
 - Agents can use `roost_read_soul` and `roost_update_soul` to evolve their own
   soul. These tools are bound to the current agent and thread and accept no
-  filesystem path. Other file writes remain disabled. The agent is instructed
+  filesystem path. Agents can also create files in their own workspace. The agent is instructed
   to make targeted edits for explicit lasting requests, and propose inferred
   changes before applying them. These authorization rules are prompt instructions;
   scheduled runs are additionally blocked from mutation tools by the server.
@@ -221,15 +228,15 @@ into the ongoing Roost conversation and supplied as quoted context on the next
 chat turn. “Only when something needs attention” asks the agent for an exact
 `ROOST_NO_UPDATE` final response when there is nothing to report; these successful
 runs remain in history without a chat message. Failures are always visible.
-This preference controls Roost chat messages, not operating-system notifications.
+This preference also suppresses completion push notifications for quiet runs.
 
 Run history includes status, task, output/tool activity, and the soul revision
 used. Closing a browser never cancels a run. Stop cancels the selected queued or
 active run. The worker requires **Roost and the machine to remain running**;
-there is no cloud scheduler or wake-from-sleep service. Chat still uses a
-read-only sandbox with approvals disabled and instructions limiting tools to
-read-only operations, except Roost's explicit soul/automation tools. Scheduling
-a task does not grant it new permissions.
+there is no cloud scheduler or wake-from-sleep service. Chat uses a workspace-write
+sandbox with one-time approval requests for actions needing permission. Agents
+can create files in their own workspace; external actions still require explicit
+authorization. Scheduling a task does not grant it new permissions.
 
 The conversation uses shadcn Base UI Scroll Area and Collapsible composition,
 styled with StyleX. Streaming follows the latest reply until you scroll up.

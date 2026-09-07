@@ -22,9 +22,11 @@ follows the visual viewport's height and top offset. On blur it removes those
 overrides, including when iOS retains a stale visual viewport size. The composer uses 16px text to avoid input zoom and
 removes the home-indicator inset while the keyboard occupies that space.
 
-Production builds register a small service worker that only supplies an offline
-screen when a navigation cannot reach the server. It does not cache conversations,
-credentials, API responses, or application bundles. Updates arrive on the next
+Production builds register a service worker that caches immutable build assets,
+supports push notifications, and supplies an offline screen when a navigation
+cannot reach the server. It does not cache conversations, credentials, attachments,
+HTML pages, or API responses. See [startup measurements](pwa-startup.md) and
+[notification setup](notifications.md). Updates arrive on the next
 page load; an active conversation is never automatically reloaded. Roost still
 requires a connection to its server to send messages or control the computer.
 

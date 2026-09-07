@@ -1,35 +1,35 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
+import { readSoul } from "../src/server/agents/soul.server";
 import {
+  getAgentConversation,
   saveAgent,
   withAgentStore,
-  getAgentConversation,
 } from "../src/server/agents/store.server";
 import {
+  deleteAutomation,
+  listAutomations,
   saveAutomation,
   toggleAutomation,
-  listAutomations,
-  deleteAutomation,
 } from "../src/server/automations/store.server";
+import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
 import {
-  enqueueChat,
-  schedulerTick,
+  cancelRun,
   claimRun,
-  listRuns,
+  enqueueChat,
   finishRun,
+  listRuns,
   persistRun,
   runAutomationNow,
-  cancelRun,
+  schedulerTick,
 } from "../src/server/runs/store.server";
 import { readTimeline } from "../src/server/runs/timeline.server";
 import { startWorker } from "../src/server/runs/worker.server";
-import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
-import { readSoul } from "../src/server/agents/soul.server";
-import { fileURLToPath } from "node:url";
-import { join } from "node:path";
 
 const run = Effect.runPromise;
 
@@ -383,7 +383,7 @@ test("durable queue serializes each agent, deduplicates requests, catches up onc
     );
     await run(schedulerTick("second"));
     await run(schedulerTick("second"));
-    let automated = (await run(listRuns(a.id))).filter(
+    const automated = (await run(listRuns(a.id))).filter(
       (r) => r.kind === "automation",
     );
     assert.equal(automated.length, 1);
@@ -529,7 +529,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
     );
     const migrated = await run(getAgentConversation(a.id));
     assert.notEqual(migrated.threadId, original.threadId);
-    assert.equal(migrated.toolVersion, 6);
+    assert.equal(migrated.toolVersion, 7);
     assert.ok(
       JSON.parse(migrated.archive).some(
         (m: { text: string }) => m.text === "delayed",

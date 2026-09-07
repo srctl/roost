@@ -1,19 +1,19 @@
-import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
-import { readSoul } from "../src/server/agents/soul.server";
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
+import type { ChatEvent } from "../src/features/chat/schema";
+import { readSoul } from "../src/server/agents/soul.server";
 import { saveAgent, withAgentStore } from "../src/server/agents/store.server";
+import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
 import {
   readConversation,
   sendConversation,
 } from "../src/server/codex/conversation.server";
-import type { ChatEvent } from "../src/features/chat/schema";
 
 test("chat lifecycle preserves history, isolates agents, migrates legacy sessions, and scopes soul tools", async () => {
   const directory = mkdtempSync(join(tmpdir(), "roost-chat-test-"));
@@ -175,6 +175,7 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
     assert.deepEqual(localThread.toolChecks, {
       updated: true,
       foreignRejected: true,
+      staleRejected: true,
     });
     assert.equal(
       localThread.environment.home,

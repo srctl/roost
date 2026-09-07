@@ -1,11 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import { colors } from "../styles/tokens.stylex";
 import type { AgentActivity } from "../server/agents/activity.server";
+import { colors } from "../styles/tokens.stylex";
 
 const labels = {
   working: "Working",
   queued: "Queued",
   delegating: "Waiting on another agent",
+  approval: "Waiting for your approval",
 };
 
 export function AgentWorking({ activity }: { activity: AgentActivity }) {

@@ -1,23 +1,33 @@
 import { Effect, JSONSchema, Schema } from "effect";
-import { listAgents } from "../agents/store.server";
-import { readSoul, patchSoul, SoulPatch } from "../agents/soul.server";
-import {
-  delegateTask,
-  DelegateTask,
-  listDelegations,
-} from "../delegations/store.server";
 import { AutomationInput } from "../../features/automations/schema";
+import { patchSoul, readSoul, SoulPatch } from "../agents/soul.server";
+import { listAgents } from "../agents/store.server";
+import { approvalTools } from "../approvals/tools.server";
 import {
+  deleteAutomation,
   listAutomations,
   saveAutomation,
   toggleAutomation,
-  deleteAutomation,
 } from "../automations/store.server";
+import {
+  DeleteDashboard,
+  dashboardTools,
+  deleteDashboard,
+  listDashboards,
+  SaveDashboard,
+  saveDashboard,
+} from "../dashboards/tools.server";
+import {
+  DelegateTask,
+  delegateTask,
+  listDelegations,
+} from "../delegations/store.server";
+import { fileTools } from "../files/tools.server";
 import { runAutomationNow } from "../runs/store.server";
 import { CodexError } from "./app-server.server";
-import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
-import type { DynamicToolCallResponse } from "./protocol/v2/DynamicToolCallResponse";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
+import type { DynamicToolCallResponse } from "./protocol/v2/DynamicToolCallResponse";
+import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
 
 const SaveAutomationTool = Schema.Struct({
   ...AutomationInput.omit("agentId").fields,
@@ -41,6 +51,9 @@ const DeleteAutomationTool = Schema.Struct({
 });
 
 export const agentTools: DynamicToolSpec[] = [
+  ...approvalTools,
+  ...fileTools,
+  ...dashboardTools,
   {
     type: "function",
     name: "roost_list_agents",
@@ -141,6 +154,17 @@ export function handleAgentTool(
   arguments_: unknown,
 ) {
   const action = Effect.gen(function* () {
+    if (tool === "roost_list_dashboards") return yield* listDashboards(agentId);
+    if (tool === "roost_save_dashboard")
+      return yield* saveDashboard(
+        agentId,
+        yield* Schema.decodeUnknown(SaveDashboard)(arguments_),
+      );
+    if (tool === "roost_delete_dashboard")
+      return yield* deleteDashboard(
+        agentId,
+        yield* Schema.decodeUnknown(DeleteDashboard)(arguments_),
+      );
     if (tool === "roost_list_agents") {
       return (yield* listAgents())
         .filter((agent) => agent.id !== agentId)

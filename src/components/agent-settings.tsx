@@ -1,17 +1,23 @@
 import * as stylex from "@stylexjs/stylex";
+import { lazy, Suspense } from "react";
 import type { Agent } from "../features/agents/schema";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
 import {
   Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
   SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
 } from "./ui/sheet";
-import { AgentIdentitySettings } from "./agent-identity-settings";
+
+const AgentIdentitySettings = lazy(() =>
+  import("./agent-identity-settings").then((module) => ({
+    default: module.AgentIdentitySettings,
+  })),
+);
 
 export function AgentSettings({ agent }: { agent: Agent }) {
   return (
@@ -36,13 +42,18 @@ export function AgentSettings({ agent }: { agent: Agent }) {
             <Icon name="close" />
           </SheetClose>
         </header>
-        <AgentIdentitySettings agentId={agent.id} />
+        <Suspense
+          fallback={<p {...stylex.props(styles.loading)}>Loading settings…</p>}
+        >
+          <AgentIdentitySettings agentId={agent.id} />
+        </Suspense>
       </SheetContent>
     </Sheet>
   );
 }
 
 const styles = stylex.create({
+  loading: { padding: 24, color: colors.muted },
   header: {
     display: "flex",
     alignItems: "center",

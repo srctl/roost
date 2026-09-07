@@ -1,29 +1,31 @@
-import { getComputerStatus } from "../features/computer/functions";
-import { computerPreviewAnchor } from "../features/computer/preview";
+import * as stylex from "@stylexjs/stylex";
 import {
   Fragment,
-  Suspense,
   lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
-import * as stylex from "@stylexjs/stylex";
-import { AgentMessage, UserMessage } from "./conversation/message";
-import { TypingIndicator } from "./conversation/typing-indicator";
-import { ScrollArea } from "./ui/scroll-area";
-import { ToolActivity } from "./conversation/tool-activity";
-import { ConversationNotice } from "./conversation/notice";
-import { MobileNavigation } from "./mobile-navigation";
-import { Composer } from "./conversation/composer";
-import { Button } from "./ui/button";
-import { Avatar, Icon } from "./ui/primitives";
-import { AgentSettings } from "./agent-settings";
-import { colors } from "../styles/tokens.stylex";
+import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
 import { useConversation } from "../features/chat/use-conversation";
+import { getComputerStatus } from "../features/computer/functions";
+import { computerPreviewAnchor } from "../features/computer/preview";
 import { usePreferences } from "../features/settings/preferences";
+import { colors } from "../styles/tokens.stylex";
+import { AgentSettings } from "./agent-settings";
+import { ApprovalRequests } from "./approval-requests";
+import { Composer } from "./conversation/composer";
+import { AgentMessage, UserMessage } from "./conversation/message";
+import { ConversationNotice } from "./conversation/notice";
+import { ToolActivity } from "./conversation/tool-activity";
+import { TypingIndicator } from "./conversation/typing-indicator";
+import { MobileNavigation } from "./mobile-navigation";
+import { Button } from "./ui/button";
+import { Avatar, Icon } from "./ui/primitives";
+import { ScrollArea } from "./ui/scroll-area";
 
 const ComputerPanel = lazy(() =>
   import("./computer-panel").then((module) => ({
@@ -32,6 +34,7 @@ const ComputerPanel = lazy(() =>
 );
 
 export function Conversation({ agent }: { agent: Agent }) {
+  const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
     messages,
     computerAnchor: savedComputerAnchor,
@@ -181,13 +184,17 @@ export function Conversation({ agent }: { agent: Agent }) {
           {messages.map((message) => (
             <Fragment key={message.id}>
               {message.role === "user" ? (
-                <UserMessage>{message.text}</UserMessage>
+                <UserMessage files={message.files}>{message.text}</UserMessage>
               ) : message.role === "notice" ? (
                 <ConversationNotice agentId={agent.id} message={message} />
               ) : message.role === "activity" ? (
                 <ToolActivity agentId={agent.id} message={message} />
               ) : (
-                <AgentMessage name={agent.name} title={message.title}>
+                <AgentMessage
+                  name={agent.name}
+                  title={message.title}
+                  files={message.files}
+                >
                   {message.text}
                 </AgentMessage>
               )}
@@ -213,7 +220,7 @@ export function Conversation({ agent }: { agent: Agent }) {
                 />
               </Suspense>
             )}
-          {busy && responseStyle === "messages" && (
+          {busy && !waitingForApproval && responseStyle === "messages" && (
             <TypingIndicator name={agent.name} />
           )}
         </div>
@@ -235,15 +242,23 @@ export function Conversation({ agent }: { agent: Agent }) {
           </Button>
         </div>
       )}
+      <ApprovalRequests agentId={agent.id} busy={busy} />
       <Composer
+        agentId={agent.id}
         agentName={agent.name}
         busy={busy}
         loading={loading}
-        status={busy ? liveStatus : undefined}
-        onSend={(text) => {
+        status={
+          busy
+            ? waitingForApproval
+              ? "Waiting for you"
+              : liveStatus
+            : undefined
+        }
+        onSend={(text, files) => {
           followReply.current = true;
 
-          return send(text);
+          return send(text, files);
         }}
         onStop={stop}
       />

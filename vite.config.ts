@@ -11,6 +11,7 @@ export default defineConfig({
     tanstackStart(),
     nitro({
       preset: "node-server",
+      compressPublicAssets: true,
       features: { websocket: true },
       handlers: [
         {

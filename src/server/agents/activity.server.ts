@@ -1,6 +1,6 @@
 import { withAgentStore } from "./store.server";
 
-export type AgentActivity = "working" | "queued" | "delegating";
+export type AgentActivity = "working" | "queued" | "delegating" | "approval";
 
 export const readAgentActivity = () =>
   withAgentStore((db) => {
@@ -19,5 +19,11 @@ export const readAgentActivity = () =>
       activity[String(row.agentId)] =
         row.status === "running" ? "working" : "queued";
 
+    for (const row of db
+      .prepare(
+        "SELECT DISTINCT a.agentId FROM approvals a JOIN runs r ON r.id=a.runId WHERE a.status='pending' AND r.status='running' AND r.cancelRequested=0",
+      )
+      .all())
+      activity[String(row.agentId)] = "approval";
     return activity;
   });

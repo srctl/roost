@@ -1,21 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { Effect } from "effect";
-import type { Message, ChatEvent } from "../../features/chat/schema";
-import { withAgentStore, AgentStoreError } from "../agents/store.server";
+import type { ChatEvent, Message } from "../../features/chat/schema";
+import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { CodexError } from "../codex/app-server.server";
 import {
   readConversation,
   sendConversation,
 } from "../codex/conversation.server";
-import { readTimeline, putMessage } from "./timeline.server";
+import { notifyRunFinished } from "../notifications/push.server";
 import {
-  schedulerTick,
   claimRun,
-  persistRun,
   finishRun,
+  persistRun,
   type Run,
+  schedulerTick,
 } from "./store.server";
+import { putMessage, readTimeline } from "./timeline.server";
 
 export const ensureTimeline = (agentId: string) =>
   Effect.gen(function* () {
@@ -145,6 +146,7 @@ async function execute(run: Run, signal: AbortSignal) {
     m.status === "inProgress" ? { ...m, status: "interrupted" } : m,
   );
   await Effect.runPromise(finishRun(run, status, messages, error));
+  notifyRunFinished(run.id);
 }
 
 type Worker = {
@@ -162,7 +164,8 @@ const globalState = globalThis as typeof globalThis & {
   roostWorkers?: Map<string, Worker>;
 };
 
-const workers = (globalState.roostWorkers ??= new Map<string, Worker>());
+globalState.roostWorkers ??= new Map<string, Worker>();
+const workers = globalState.roostWorkers;
 
 export function startWorker() {
   const root = resolve(process.env.ROOST_DATA_DIR ?? ".roost");

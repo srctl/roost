@@ -108,8 +108,8 @@ export const deleteAgentAutomation = createServerFn({ method: "POST" })
     result(deleteAutomation(data.agentId, data.id, data.revision)),
   );
 
+// Stopping existing scheduled work must remain possible during an update.
 export const stopAgentRun = createServerFn({ method: "POST" })
-  .middleware([available])
   .validator(Schema.decodeUnknownSync(Entry))
   .handler(({ data }) => result(cancelRun(data.agentId, data.id)));
 

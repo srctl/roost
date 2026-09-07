@@ -1,14 +1,15 @@
-import { Link } from "@tanstack/react-router";
-import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
-import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import type { Message } from "../../features/chat/schema";
 import { colors } from "../../styles/tokens.stylex";
+import { AgentAutomationSettings } from "../agent-automation-settings";
+import { ApprovalRequests } from "../approval-requests";
+import { RunInspector } from "../run-details";
+import { SoulChangeDetails } from "../soul-change";
 import { Button } from "../ui/button";
 import { Inspector } from "../ui/inspector";
-import { SoulChangeDetails } from "../soul-change";
-import { AgentAutomationSettings } from "../agent-automation-settings";
-import { RunInspector } from "../run-details";
 
 export function ConversationNotice({
   agentId,
@@ -47,7 +48,11 @@ export function ConversationNotice({
         </Button>
       )}
       {open &&
-        (message.noticeKind === "soul" ? (
+        (message.noticeKind === "approval" ? (
+          <Inspector title="Approval" onClose={() => setOpen(false)}>
+            <ApprovalRequests agentId={agentId} id={message.referenceId!} />
+          </Inspector>
+        ) : message.noticeKind === "soul" ? (
           <SoulChangeDetails
             agentId={agentId}
             id={message.referenceId!}

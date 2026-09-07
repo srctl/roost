@@ -82,8 +82,8 @@ export const sendMessage = createServerFn({ method: "POST" })
     );
   });
 
+// Let the user stop existing work while an update waits for runs to drain.
 export const stopMessage = createServerFn({ method: "POST" })
-  .middleware([available])
   .validator(
     Schema.decodeUnknownSync(
       Schema.Struct({ agentId: Schema.UUID, id: Schema.UUID }),

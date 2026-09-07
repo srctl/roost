@@ -3,11 +3,19 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Context, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
+import { cancelApproval, waitForApproval } from "../approvals/store.server";
+import {
+  handleNativeApproval,
+  isNativeApproval,
+  RequestApproval,
+} from "../approvals/tools.server";
+import { releaseComputer } from "../computer/session.server";
 import { computerAction } from "../computer/tools.server";
-import { CodexError, openAppServer, openHostServer } from "./app-server.server";
+import { PublishArtifact, publishArtifact } from "../files/tools.server";
 import { handleAgentTool } from "./agent-tools.server";
-import type { LoginAccountParams } from "./protocol/v2/LoginAccountParams";
+import { CodexError, openAppServer, openHostServer } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
+import type { LoginAccountParams } from "./protocol/v2/LoginAccountParams";
 
 const hostHome = () =>
   resolve(process.env.CODEX_HOME ?? join(homedir(), ".codex"));
@@ -74,6 +82,7 @@ const hostCredentials = Effect.scoped(
 
 const ToolCall = Schema.Struct({
   threadId: Schema.String,
+  turnId: Schema.String,
   namespace: Schema.NullOr(Schema.String),
   tool: Schema.String,
   arguments: Schema.Unknown,
@@ -160,7 +169,43 @@ const makeAgentServer = (
     let allowMutations = false;
     let runId: string | undefined;
     let toolSignal: AbortSignal | undefined;
-    client.onRequest = async (method, params) => {
+    let turnId: string | undefined;
+    const changes = new Map<string, unknown>();
+    yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        client.subscribe(
+          (method, raw) => {
+            const event = raw as {
+              threadId?: string;
+              turn?: { id: string };
+              item?: { id: string; changes?: unknown };
+              requestId?: string | number;
+            };
+            if (event.threadId !== threadId) return;
+            if (method === "turn/started") turnId = event.turn?.id;
+            if (method === "item/started" && event.item?.changes)
+              changes.set(event.item.id, event.item.changes);
+            if (
+              method === "serverRequest/resolved" &&
+              runId &&
+              threadId &&
+              event.requestId !== undefined
+            )
+              void Effect.runPromise(
+                cancelApproval({
+                  agentId,
+                  runId,
+                  threadId,
+                  requestKey: JSON.stringify(event.requestId),
+                }),
+              ).catch(() => {});
+          },
+          () => {},
+        ),
+      ),
+      (unsubscribe) => Effect.sync(unsubscribe),
+    );
+    client.onRequest = async (method, params, requestId) => {
       if (method === "account/chatgptAuthTokens/refresh") {
         const auth = await Effect.runPromise(hostCredentials);
 
@@ -175,13 +220,36 @@ const makeAgentServer = (
         };
       }
 
+      const context =
+        runId && threadId
+          ? { agentId, runId, threadId, requestKey: JSON.stringify(requestId) }
+          : undefined;
+      if (isNativeApproval(method)) {
+        if (!context || !toolSignal) throw new Error("No active run.");
+        releaseComputer(agentId);
+        const itemId = (params as { itemId?: string }).itemId;
+        return handleNativeApproval(
+          context,
+          method,
+          params,
+          turnId,
+          itemId ? changes.get(itemId) : undefined,
+          toolSignal,
+        );
+      }
       if (method !== "item/tool/call") {
         throw new Error();
       }
 
       const call = Schema.decodeUnknownSync(ToolCall)(params);
 
-      if (call.threadId !== threadId || call.namespace !== null) {
+      if (
+        call.threadId !== threadId ||
+        call.turnId !== turnId ||
+        call.namespace !== null ||
+        !toolSignal ||
+        toolSignal.aborted
+      ) {
         throw new Error();
       }
 
@@ -189,6 +257,36 @@ const makeAgentServer = (
         return Effect.runPromise(computerAction(agentId, call.arguments), {
           signal: toolSignal,
         });
+      }
+
+      if (call.tool === "roost_request_approval") {
+        if (!context || !toolSignal) throw new Error("No active run.");
+        releaseComputer(agentId);
+        const response = await waitForApproval(
+          context,
+          Schema.decodeUnknownSync(RequestApproval)(call.arguments),
+          toolSignal,
+        );
+        return {
+          success: true,
+          contentItems: [{ type: "inputText", text: JSON.stringify(response) }],
+        };
+      }
+
+      if (call.tool === "roost_publish_artifact") {
+        if (!runId) throw new Error("No active run.");
+        const file = await Effect.runPromise(
+          publishArtifact(
+            agentId,
+            runId,
+            Schema.decodeUnknownSync(PublishArtifact)(call.arguments),
+          ),
+          { signal: toolSignal },
+        );
+        return {
+          success: true,
+          contentItems: [{ type: "inputText", text: JSON.stringify(file) }],
+        };
       }
 
       return handleAgentTool(
@@ -209,9 +307,14 @@ const makeAgentServer = (
         signal?: AbortSignal,
       ) => {
         toolSignal = signal;
+        turnId = undefined;
+        changes.clear();
         runId = activeRunId;
         threadId = id;
         allowMutations = mutations;
+      },
+      bindTurn: (id: string) => {
+        turnId = id;
       },
       config: { apps: omitNulls((config.apps ?? {}) as unknown as JsonValue) },
     };
@@ -237,10 +340,8 @@ const globals = globalThis as typeof globalThis & {
   roostAgentRuntimes?: Map<string, RuntimeEntry>;
 };
 
-const runtimes = (globals.roostAgentRuntimes ??= new Map<
-  string,
-  RuntimeEntry
->());
+globals.roostAgentRuntimes ??= new Map<string, RuntimeEntry>();
+const runtimes = globals.roostAgentRuntimes;
 
 export const closeAgentRuntimes = async () => {
   const entries = [...runtimes.values()];

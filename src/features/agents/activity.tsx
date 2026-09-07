@@ -1,12 +1,12 @@
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
 } from "react";
-import { getAgentActivity } from "./functions";
 import type { AgentActivity } from "../../server/agents/activity.server";
+import { getAgentActivity } from "./functions";
 
 const Context = createContext<Record<string, AgentActivity>>({});
 

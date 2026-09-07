@@ -1,14 +1,17 @@
-import { writeTransaction } from "../transaction.server";
-import { deliverDelegationResults } from "../delegations/store.server";
-import { assertAvailable, isMaintenance } from "../maintenance.server";
 import { randomUUID } from "node:crypto";
-import type { Message, SendMessage } from "../../features/chat/schema";
-import type { Automation } from "../../features/automations/schema";
-import { withAgentStore, AgentStoreError } from "../agents/store.server";
-import { readAutomations, requireAgent } from "../automations/store.server";
-import { nextOccurrence, scheduleWindow } from "../automations/schedule";
-import { putMessage } from "./timeline.server";
 import type { DatabaseSync } from "node:sqlite";
+import type { Automation } from "../../features/automations/schema";
+import type { Message, SendMessage } from "../../features/chat/schema";
+import { AgentStoreError, withAgentStore } from "../agents/store.server";
+import { expireApprovals } from "../approvals/store.server";
+import { nextOccurrence, scheduleWindow } from "../automations/schedule";
+import { readAutomations, requireAgent } from "../automations/store.server";
+import { deliverDelegationResults } from "../delegations/store.server";
+import { linkAttachments, readRunFiles } from "../files/store.server";
+import { assertAvailable, isMaintenance } from "../maintenance.server";
+import { notifyRunFinished } from "../notifications/push.server";
+import { writeTransaction } from "../transaction.server";
+import { putMessage } from "./timeline.server";
 
 export type Run = {
   id: string;
@@ -59,6 +62,10 @@ export function insertRun(
 export const enqueueChat = (input: SendMessage) =>
   withAgentStore((db) => {
     requireAgent(db, input.agentId);
+    if (!input.text.trim() && !input.attachmentIds?.length)
+      throw new AgentStoreError({
+        message: "Write a message or attach a file.",
+      });
     const existing = db
       .prepare("SELECT * FROM runs WHERE id=?")
       .get(input.messageId) as Run | undefined;
@@ -71,16 +78,39 @@ export const enqueueChat = (input: SendMessage) =>
       throw new AgentStoreError({
         message: "This message ID has already been used.",
       });
+    if (existing) {
+      const files = readRunFiles(
+        db,
+        input.agentId,
+        input.messageId,
+        "attachment",
+      );
+      const ids = input.attachmentIds ?? [];
+      if (
+        files.length !== ids.length ||
+        files.some((file) => !ids.includes(file.id))
+      )
+        throw new AgentStoreError({
+          message: "This message has already been sent with different files.",
+        });
+    }
     return writeTransaction(db, () => {
       insertRun(db, {
         id: input.messageId,
         agentId: input.agentId,
         prompt: input.text,
       });
+      const files = linkAttachments(
+        db,
+        input.agentId,
+        input.messageId,
+        input.attachmentIds,
+      );
       putMessage(db, input.agentId, {
         id: input.messageId,
         role: "user",
         text: input.text,
+        ...(files.length ? { files } : {}),
       });
 
       return { id: input.messageId };
@@ -177,11 +207,13 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
             title: "Run interrupted",
             text: "Roost restarted during this run. Check its history before running it again.",
           });
+          queueMicrotask(() => notifyRunFinished(run.id));
         }
       }
       db.prepare(
         "INSERT INTO worker_lease (id,owner,heartbeat) VALUES (1,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,heartbeat=excluded.heartbeat",
       ).run(owner, now);
+      expireApprovals(db);
       if (isMaintenance(db)) return true;
       deliverDelegationResults(db, now);
       for (const automation of readAutomations(db)) {
@@ -271,14 +303,16 @@ export const finishRun = (
 ) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
-      if (
-        !db
-          .prepare(
-            "SELECT id FROM runs WHERE id=? AND status='running' AND owner=?",
-          )
-          .get(run.id, run.owner)
-      )
-        return;
+      const current = db
+        .prepare(
+          "SELECT cancelRequested FROM runs WHERE id=? AND status='running' AND owner=?",
+        )
+        .get(run.id, run.owner);
+      if (!current) return;
+      if (current.cancelRequested) {
+        status = "cancelled";
+        error = "Stopped. This run will not retry automatically.";
+      }
       const answer = [...messages]
         .reverse()
         .find((message) => message.role === "assistant")
@@ -301,6 +335,7 @@ export const finishRun = (
         Date.now(),
         run.id,
       );
+      expireApprovals(db);
       if (run.kind !== "automation")
         for (const message of messages) putMessage(db, run.agentId, message);
       if (status === "completed" && run.kind === "automation") {
