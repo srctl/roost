@@ -136,6 +136,12 @@ export function Composer({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (loading || busy || uploading || (!text.trim() && !files.length)) return;
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone;
+    // Wait until the tap submits, then dismiss the touch keyboard immediately.
+    if (standalone && window.matchMedia("(pointer: coarse)").matches)
+      input.current?.blur();
     const submittedText = text;
     const submittedIds = new Set(files.map((file) => file.id));
     if (await onSend(text.trim(), files)) {
