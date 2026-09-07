@@ -191,9 +191,19 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
       localThread.environment.args.includes("memories.generate_memories=true"),
     );
     assert.ok(
+      !localThread.environment.args.some((arg: string) =>
+        arg.startsWith("features.apps="),
+      ),
+      "an omitted apps setting must preserve the native Codex default",
+    );
+    assert.ok(
       localThread.options.dynamicTools.some(
         (tool: { name: string }) => tool.name === "roost_update_soul",
       ),
+    );
+    writeFileSync(
+      join(directory, "fake-config.json"),
+      JSON.stringify({ features: { apps: false }, apps: {} }),
     );
     const other = await Effect.runPromise(
       saveAgent({
@@ -210,6 +220,13 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
         () => {},
       ),
     );
+    const otherThread = JSON.parse(
+      readFileSync(
+        join(directory, "agents", other.id, "codex", "fake-thread.json"),
+        "utf8",
+      ),
+    );
+    assert.ok(otherThread.environment.args.includes("features.apps=false"));
     assert.deepEqual(
       (await Effect.runPromise(readConversation(other.id))).messages.map(
         (m) => m.text,
@@ -221,6 +238,10 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
       /Keep answers concise/,
     );
 
+    writeFileSync(
+      join(directory, "fake-config.json"),
+      JSON.stringify({ features: { apps: true }, apps: {} }),
+    );
     const legacy = await Effect.runPromise(
       saveAgent({
         id: randomUUID(),
@@ -289,6 +310,9 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
       "utf8",
     );
     assert.match(migratedFile, /Remember our conversation/);
+    assert.ok(
+      JSON.parse(migratedFile).environment.args.includes("features.apps=true"),
+    );
     assert.doesNotMatch(
       migratedFile,
       /HOST_PRIVATE_INSTRUCTIONS|OLD_REASONING|OLD_TOOL_OUTPUT/,

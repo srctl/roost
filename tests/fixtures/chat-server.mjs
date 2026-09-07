@@ -48,7 +48,11 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     return;
   }
   if (method === "config/read") {
-    send({ id, result: { config: { features: { apps: true }, apps: {} } } });
+    const configPath = join(process.env.CODEX_HOME, "fake-config.json");
+    const config = existsSync(configPath)
+      ? JSON.parse(readFileSync(configPath, "utf8"))
+      : { features: {}, apps: {} };
+    send({ id, result: { config } });
 
     return;
   }

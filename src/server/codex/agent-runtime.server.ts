@@ -135,8 +135,10 @@ const makeAgentServer = (
         "memories.generate_memories=true",
         "-c",
         "memories.use_memories=true",
-        "-c",
-        `features.apps=${config.features?.apps === true}`,
+        // An omitted setting inherits Codex's default; only copy explicit overrides.
+        ...(typeof config.features?.apps === "boolean"
+          ? ["-c", `features.apps=${config.features.apps}`]
+          : []),
         "-c",
         "features.hooks=false",
         "-c",
