@@ -1,0 +1,108 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1Z31SDZ6T4SYD4JANRFSA44",
+  "session_id": "de21edf7-55d0-41f9-a4aa-a6f3b028c650",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-07T23:25:29.890257Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "docs/development.md",
+    "src/app.tsx",
+    "src/components/agent-header.tsx",
+    "src/components/agent-settings-dialog.tsx",
+    "src/components/approval-requests.tsx",
+    "src/components/conversation.tsx",
+    "src/components/conversation/composer.tsx",
+    "src/components/conversation/message.tsx",
+    "src/components/conversation/tool-activity.tsx",
+    "src/components/conversation/typing-indicator.tsx",
+    "src/components/mobile-navigation-dialog.tsx",
+    "src/components/sidebar.tsx",
+    "src/components/ui/button.tsx",
+    "src/components/ui/inspector.tsx",
+    "src/components/ui/sheet.tsx",
+    "src/routes/index.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5-1",
+  "turn_id": "40be3a533583",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 2184,
+    "cache_creation_tokens": 366946,
+    "cache_read_tokens": 12184806,
+    "output_tokens": 117356,
+    "api_call_count": 72
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-07T23:25:29.819032Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 188,
+    "total_committed": 0,
+    "total_lines_changed": 190,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 686,
+      "user_lines_removed": 189,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "docs/development.md": 10,
+        "src/app.tsx": 39,
+        "src/components/agent-header.tsx": 3,
+        "src/components/agent-settings-dialog.tsx": 4,
+        "src/components/approval-requests.tsx": 15,
+        "src/components/conversation.tsx": 76,
+        "src/components/conversation/composer.tsx": 47,
+        "src/components/conversation/message.tsx": 33,
+        "src/components/conversation/tool-activity.tsx": 107,
+        "src/components/conversation/typing-indicator.tsx": 17,
+        "src/components/mobile-navigation-dialog.tsx": 11,
+        "src/components/sidebar.tsx": 17,
+        "src/components/ui/appear.tsx": 57,
+        "src/components/ui/button.tsx": 17,
+        "src/components/ui/inspector.tsx": 36,
+        "src/components/ui/resize-handle.tsx": 95,
+        "src/components/ui/sheet.tsx": 7,
+        "src/features/motion.ts": 62,
+        "src/routes/index.tsx": 8,
+        "src/styles/motion.stylex.ts": 25
+      },
+      "user_removed_per_file": {
+        "src/app.tsx": 85,
+        "src/components/agent-header.tsx": 1,
+        "src/components/agent-settings-dialog.tsx": 1,
+        "src/components/approval-requests.tsx": 1,
+        "src/components/conversation.tsx": 12,
+        "src/components/conversation/composer.tsx": 9,
+        "src/components/conversation/tool-activity.tsx": 56,
+        "src/components/conversation/typing-indicator.tsx": 1,
+        "src/components/mobile-navigation-dialog.tsx": 8,
+        "src/components/sidebar.tsx": 1,
+        "src/components/ui/button.tsx": 2,
+        "src/components/ui/inspector.tsx": 4,
+        "src/components/ui/sheet.tsx": 7,
+        "src/routes/index.tsx": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 686,
+      "agent_lines_removed": 189
+    }
+  ]
+}

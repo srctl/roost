@@ -1,0 +1,30 @@
+alright, one thing I want to do is make roost feel better, I think we can add some nice animations to things, make things feel faster and smoother to use, etc... right now, there's still some jank and not nice animations. I want this to feel very smooth. 
+
+An example of something I want to feel smooth is, the message box animating from the bottom up to where it should be when a message from the user gets sent. those type of nice UX patterns is what I want more of for this app. Please find and implement some of these
+
+---
+
+Neovim context:
+- Reference: /Users/scottrichardson/workspace/github.com/scottjr632/roost/src/app.tsx:149-197
+
+a later followup, I feel like this should just be a component that we can re-use, not a one-time thing
+
+---
+
+<task-notification>
+<task-id>b301eiay5</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-scottrichardson-workspace-github-com-scottjr632-roost/de21edf7-55d0-41f9-a4aa-a6f3b028c650/tasks/b301eiay5.output</output-file>
+<status>failed</status>
+<summary>Background command "Start Vite dev server on port 5183 in background" failed with exit code 143</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b56jced32</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-scottrichardson-workspace-github-com-scottjr632-roost/de21edf7-55d0-41f9-a4aa-a6f3b028c650/tasks/b56jced32.output</output-file>
+<status>failed</status>
+<summary>Background command "Start dev server on scratch data dir, port 5184" failed with exit code 143</summary>
+</task-notification>
