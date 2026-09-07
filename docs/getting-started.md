@@ -5,6 +5,10 @@ schedules, files, and a shared computer when the work needs them.
 
 ## 1. Open your Roost installation
 
+First choose a host in [Deployment](deployment.md). The recommended VM path is
+[exe.dev](deploy-exe-dev.md); platform guides also cover Linux servers, macOS,
+and the limits of managed/serverless hosting.
+
 Follow [Install and operate Roost](install.md) for a Linux x64 host with systemd.
 The release bundle includes Node and Codex. Open the local address printed by
 setup, or connect through the SSH tunnel in that guide.

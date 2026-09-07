@@ -6,6 +6,8 @@ connect it to Codex.
 
 ## Start here
 
+- [Choose a deployment platform](deployment.md) — start with exe.dev, or find the right path for your host.
+- [Read with an agent](for-agents.md) — plain Markdown, llms.txt, and a deployment prompt.
 - [Getting started](getting-started.md) — connect Codex and create your first agent.
 - [Install and operate Roost](install.md) — Linux installation, private access,
   updates, and recovery.

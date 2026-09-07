@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import React, { isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Markdown, { type Components } from "react-markdown";
+import { docsUrl, markdownUrl } from "./agent-docs.ts";
 
 const repositoryUrl = "https://github.com/srctl/roost";
 
@@ -15,6 +16,18 @@ const groups = [
       ["index", "Introduction"],
       ["getting-started", "Getting started"],
       ["install", "Installation"],
+      ["for-agents", "Documentation for agents"],
+    ],
+  },
+  {
+    title: "Deployment",
+    pages: [
+      ["deployment", "Choose a host"],
+      ["deploy-exe-dev", "exe.dev"],
+      ["deploy-railway", "Railway"],
+      ["deploy-linux", "Linux"],
+      ["deploy-macos", "macOS"],
+      ["deploy-vercel", "Vercel"],
     ],
   },
   {
@@ -321,6 +334,15 @@ export function renderPage(
         {!document && <meta name="robots" content="noindex" />}
         {canonical && <link rel="canonical" href={canonical} />}
         {canonical && <meta property="og:url" content={canonical} />}
+        <link rel="describedby" href={docsUrl("/llms.txt", options.origin)} />
+        {document && (
+          <link
+            rel="alternate"
+            type="text/markdown"
+            href={markdownUrl(document.slug, options.origin)}
+            title={`${title} (Markdown)`}
+          />
+        )}
         <title>{`${title} — Roost docs`}</title>
         <link rel="icon" type="image/svg+xml" href="/roost.svg" />
         <link rel="stylesheet" href={options.stylesheet} />
@@ -374,9 +396,17 @@ export function renderPage(
             />
             {document && (
               <footer className="document-footer">
-                <a href={`${repositoryUrl}/blob/main/docs/${document.slug}.md`}>
-                  View this page on GitHub ↗
-                </a>
+                <div className="document-links">
+                  <a
+                    href={`${repositoryUrl}/blob/main/docs/${document.slug}.md`}
+                  >
+                    View on GitHub ↗
+                  </a>
+                  <a href={markdownUrl(document.slug, options.origin)}>
+                    Markdown
+                  </a>
+                  <a href={docsUrl("/llms.txt", options.origin)}>LLM docs</a>
+                </div>
                 {next && (
                   <a className="next-page" href={pageUrl(next.slug)}>
                     <span>Next guide</span>

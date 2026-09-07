@@ -39,6 +39,11 @@ own Node and Codex runtimes.
 The [getting started guide](docs/getting-started.md) walks through your first
 agent. For other platforms or a source checkout, see [development](docs/development.md).
 
+Choose a host in the [deployment guide](docs/deployment.md), including exe.dev,
+Linux servers, macOS, Railway, and Vercel for the public websites. Working with
+an agent? Start with [agent-readable docs](docs/for-agents.md); the published
+docs site provides `/llms.txt`, `/llms-full.txt`, and a Markdown URL for every guide.
+
 Roost currently has no application-level authentication. Keep the app on loopback
 with SSH access, or behind a proxy that authenticates HTTP and WebSocket traffic.
 Agent memory is kept separately, but agents share the host and connected

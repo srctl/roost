@@ -6,6 +6,9 @@ needs the Roost server, a database, Codex credentials, or access to agent data.
 
 ## Build each site
 
+For a concrete provider walkthrough, see [Vercel](deploy-vercel.md). To run the
+private Roost app, use [Deployment](deployment.md) instead.
+
 Run commands from the repository root. Use Node.js 22.13+ and pnpm 9.15.0. In a
 fresh checkout, first run `corepack pnpm install --frozen-lockfile`.
 
@@ -74,11 +77,19 @@ can open `/getting-started/` or `/automations/` directly. Article content and
 navigation work without JavaScript; search, mobile menu toggling, and code
 copying use a small browser script.
 
+The docs build also includes `/llms.txt`, `/llms-full.txt`, and `/<guide>.md`
+for every guide. The marketing build includes its own `/llms.txt` pointing into
+the docs. Serve `.txt` as `text/plain; charset=utf-8` and `.md` as
+`text/markdown; charset=utf-8` where your host allows MIME configuration.
+Do not require JavaScript challenges or sign-in for these public files.
+See [Read with an agent](for-agents.md) for discovery and verification.
+
 Enable your host's directory-index behavior and use `404.html` as the docs error
 page. Do not add a single-page-app fallback that sends every URL to the home
 page. Serve HTML and `search-index.json` with revalidation; only fingerprinted
 files under `assets` should receive long-lived immutable caching. The docs
 stylesheet is not fingerprinted and should revalidate too.
+The Markdown and `llms*.txt` files should also revalidate so agents see updates.
 
 The marketing site loads DM Sans from Google Fonts, with local system fonts as
 a fallback. Its logo and character artwork are local assets. The docs use system

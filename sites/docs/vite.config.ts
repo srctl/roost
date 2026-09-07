@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
+import { agentContentType, agentResources } from "./src/agent-docs.ts";
 import { loadDocuments, renderPage, searchIndex } from "./src/render.tsx";
 
 const siteRoot = dirname(fileURLToPath(import.meta.url));
@@ -20,14 +21,29 @@ export default defineConfig(({ command, mode }) => {
     name: "roost-static-documentation",
     configureServer(server) {
       server.watcher.add(resolve(repositoryRoot, "docs"));
-      server.watcher.on("change", (path) => {
-        if (path.startsWith(resolve(repositoryRoot, "docs"))) {
+      server.watcher.on("all", (event, path) => {
+        if (
+          ["add", "change", "unlink"].includes(event) &&
+          path.startsWith(resolve(repositoryRoot, "docs"))
+        ) {
           server.ws.send({ type: "full-reload" });
         }
       });
       server.middlewares.use((request, response, next) => {
         const pathname = new URL(request.url || "/", "http://localhost")
           .pathname;
+        if (
+          pathname.endsWith(".md") ||
+          /^\/llms(?:-full)?\.txt$/.test(pathname)
+        ) {
+          const content = agentResources(documents(), options.origin).get(
+            pathname.slice(1),
+          );
+          response.statusCode = content === undefined ? 404 : 200;
+          response.setHeader("Content-Type", agentContentType(pathname));
+          response.end(content ?? "Documentation not found.\n");
+          return;
+        }
         if (pathname === "/search-index.json") {
           response.setHeader("Content-Type", "application/json");
           response.end(JSON.stringify(searchIndex(documents())));
@@ -58,6 +74,21 @@ export default defineConfig(({ command, mode }) => {
       });
     },
     configurePreviewServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const pathname = new URL(request.url || "/", "http://localhost")
+          .pathname;
+        if (!/^\/[\w-]+\.(?:md|txt)$/.test(pathname)) {
+          next();
+          return;
+        }
+        const file = resolve(siteRoot, "dist", pathname.slice(1));
+        const exists = existsSync(file);
+        response.statusCode = exists ? 200 : 404;
+        response.setHeader("Content-Type", agentContentType(pathname));
+        response.end(
+          exists ? readFileSync(file) : "Documentation not found.\n",
+        );
+      });
       return () => {
         server.middlewares.use((request, response, next) => {
           // Vite rewrites directory routes to index.html before this hook,
@@ -86,6 +117,9 @@ export default defineConfig(({ command, mode }) => {
       );
       if (!entry) throw new Error("Documentation client entry was not built.");
       const pages = documents();
+      for (const [fileName, source] of agentResources(pages, options.origin)) {
+        this.emitFile({ type: "asset", fileName, source });
+      }
       const pageOptions = {
         ...options,
         script: `/${entry.fileName}`,

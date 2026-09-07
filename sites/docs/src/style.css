@@ -232,7 +232,12 @@
     border-top: 1px solid var(--line);
     padding-top: 24px;
   }
-  .document-footer > a:first-child {
+  .document-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+  }
+  .document-links a {
     color: var(--muted);
     font-size: 12px;
     text-decoration: none;
