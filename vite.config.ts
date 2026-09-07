@@ -3,10 +3,12 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
+import { preloadStaticImports } from "./scripts/preload-static-imports";
 
 export default defineConfig({
   server: { host: "127.0.0.1" },
   plugins: [
+    preloadStaticImports(),
     stylex.vite({ useCSSLayers: true }),
     tanstackStart(),
     nitro({

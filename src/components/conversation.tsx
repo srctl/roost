@@ -11,6 +11,7 @@ import {
 import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
 import { useConversation } from "../features/chat/use-conversation";
+import type { InitialConversation } from "../features/chat/functions";
 import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
 import { usePreferences } from "../features/settings/preferences";
@@ -33,7 +34,13 @@ const ComputerPanel = lazy(() =>
   })),
 );
 
-export function Conversation({ agent }: { agent: Agent }) {
+export function Conversation({
+  agent,
+  initialConversation,
+}: {
+  agent: Agent;
+  initialConversation?: InitialConversation;
+}) {
   const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
     messages,
@@ -48,7 +55,16 @@ export function Conversation({ agent }: { agent: Agent }) {
     loadingOlder,
     before,
     loadOlder,
-  } = useConversation(agent.id);
+  } = useConversation(agent.id, initialConversation);
+  const [showLoading, setShowLoading] = useState(false);
+  useEffect(() => {
+    if (!loading) {
+      setShowLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowLoading(true), 500);
+    return () => clearTimeout(timer);
+  }, [loading]);
   const prepend = useRef<{ height: number; top: number } | null>(null);
   const [computerEnabled, setComputerEnabled] = useState(false);
   const [manualComputerOpen, setManualComputerOpen] = useState(false);
@@ -154,7 +170,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         }}
       >
         <div {...stylex.props(styles.history)}>
-          {loading && (
+          {loading && showLoading && (
             <p role="status">Loading conversation… You can start typing.</p>
           )}
           {before !== null && (

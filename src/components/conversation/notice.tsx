@@ -1,15 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
 import type { Message } from "../../features/chat/schema";
 import { colors } from "../../styles/tokens.stylex";
-import { AgentAutomationSettings } from "../agent-automation-settings";
-import { ApprovalRequests } from "../approval-requests";
-import { RunInspector } from "../run-details";
-import { SoulChangeDetails } from "../soul-change";
 import { Button } from "../ui/button";
-import { Inspector } from "../ui/inspector";
+
+const NoticeDetails = lazy(() =>
+  import("./notice-details").then((module) => ({
+    default: module.NoticeDetails,
+  })),
+);
 
 export function ConversationNotice({
   agentId,
@@ -47,31 +48,15 @@ export function ConversationNotice({
           {message.noticeKind === "soul" ? "View change" : "View details"}
         </Button>
       )}
-      {open &&
-        (message.noticeKind === "approval" ? (
-          <Inspector title="Approval" onClose={() => setOpen(false)}>
-            <ApprovalRequests agentId={agentId} id={message.referenceId!} />
-          </Inspector>
-        ) : message.noticeKind === "soul" ? (
-          <SoulChangeDetails
+      {open && (
+        <Suspense fallback={<span role="status">Loading details…</span>}>
+          <NoticeDetails
             agentId={agentId}
-            id={message.referenceId!}
+            message={message}
             onClose={() => setOpen(false)}
           />
-        ) : message.noticeKind === "run" ? (
-          <RunInspector
-            agentId={agentId}
-            id={message.referenceId!}
-            onClose={() => setOpen(false)}
-          />
-        ) : (
-          <Inspector title="Automations" onClose={() => setOpen(false)}>
-            <AgentAutomationSettings
-              agentId={agentId}
-              selectedId={message.referenceId}
-            />
-          </Inspector>
-        ))}
+        </Suspense>
+      )}
     </div>
   );
 }

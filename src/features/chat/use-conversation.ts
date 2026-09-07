@@ -1,23 +1,45 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileAttachment } from "./files";
-import { getConversation, sendMessage, stopMessage } from "./functions";
+import {
+  getConversation,
+  sendMessage,
+  stopMessage,
+  type InitialConversation,
+} from "./functions";
 import { type Entry, mergeEntries } from "./timeline";
 
-export function useConversation(agentId: string) {
-  const [entries, setEntries] = useState<readonly Entry[]>([]);
+export function useConversation(
+  agentId: string,
+  initialConversation?: InitialConversation,
+) {
+  const initial = initialConversation?.ok
+    ? initialConversation.value
+    : undefined;
+  const ready = !!initial && !initial.needsImport;
+  const [entries, setEntries] = useState<readonly Entry[]>(
+    initial?.entries ?? [],
+  );
   const messages = useMemo(
     () => entries.map((entry) => entry.message),
     [entries],
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!ready);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [before, setBefore] = useState<number | null>(null);
-  const cursor = useRef<number | undefined>(undefined);
+  const [before, setBefore] = useState<number | null>(initial?.before ?? null);
+  const cursor = useRef<number | undefined>(
+    ready ? initial.revision : undefined,
+  );
   const paging = useRef(false);
-  const [computerAnchor, setComputerAnchor] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const [runId, setRunId] = useState<string | null>(null);
+  const [computerAnchor, setComputerAnchor] = useState<string | null>(
+    initial?.computerAnchor ?? null,
+  );
+  const [busy, setBusy] = useState(initial?.busy ?? false);
+  const [error, setError] = useState<string | undefined>(
+    initialConversation && !initialConversation.ok
+      ? initialConversation.error
+      : undefined,
+  );
+  const [runId, setRunId] = useState<string | null>(initial?.runId ?? null);
   const submitting = useRef(false);
   const mounted = useRef(true);
   const generation = useRef(0);
@@ -36,16 +58,19 @@ export function useConversation(agentId: string) {
       }
       if (submitting.current) return;
       setError(undefined);
-      if (cursor.current === undefined) setBefore(result.value.before);
+      const firstPage = cursor.current === undefined;
+      if (firstPage) setBefore(result.value.before);
       cursor.current = result.value.revision;
       setEntries((current) =>
-        mergeEntries(
-          current,
-          result.value.entries.filter(
-            (entry) =>
-              !current.length || entry.position >= current[0]!.position,
-          ),
-        ),
+        firstPage
+          ? result.value.entries
+          : mergeEntries(
+              current,
+              result.value.entries.filter(
+                (entry) =>
+                  !current.length || entry.position >= current[0]!.position,
+              ),
+            ),
       );
       setLoading(false);
       setBusy(result.value.busy);

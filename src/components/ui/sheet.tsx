@@ -10,11 +10,19 @@ export const SheetClose = Dialog.Close;
 export const SheetTitle = Dialog.Title;
 export const SheetDescription = Dialog.Description;
 
-export function SheetContent({ children }: { children: ReactNode }) {
+export function SheetContent({
+  children,
+  finalFocus,
+}: {
+  children: ReactNode;
+  finalFocus?: Dialog.Popup.Props["finalFocus"];
+}) {
   return (
     <Dialog.Portal>
       <Dialog.Backdrop {...stylex.props(styles.backdrop)} />
-      <Dialog.Popup {...stylex.props(styles.panel)}>{children}</Dialog.Popup>
+      <Dialog.Popup finalFocus={finalFocus} {...stylex.props(styles.panel)}>
+        {children}
+      </Dialog.Popup>
     </Dialog.Portal>
   );
 }

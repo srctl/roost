@@ -3,6 +3,7 @@ import {
   type ClipboardEvent,
   type FormEvent,
   type MouseEvent,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -35,6 +36,8 @@ export function Composer({
   onSend: (text: string, files: readonly FileAttachment[]) => Promise<boolean>;
   onStop: () => void;
 }) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -160,7 +163,7 @@ export function Composer({
               <span>{formatFileSize(file.size)}</span>
               <Button
                 type="button"
-                disabled={busy}
+                disabled={busy || !hydrated}
                 aria-label={`Remove ${file.name}`}
                 onClick={() =>
                   setFiles((current) =>
@@ -197,7 +200,11 @@ export function Composer({
           aria-label="Attach files"
           title="Attach files (up to 20 MB each)"
           disabled={
-            loading || busy || uploading || files.length >= MAX_ATTACHMENTS
+            !hydrated ||
+            loading ||
+            busy ||
+            uploading ||
+            files.length >= MAX_ATTACHMENTS
           }
           onClick={() => fileInput.current?.click()}
           xstyle={styles.attachButton}
@@ -219,6 +226,7 @@ export function Composer({
           aria-label={`Message ${agentName}`}
           placeholder={`Message ${agentName}…`}
           value={text}
+          disabled={!hydrated}
           onChange={(event) => setText(event.target.value)}
           onPaste={paste}
           maxLength={32000}
@@ -241,6 +249,7 @@ export function Composer({
             type="button"
             onMouseDown={keepInputFocus}
             onClick={onStop}
+            disabled={!hydrated}
             aria-label="Stop response"
             xstyle={styles.send}
           >
@@ -251,7 +260,12 @@ export function Composer({
             key="send"
             type="submit"
             onMouseDown={keepInputFocus}
-            disabled={loading || uploading || (!text.trim() && !files.length)}
+            disabled={
+              !hydrated ||
+              loading ||
+              uploading ||
+              (!text.trim() && !files.length)
+            }
             aria-label="Send message"
             xstyle={styles.send}
           >

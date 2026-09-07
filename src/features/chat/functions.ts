@@ -1,9 +1,10 @@
 import { available } from "../../server/available";
 import { createServerFn } from "@tanstack/react-start";
+import { setResponseHeader } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 import { SendMessage } from "./schema";
 import { ensureTimeline, startWorker } from "../../server/runs/worker.server";
-import { readTimelinePage } from "../../server/runs/timeline.server";
+import { readConversationSnapshot } from "../../server/runs/conversation-snapshot.server";
 import { enqueueChat, cancelRun } from "../../server/runs/store.server";
 import { withAgentStore } from "../../server/agents/store.server";
 
@@ -19,6 +20,17 @@ const result = <A, E>(effect: Effect.Effect<A, E>) =>
       }),
     ),
   );
+
+export const getConversationSnapshot = createServerFn({ method: "GET" })
+  .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
+  .handler(({ data }) => {
+    setResponseHeader("Cache-Control", "private, no-store");
+    return result(readConversationSnapshot(data.agentId));
+  });
+
+export type InitialConversation = Awaited<
+  ReturnType<typeof getConversationSnapshot>
+>;
 
 export const getConversation = createServerFn({ method: "GET" })
   .middleware([available])
@@ -37,32 +49,7 @@ export const getConversation = createServerFn({ method: "GET" })
     return result(
       Effect.gen(function* () {
         yield* ensureTimeline(data.agentId);
-        const page = yield* withAgentStore((db) =>
-          readTimelinePage(db, data.agentId, data),
-        );
-        const run = yield* withAgentStore((db) =>
-          db
-            .prepare(
-              "SELECT id,status FROM runs WHERE agentId=? AND status IN ('running','queued') ORDER BY CASE status WHEN 'running' THEN 0 ELSE 1 END,createdAt LIMIT 1",
-            )
-            .get(data.agentId),
-        );
-        const computer = run
-          ? yield* withAgentStore((db) =>
-              db
-                .prepare(
-                  "SELECT id FROM timeline WHERE agentId=? AND position>(SELECT position FROM timeline WHERE agentId=? AND id=?) AND json_extract(message,'$.title')='roost_computer' ORDER BY position DESC LIMIT 1",
-                )
-                .get(data.agentId, data.agentId, String(run.id)),
-            )
-          : undefined;
-
-        return {
-          ...page,
-          busy: !!run,
-          runId: run ? String(run.id) : null,
-          computerAnchor: computer ? String(computer.id) : null,
-        };
+        return yield* readConversationSnapshot(data.agentId, data);
       }),
     );
   });
