@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { createInterface } from "node:readline";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
 
 const path = (file) => join(process.env.CODEX_HOME, file);
 
 const mode = () => readFileSync(path("mode"), "utf8");
 
-const send = (value) => process.stdout.write(JSON.stringify(value) + "\n");
+const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 
 const completed = (success) =>
   send({

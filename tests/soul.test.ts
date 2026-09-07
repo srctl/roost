@@ -1,24 +1,24 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
-  mkdtempSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { test } from "node:test";
 import { Effect } from "effect";
-import { saveAgent } from "../src/server/agents/store.server";
 import {
+  listSoulChanges,
+  patchSoul,
   readAgentMemory,
   readSoul,
-  updateSoul,
-  patchSoul,
-  listSoulChanges,
   undoSoulChange,
+  updateSoul,
 } from "../src/server/agents/soul.server";
+import { saveAgent } from "../src/server/agents/store.server";
 
 test("souls persist independently, reject stale writes, and never read another agent's memory", async () => {
   const directory = mkdtempSync("/tmp/roost-soul-test-");

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Route as RootRoute } from "./__root";
 import { Conversation } from "../components/conversation";
 import { getConversationSnapshot } from "../features/chat/functions";
+import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/agents/$agentId")({
   head: ({ params }) => ({

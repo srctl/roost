@@ -1,15 +1,15 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
 import { Effect } from "effect";
+import { mergeEntries } from "../src/features/chat/timeline";
 import { withAgentStore } from "../src/server/agents/store.server";
 import {
   putMessage,
   readTimelinePage,
 } from "../src/server/runs/timeline.server";
-import { mergeEntries } from "../src/features/chat/timeline";
 
 test("timeline pages preserve history, incremental edits, bounded outputs and agent isolation", async () => {
   const directory = mkdtempSync(join(tmpdir(), "roost-timeline-"));

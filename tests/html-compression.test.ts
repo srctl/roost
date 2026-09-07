@@ -113,35 +113,33 @@ test("leaves HEAD, empty, partial, preencoded, non-HTML, and no-transform respon
   }
 });
 
-test(
-  "gzip delivers the initial HTML before the source closes and cancels upstream",
-  { timeout: 2_000 },
-  async () => {
-    let source!: ReadableStreamDefaultController<Uint8Array>;
-    let cancelled = false;
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        source = controller;
-      },
-      cancel() {
-        cancelled = true;
-      },
-    });
-    const compressed = compressHtml(request("gzip"), html(body));
-    const reader = compressed
-      .body!.pipeThrough(new DecompressionStream("gzip"))
-      .getReader();
-    source.enqueue(new TextEncoder().encode("<html>Initial shell"));
-    assert.equal(
-      new TextDecoder().decode((await reader.read()).value),
-      "<html>Initial shell",
-    );
-    await reader.cancel();
-    // Web Stream cancellation propagates through the zlib adapter asynchronously.
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(cancelled, true);
-  },
-);
+test("gzip delivers the initial HTML before the source closes and cancels upstream", {
+  timeout: 2_000,
+}, async () => {
+  let source!: ReadableStreamDefaultController<Uint8Array>;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      source = controller;
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const compressed = compressHtml(request("gzip"), html(body));
+  const reader = compressed
+    .body!.pipeThrough(new DecompressionStream("gzip"))
+    .getReader();
+  source.enqueue(new TextEncoder().encode("<html>Initial shell"));
+  assert.equal(
+    new TextDecoder().decode((await reader.read()).value),
+    "<html>Initial shell",
+  );
+  await reader.cancel();
+  // Web Stream cancellation propagates through the zlib adapter asynchronously.
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(cancelled, true);
+});
 
 test("source failures reject the compressed response body", async () => {
   const failure = new Error("SSR render failed");

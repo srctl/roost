@@ -20,8 +20,8 @@ const globals = globalThis as typeof globalThis & {
   };
 };
 
-const state: NonNullable<typeof globals.roostComputer> =
-  (globals.roostComputer ??= { viewers: new Map(), acting: false });
+globals.roostComputer ??= { viewers: new Map(), acting: false };
+const state = globals.roostComputer;
 
 function human() {
   if (state.human && state.human.expires < Date.now()) {

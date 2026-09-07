@@ -2,7 +2,7 @@ import { cp, mkdir, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { activate, readRelease } from "./releases";
-import { maintenance, activeRuns } from "./state";
+import { activeRuns, maintenance } from "./state";
 
 export type ServerControl = {
   isActive(): Promise<boolean>;

@@ -1,7 +1,7 @@
-import { Effect, Exit, Scope, Schema } from "effect";
-import { openHostServer } from "./app-server.server";
-import { refreshAgentRuntimes } from "./agent-runtime.server";
+import { Effect, Exit, Schema, Scope } from "effect";
 import type { CodexLogin } from "../../features/auth/schema";
+import { refreshAgentRuntimes } from "./agent-runtime.server";
+import { openHostServer } from "./app-server.server";
 
 const DeviceLogin = Schema.Struct({
   type: Schema.Literal("chatgptDeviceCode"),
@@ -28,7 +28,8 @@ const globals = globalThis as typeof globalThis & {
   };
 };
 
-const state = (globals.roostLogin ??= { value: { status: "idle" } });
+globals.roostLogin ??= { value: { status: "idle" } };
+const state = globals.roostLogin;
 
 export const getLogin = () => state.value;
 

@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { lazy, Suspense, type RefObject } from "react";
+import { lazy, type RefObject, Suspense } from "react";
 import type { Agent } from "../features/agents/schema";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";

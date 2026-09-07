@@ -1,15 +1,15 @@
-import { AgentActivityProvider } from "./features/agents/activity";
-import { PreferencesProvider } from "./features/settings/preferences";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "./components/ui/button";
-import { Icon } from "./components/ui/primitives";
 import * as stylex from "@stylexjs/stylex";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { MobileNavigation } from "./components/mobile-navigation";
 import { Sidebar } from "./components/sidebar";
+import { Button } from "./components/ui/button";
+import { Icon } from "./components/ui/primitives";
+import { AgentActivityProvider } from "./features/agents/activity";
+import { useAgentStartup } from "./features/agents/use-agent-startup";
+import { PreferencesProvider } from "./features/settings/preferences";
 import { Route } from "./routes/__root";
 import { colors } from "./styles/tokens.stylex";
-import { useAgentStartup } from "./features/agents/use-agent-startup";
 
 export function App() {
   const [collapsed, setCollapsed] = useState(false);
@@ -124,6 +124,11 @@ export function App() {
 const styles = stylex.create({
   desktopNavigation: {
     display: { default: "flex", "@media (max-width: 700px)": "none" },
+    position: "sticky",
+    top: 0,
+    height: "100dvh",
+    alignSelf: "flex-start",
+    flexShrink: 0,
   },
   expand: {
     padding: 12,

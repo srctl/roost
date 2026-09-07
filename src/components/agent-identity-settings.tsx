@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import * as stylex from "@stylexjs/stylex";
+import { useEffect, useState } from "react";
 import { getAgentIdentity, saveAgentSoul } from "../features/agents/functions";
 import { colors } from "../styles/tokens.stylex";
 import { AgentAutomationSettings } from "./agent-automation-settings";
+import { MessageContent } from "./conversation/message-content";
 import { SoulChangeDetails } from "./soul-change";
 import { Button } from "./ui/button";
-import { MessageContent } from "./conversation/message-content";
 import {
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
+  CollapsibleTrigger,
 } from "./ui/collapsible";
 import { Icon } from "./ui/primitives";
 
@@ -181,6 +181,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
                 </label>
                 <textarea
                   id={`soul-${agentId}`}
+                  // biome-ignore lint/a11y/noAutofocus: Focus the editor only after the user chooses Edit soul.
                   autoFocus
                   value={content}
                   maxLength={16000}

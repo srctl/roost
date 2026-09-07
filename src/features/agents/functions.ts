@@ -1,21 +1,21 @@
-import { readAgentActivity } from "../../server/agents/activity.server";
-import { available } from "../../server/available";
-import {
-  readSoul,
-  readAgentMemory,
-  updateSoul,
-  SoulUpdate,
-  listSoulChanges,
-  undoSoulChange,
-} from "../../server/agents/soul.server";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
-import { CreateAgentInput } from "./schema";
+import { readAgentActivity } from "../../server/agents/activity.server";
+import {
+  listSoulChanges,
+  readAgentMemory,
+  readSoul,
+  SoulUpdate,
+  undoSoulChange,
+  updateSoul,
+} from "../../server/agents/soul.server";
 import { listAgents, saveAgent } from "../../server/agents/store.server";
+import { available } from "../../server/available";
 import {
   CodexError,
   getCodexConnection,
 } from "../../server/codex/app-server.server";
+import { CreateAgentInput } from "./schema";
 
 // Return expected failures as data so Start never exposes server error details.
 const result = <A, E extends { message: string }>(

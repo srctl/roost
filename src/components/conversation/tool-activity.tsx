@@ -1,17 +1,17 @@
-import { getActivityOutput } from "../../features/chat/functions";
-import { Button } from "../ui/button";
-import { usePreferences } from "../../features/settings/preferences";
-import { memo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { memo, useState } from "react";
+import { getActivityOutput } from "../../features/chat/functions";
+import type { Message } from "../../features/chat/schema";
+import { usePreferences } from "../../features/settings/preferences";
 import { colors } from "../../styles/tokens.stylex";
+import { Button } from "../ui/button";
 import {
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
+  CollapsibleTrigger,
 } from "../ui/collapsible";
-import { ScrollArea } from "../ui/scroll-area";
 import { Icon } from "../ui/primitives";
-import type { Message } from "../../features/chat/schema";
+import { ScrollArea } from "../ui/scroll-area";
 
 export const ToolActivity = memo(function ToolActivity({
   agentId,

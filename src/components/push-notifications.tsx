@@ -1,14 +1,40 @@
+import { Switch } from "@base-ui/react/switch";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import {
+  changeNotificationPreferences,
   disablePush,
   enablePush,
   getPushSettings,
 } from "../features/notifications/functions";
+import type { NotificationPreferences } from "../features/notifications/schema";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 
 const connectionError = "Could not reach Roost. Please try again.";
+const notificationOptions = [
+  {
+    key: "enabled",
+    label: "Notifications enabled",
+    description: "Pause all notifications without losing your settings.",
+  },
+  {
+    key: "turnCompleted",
+    label: "Turn completed",
+    description: "A summary of what your agent finished.",
+  },
+  {
+    key: "agentUpdates",
+    label: "Agent updates",
+    description:
+      "Deliveries, tracked changes, and other updates from your agents.",
+  },
+  {
+    key: "needsAttention",
+    label: "Needs attention",
+    description: "When work fails or your agent needs approval to continue.",
+  },
+] as const;
 
 function unsupportedReason() {
   const ios =
@@ -67,25 +93,34 @@ export function PushNotifications() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [setupRequired, setSetupRequired] = useState(false);
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let current = true;
     async function load() {
       const reason = unsupportedReason();
-      if (reason) {
-        setUnavailable(reason);
-        setLoading(false);
-        return;
-      }
       try {
-        const registration = await navigator.serviceWorker.getRegistration("/");
-        const subscription = await registration?.pushManager.getSubscription();
+        let deviceError: string | null = null;
+        const subscription = reason
+          ? undefined
+          : await navigator.serviceWorker
+              .getRegistration("/")
+              .then((registration) =>
+                registration?.pushManager.getSubscription(),
+              )
+              .catch(() => {
+                deviceError =
+                  "Could not check this device’s notifications. Reload Roost to try again.";
+                return undefined;
+              });
         const result = await getPushSettings({
           data: { endpoint: subscription?.endpoint },
         });
         if (!current) return;
         if (!result.ok) throw new Error(result.error);
+        setPreferences(result.value.preferences);
         setPublicKey(result.value.publicKey);
         setSetupRequired(!result.value.configured);
         setEnabled(
@@ -93,7 +128,8 @@ export function PushNotifications() {
             result.value.registered &&
             Notification.permission === "granted",
         );
-        if (!result.value.configured)
+        if (reason || deviceError) setUnavailable(reason || deviceError);
+        else if (!result.value.configured)
           setUnavailable(
             "Notifications need to be configured on this Roost server. See the notification setup guide.",
           );
@@ -114,8 +150,28 @@ export function PushNotifications() {
     };
   }, []);
 
+  async function changePreference(
+    key: keyof NotificationPreferences,
+    value: boolean,
+  ) {
+    if (busy || !preferences) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await changeNotificationPreferences({
+        data: { [key]: value },
+      });
+      if (!result.ok) throw new Error(result.error);
+      setPreferences(result.value);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : connectionError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function enable() {
-    if (busy || !publicKey) return;
+    if (busy || !publicKey || !preferences?.enabled) return;
     setBusy(true);
     setError(undefined);
     let created: PushSubscription | null = null;
@@ -206,15 +262,96 @@ export function PushNotifications() {
     }
   }
 
+  function deviceDescription() {
+    if (loading) return "Checking notification settings…";
+    if (unavailable) return unavailable;
+    if (!preferences)
+      return "Notification settings could not be loaded. Reload Roost to try again.";
+    if (!preferences.enabled)
+      return enabled
+        ? "This device is enabled. Notifications are paused for all devices."
+        : "Notifications are paused for all devices. Turn them on above to enable this device.";
+    return enabled
+      ? "Enabled on this device. Your selected notifications can arrive even when Roost is closed."
+      : "Enable this device to receive your selected notifications, even when Roost is closed.";
+  }
+
   return (
     <section {...stylex.props(styles.section)} aria-labelledby="push-title">
-      <div {...stylex.props(styles.heading)}>
-        <h2 id="push-title" {...stylex.props(styles.title)}>
-          Notifications
-        </h2>
+      <h2 id="push-title" {...stylex.props(styles.title)}>
+        Notifications
+      </h2>
+      <p {...stylex.props(styles.description)}>
+        Choose which updates you receive. These settings apply to all your
+        devices.
+      </p>
+      <div {...stylex.props(styles.preferences)} aria-busy={loading || busy}>
+        {notificationOptions.map(({ key, label, description }) => {
+          const checked = preferences?.[key] ?? false;
+          const disabled =
+            loading ||
+            busy ||
+            !preferences ||
+            (key !== "enabled" && !preferences.enabled);
+          return (
+            <div key={key} {...stylex.props(styles.row)}>
+              <div>
+                <label
+                  htmlFor={`notifications-${key}`}
+                  {...stylex.props(styles.label)}
+                >
+                  {label}
+                </label>
+                <p
+                  id={`notifications-${key}-description`}
+                  {...stylex.props(styles.optionDescription)}
+                >
+                  {description}
+                </p>
+              </div>
+              <Switch.Root
+                id={`notifications-${key}`}
+                aria-label={label}
+                checked={checked}
+                disabled={disabled}
+                onCheckedChange={(value) => void changePreference(key, value)}
+                aria-describedby={`notifications-${key}-description`}
+                {...stylex.props(
+                  styles.switch,
+                  checked && styles.checked,
+                  disabled && styles.disabled,
+                )}
+              >
+                <Switch.Thumb
+                  {...stylex.props(
+                    styles.thumb,
+                    checked && styles.thumbChecked,
+                  )}
+                />
+              </Switch.Root>
+            </div>
+          );
+        })}
+      </div>
+      <div {...stylex.props(styles.preview)}>
+        <span {...stylex.props(styles.example)}>Example notification</span>
+        <p {...stylex.props(styles.previewTitle)}>Shoppy · Package delivered</p>
+        <p {...stylex.props(styles.optionDescription)}>
+          Your coffee order was delivered at 2:14 PM. The package is at your
+          front door.
+        </p>
+      </div>
+      <p {...stylex.props(styles.note)}>
+        Tap a notification to open that agent’s conversation. Previews include
+        task details and may appear on your lock screen.
+      </p>
+      <div {...stylex.props(styles.device)}>
+        <h3 {...stylex.props(styles.title)}>This device</h3>
         <Button
           disabled={
-            loading || busy || (!enabled && (!!unavailable || !publicKey))
+            loading ||
+            busy ||
+            (!enabled && (!!unavailable || !publicKey || !preferences?.enabled))
           }
           onClick={() => void (enabled ? disable() : enable())}
         >
@@ -225,32 +362,21 @@ export function PushNotifications() {
               : "Enable on this device"}
         </Button>
       </div>
-      <p {...stylex.props(styles.description)}>
-        {loading
-          ? "Checking notification settings…"
-          : (unavailable ??
-            (enabled
-              ? "Enabled on this device. Roost will notify you when work finishes, fails, or needs approval."
-              : "Get notified when work finishes, fails, or needs your approval, even when Roost is closed."))}
-      </p>
-      <p {...stylex.props(styles.note)}>
-        Notification previews keep conversation content private.
-        {setupRequired && (
-          <>
-            {" "}
-            <a
-              href="https://github.com/srctl/roost/blob/main/docs/notifications.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              {...stylex.props(styles.link)}
-            >
-              Setup guide ↗
-            </a>
-          </>
-        )}
-      </p>
+      <p {...stylex.props(styles.description)}>{deviceDescription()}</p>
+      {setupRequired && (
+        <p {...stylex.props(styles.note)}>
+          <a
+            href="https://github.com/srctl/roost/blob/main/docs/notifications.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            {...stylex.props(styles.link)}
+          >
+            Notification setup guide ↗
+          </a>
+        </p>
+      )}
       {error && (
-        <p role="alert" {...stylex.props(styles.description)}>
+        <p role="alert" {...stylex.props(styles.error)}>
           {error}
         </p>
       )}
@@ -266,20 +392,83 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: colors.border,
   },
-  heading: {
+  row: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 24,
+  },
+  preferences: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+    marginTop: 20,
+  },
+  device: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
     flexWrap: "wrap",
+    marginTop: 24,
   },
   title: { fontSize: 14, fontWeight: 500, margin: 0 },
+  label: { fontSize: 13, fontWeight: 500, cursor: "pointer" },
+  optionDescription: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 1.6,
+    marginTop: 3,
+    marginBottom: 0,
+    maxWidth: 380,
+  },
   description: {
     color: colors.muted,
     fontSize: 12,
     lineHeight: 1.6,
     marginBlock: 10,
   },
-  note: { color: colors.muted, fontSize: 11, marginBottom: 0 },
+  note: { color: colors.muted, fontSize: 11, lineHeight: 1.6, marginBottom: 0 },
   link: { color: colors.foreground, textUnderlineOffset: 3 },
+  error: { color: colors.review, fontSize: 12, lineHeight: 1.6 },
+  preview: {
+    marginTop: 24,
+    padding: 14,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    borderRadius: 8,
+  },
+  example: { color: colors.muted, fontSize: 11 },
+  previewTitle: {
+    fontSize: 13,
+    fontWeight: 500,
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  switch: {
+    width: 36,
+    height: 22,
+    borderWidth: 0,
+    borderRadius: 20,
+    padding: 3,
+    backgroundColor: colors.bubble,
+    cursor: "pointer",
+    flexShrink: 0,
+    display: "flex",
+    outlineOffset: 3,
+  },
+  checked: { backgroundColor: colors.accent },
+  disabled: { opacity: 0.45, cursor: "default" },
+  thumb: {
+    width: 16,
+    height: 16,
+    borderRadius: "50%",
+    backgroundColor: colors.foreground,
+    transform: "translateX(0)",
+  },
+  thumbChecked: {
+    transform: "translateX(14px)",
+    backgroundColor: colors.onAccent,
+  },
 });

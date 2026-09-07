@@ -1,9 +1,9 @@
-import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import {
-  toggleAgentAutomation,
-  runAgentAutomation,
   deleteAgentAutomation,
+  runAgentAutomation,
+  toggleAgentAutomation,
 } from "../features/automations/functions";
 import type { Automation } from "../features/automations/schema";
 import { scheduleLabel } from "../server/automations/schedule";
@@ -117,6 +117,7 @@ export function AutomationList({
             </Button>
           </div>
           {deleting?.id === automation.id && (
+            // biome-ignore lint/a11y/useSemanticElements: This groups confirmation actions, not form fields.
             <div role="group" aria-label={`Delete ${deleting.name}?`}>
               <p {...stylex.props(styles.help)}>
                 Delete “{deleting.name}”? This removes the schedule, cancels

@@ -107,7 +107,7 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 5);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 6);
         assert.equal(
           db.prepare("SELECT maintenance FROM runtime_control").get()
             ?.maintenance,
@@ -119,6 +119,9 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           DROP TABLE push_subscriptions;
           DROP TABLE dashboard_settings;
           DROP TABLE dashboards;
+          DROP TABLE notification_settings;
+          DROP TABLE agent_notifications;
+          ALTER TABLE runs DROP COLUMN hasAgentUpdate;
           DROP TRIGGER timeline_insert_revision;
           DROP TRIGGER timeline_update_revision;
           DROP INDEX timeline_agent_position;
@@ -139,13 +142,30 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 5);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 6);
         assert.equal(
           db.prepare("SELECT enabled FROM dashboard_settings WHERE id=1").get()
             ?.enabled,
           0,
         );
-        db.exec("PRAGMA user_version=6");
+        assert.deepEqual(
+          JSON.parse(
+            String(
+              db
+                .prepare(
+                  "SELECT preferences FROM notification_settings WHERE id=1",
+                )
+                .get()?.preferences,
+            ),
+          ),
+          {
+            enabled: true,
+            turnCompleted: true,
+            agentUpdates: true,
+            needsAttention: true,
+          },
+        );
+        db.exec("PRAGMA user_version=7");
       }, directory),
     );
     await assert.rejects(

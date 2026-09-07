@@ -5,11 +5,18 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { Effect } from "effect";
-import { withAgentStore } from "../src/server/agents/store.server";
+import { defaultNotificationPreferences } from "../src/features/notifications/schema";
+import { saveAgent, withAgentStore } from "../src/server/agents/store.server";
 import {
+  getNotificationPreferences,
+  setNotificationPreferences,
+} from "../src/server/notifications/preferences.server";
+import {
+  type Attention,
   attentionPayload,
   deliverAttention,
   readPushSettings,
+  readRunAttention,
   removePushSubscription,
   runNotificationKind,
   savePushSubscription,
@@ -80,6 +87,7 @@ test("notification identity persists privately; subscriptions are idempotent and
     publicKey: null,
     configured: false,
     registered: false,
+    preferences: defaultNotificationPreferences,
   });
   process.env.ROOST_PUSH_SUBJECT = "mailto:owner@example.com";
   const settings = await run(readPushSettings(undefined, directory));
@@ -145,7 +153,10 @@ test("notification identity persists privately; subscriptions are idempotent and
     "title",
     "url",
   ]);
-  assert.equal(messages[0]!.body, "An agent needs your approval.");
+  assert.equal(
+    messages[0]!.body,
+    "Open the conversation to review the request.",
+  );
   assert.equal(
     (await run(readPushSettings(expired.endpoint, directory))).registered,
     false,
@@ -238,7 +249,254 @@ test("run notifications honor quiet automations, cancellations, and delegated wo
     kind: "failed",
   });
   assert.equal(payload.url, "/agents/..%2Foutside");
-  assert.equal(payload.body, "An agent’s run needs attention.");
+  assert.equal(
+    payload.body,
+    "The turn could not finish. Open the conversation for details.",
+  );
+});
+
+test("notification categories gate delivery across devices and survive switching all notifications off and on", async (t) => {
+  const directory = mkdtempSync("/tmp/roost-push-preferences-");
+  const oldContact = process.env.ROOST_PUSH_SUBJECT;
+  process.env.ROOST_PUSH_SUBJECT = "mailto:owner@example.com";
+  t.after(() => {
+    if (oldContact === undefined) delete process.env.ROOST_PUSH_SUBJECT;
+    else process.env.ROOST_PUSH_SUBJECT = oldContact;
+    rmSync(directory, { recursive: true, force: true });
+  });
+  const settings = await run(readPushSettings(undefined, directory));
+  for (let i = 0; i < 2; i++)
+    await run(
+      savePushSubscription(subscription(), settings.publicKey!, directory),
+    );
+  const kinds: Attention["kind"][] = [
+    "completed",
+    "agent",
+    "approval",
+    "failed",
+  ];
+  const checkDelivery = async (expected: Attention["kind"][]) => {
+    const sent: string[] = [];
+    for (const kind of kinds)
+      await deliverAttention(
+        { agentId: randomUUID(), id: randomUUID(), kind },
+        {
+          directory,
+          send: async () => {
+            sent.push(kind);
+            return { statusCode: 201, headers: {}, body: "" };
+          },
+        },
+      );
+    assert.deepEqual(
+      sent,
+      expected.flatMap((kind) => [kind, kind]),
+    );
+  };
+  await checkDelivery(kinds);
+  await run(setNotificationPreferences({ enabled: false }, directory));
+  await checkDelivery([]);
+  await run(setNotificationPreferences({ enabled: true }, directory));
+  await run(setNotificationPreferences({ turnCompleted: false }, directory));
+  await checkDelivery(["agent", "approval", "failed"]);
+  await run(setNotificationPreferences({ agentUpdates: false }, directory));
+  await checkDelivery(["approval", "failed"]);
+  await run(setNotificationPreferences({ needsAttention: false }, directory));
+  await checkDelivery([]);
+  await run(
+    setNotificationPreferences(
+      { agentUpdates: true, enabled: false },
+      directory,
+    ),
+  );
+  await checkDelivery([]);
+  await run(setNotificationPreferences({ enabled: true }, directory));
+  assert.deepEqual(await run(getNotificationPreferences(directory)), {
+    enabled: true,
+    turnCompleted: false,
+    agentUpdates: true,
+    needsAttention: false,
+  });
+  assert.equal(
+    (await run(readPushSettings(undefined, directory))).preferences
+      .turnCompleted,
+    false,
+  );
+  await checkDelivery(["agent"]);
+});
+
+test("notifications name the agent and carry the final result, failure, approval, or explicit update without duplicate completion", async (t) => {
+  const directory = mkdtempSync("/tmp/roost-push-content-");
+  const oldContact = process.env.ROOST_PUSH_SUBJECT;
+  process.env.ROOST_PUSH_SUBJECT = "mailto:owner@example.com";
+  t.after(() => {
+    if (oldContact === undefined) delete process.env.ROOST_PUSH_SUBJECT;
+    else process.env.ROOST_PUSH_SUBJECT = oldContact;
+    rmSync(directory, { recursive: true, force: true });
+  });
+  const agent = await run(
+    saveAgent(
+      {
+        id: randomUUID(),
+        name: "Shoppy",
+        instructions: "Track packages",
+        character: "moss",
+        model: "fake",
+      },
+      directory,
+    ),
+  );
+  const settings = await run(readPushSettings(undefined, directory));
+  await run(
+    savePushSubscription(subscription(), settings.publicKey!, directory),
+  );
+  const runId = randomUUID();
+  const approvalId = randomUUID();
+  await run(
+    withAgentStore((db) => {
+      db.prepare(
+        "INSERT INTO runs(id,agentId,kind,prompt,status,createdAt,messages) VALUES (?,?,?,?,?,?,?)",
+      ).run(
+        runId,
+        agent.id,
+        "chat",
+        "Check my package",
+        "completed",
+        Date.now(),
+        JSON.stringify([
+          { role: "assistant", text: "I will check the order." },
+          {
+            role: "assistant",
+            text: "## Delivery update\n**Your package arrived.** [Tracking](https://example.com/track) says it is at the front door.\nROOST_NO_UPDATE",
+          },
+          { role: "activity", text: "Tool finished" },
+        ]),
+      );
+      db.prepare(
+        "INSERT INTO approvals(id,agentId,runId,threadId,requestKey,request,createdAt) VALUES (?,?,?,?,?,?,?)",
+      ).run(
+        approvalId,
+        agent.id,
+        runId,
+        "thread",
+        "request",
+        JSON.stringify({
+          title: "Approve replacement order",
+          details:
+            "The original item is out of stock. Order the **blue** one for $24?",
+        }),
+        Date.now(),
+      );
+    }, directory),
+  );
+  const payloads: ReturnType<typeof attentionPayload>[] = [];
+  const send = async (attention: Attention) => {
+    await deliverAttention(attention, {
+      directory,
+      send: async (_target, payload) => {
+        payloads.push(JSON.parse(String(payload)));
+        return { statusCode: 201, headers: {}, body: "" };
+      },
+    });
+    return payloads.at(-1)!;
+  };
+  const completed = await run(readRunAttention(runId, directory));
+  assert.ok(completed);
+  const result = await send(completed);
+  assert.equal(result.title, "Shoppy · Turn complete");
+  assert.equal(
+    result.body,
+    "Delivery update Your package arrived. Tracking says it is at the front door.",
+  );
+  await run(
+    withAgentStore((db) => {
+      db.prepare("UPDATE runs SET messages=? WHERE id=?").run(
+        JSON.stringify([
+          { role: "assistant", text: "The result is `2*3*4` hours." },
+        ]),
+        runId,
+      );
+    }, directory),
+  );
+  const arithmetic = await run(readRunAttention(runId, directory));
+  assert.ok(arithmetic);
+  assert.equal((await send(arithmetic)).body, "The result is 2*3*4 hours.");
+  const approval = await send({
+    agentId: agent.id,
+    id: approvalId,
+    kind: "approval",
+  });
+  assert.equal(approval.title, "Shoppy · Approve replacement order");
+  assert.equal(
+    approval.body,
+    "The original item is out of stock. Order the blue one for $24?",
+  );
+  const explicit = await send({
+    agentId: agent.id,
+    id: "update",
+    kind: "agent",
+    title: "Package delivered",
+    body: "Your headphones arrived at the front door at 2:14 PM.",
+  });
+  assert.equal(explicit.title, "Shoppy · Package delivered");
+  assert.equal(explicit.url, `/agents/${agent.id}`);
+  assert.equal(
+    explicit.body,
+    "Your headphones arrived at the front door at 2:14 PM.",
+  );
+  await run(
+    withAgentStore((db) => {
+      db.prepare(
+        "INSERT INTO agent_notifications(id,agentId,runId,requestId,title,body,createdAt) VALUES (?,?,?,?,?,?,?)",
+      ).run(
+        "update",
+        agent.id,
+        runId,
+        "request",
+        "Package delivered",
+        explicit.body,
+        Date.now(),
+      );
+      db.prepare("UPDATE runs SET hasAgentUpdate=1 WHERE id=?").run(runId);
+    }, directory),
+  );
+  assert.equal(await run(readRunAttention(runId, directory)), null);
+  await run(setNotificationPreferences({ agentUpdates: false }, directory));
+  assert.equal(
+    (await run(readRunAttention(runId, directory)))?.kind,
+    "completed",
+  );
+  await run(setNotificationPreferences({ agentUpdates: true }, directory));
+  await run(
+    withAgentStore((db) => {
+      db.prepare("UPDATE runs SET status='failed',error=? WHERE id=?").run(
+        "The store rejected the order because the item is out of stock.",
+        runId,
+      );
+    }, directory),
+  );
+  const failure = await run(readRunAttention(runId, directory));
+  assert.ok(failure);
+  const failed = await send(failure);
+  assert.equal(failed.title, "Shoppy · Needs attention");
+  assert.equal(
+    failed.body,
+    "The store rejected the order because the item is out of stock.",
+  );
+  const bounded = attentionPayload(
+    {
+      agentId: agent.id,
+      id: "long",
+      kind: "agent",
+      title: "Delivery ".repeat(30),
+      body: "**Package** ".repeat(80),
+    },
+    agent.name,
+  );
+  assert.ok(bounded.title.length <= 100 && bounded.title.endsWith("…"));
+  assert.ok(bounded.body.length <= 240 && bounded.body.endsWith("…"));
+  assert.ok(!bounded.body.includes("**"));
+  assert.equal(await run(readRunAttention(randomUUID(), directory)), null);
 });
 
 test("service worker displays push notifications and clicks stay within Roost", async () => {
@@ -277,12 +535,18 @@ test("service worker displays push notifications and clicks stay within Roost", 
     pending = promise;
   };
   listeners.get("push")!({
-    data: { json: () => ({ body: "An agent needs your approval.", url: "/" }) },
+    data: {
+      json: () => ({
+        title: "Shoppy · Package delivered",
+        body: "Your package is at the front door.",
+        url: "/",
+      }),
+    },
     waitUntil,
   });
   await pending;
-  assert.equal(shown[0].title, "Roost");
-  assert.equal(shown[0].options.body, "An agent needs your approval.");
+  assert.equal(shown[0].title, "Shoppy · Package delivered");
+  assert.equal(shown[0].options.body, "Your package is at the front door.");
   listeners.get("push")!({
     data: {
       json: () => {
@@ -292,7 +556,15 @@ test("service worker displays push notifications and clicks stay within Roost", 
     waitUntil,
   });
   await pending;
+  assert.equal(shown[1].title, "Roost");
   assert.equal(shown[1].options.body, "An agent has an update for you.");
+  listeners.get("push")!({
+    data: { json: () => ({ title: "x".repeat(150), body: "y".repeat(300) }) },
+    waitUntil,
+  });
+  await pending;
+  assert.equal(shown[2].title.length, 100);
+  assert.equal(shown[2].options.body?.length, 240);
   const id = randomUUID();
   const url = `https://roost.example/agents/${id}`;
   const click = async (target: unknown) => {

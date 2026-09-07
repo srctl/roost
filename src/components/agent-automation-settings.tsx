@@ -1,24 +1,20 @@
-import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { useEffect, useState } from "react";
 import {
   getAgentAutomations,
   stopAgentRun,
 } from "../features/automations/functions";
 import type { Automation } from "../features/automations/schema";
-import type { Run } from "../server/runs/store.server";
+import type { RunSummary } from "../server/runs/store.server";
 import { colors } from "../styles/tokens.stylex";
-import { Button } from "./ui/button";
-import { AutomationList } from "./automation-list";
 import { AutomationForm } from "./automation-form";
-import { RunDetails } from "./run-details";
+import { AutomationList } from "./automation-list";
+import { RunInspector } from "./run-details";
+import { Button } from "./ui/button";
 
-function runLabel(run: Run): string {
+function runLabel(run: RunSummary): string {
   if (run.kind === "automation") {
-    const automation = JSON.parse(
-      run.automationSnapshot ?? "null",
-    ) as Automation | null;
-
-    return automation?.name ?? "Automation";
+    return run.automationName ?? "Automation";
   }
 
   return {
@@ -36,7 +32,7 @@ export function AgentAutomationSettings({
   selectedId?: string;
 }) {
   const [automations, setAutomations] = useState<Automation[]>([]);
-  const [runs, setRuns] = useState<Run[]>([]);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,8 +114,6 @@ export function AgentAutomationSettings({
     }
   }
 
-  const viewed = runs.find((r) => r.id === runId);
-
   return (
     <section aria-label="Automations">
       <p {...stylex.props(styles.help)}>
@@ -171,7 +165,9 @@ export function AgentAutomationSettings({
         Includes chats, delegated tasks, and scheduled runs. Pausing cancels
         queued work; use Stop for a run already in progress.
       </p>
-      {!runs.length && <p {...stylex.props(styles.help)}>No runs yet.</p>}
+      {loaded && !runs.length && (
+        <p {...stylex.props(styles.help)}>No runs yet.</p>
+      )}
       {runs.map((run) => (
         <div key={run.id} {...stylex.props(styles.run)}>
           <Button onClick={() => setRunId(run.id)} xstyle={styles.runButton}>
@@ -195,8 +191,13 @@ export function AgentAutomationSettings({
         </div>
       ))}
       {error && <p role="alert">{error}</p>}
-      {viewed && (
-        <RunDetails run={viewed} onClose={() => setRunId(undefined)} />
+      {runId && (
+        <RunInspector
+          key={runId}
+          agentId={agentId}
+          id={runId}
+          onClose={() => setRunId(undefined)}
+        />
       )}
     </section>
   );

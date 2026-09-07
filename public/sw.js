@@ -62,16 +62,21 @@ self.addEventListener("push", (event) => {
     // Still show a visible notification when a payload cannot be decoded.
   }
   event.waitUntil(
-    self.registration.showNotification("Roost", {
-      body:
-        typeof payload.body === "string"
-          ? payload.body.slice(0, 200)
-          : "An agent has an update for you.",
-      icon: "/icons/roost-192.png",
-      tag:
-        typeof payload.tag === "string" ? payload.tag.slice(0, 200) : "roost",
-      data: { url: payload.url },
-    }),
+    self.registration.showNotification(
+      typeof payload.title === "string" && payload.title.trim()
+        ? payload.title.slice(0, 100)
+        : "Roost",
+      {
+        body:
+          typeof payload.body === "string"
+            ? payload.body.slice(0, 240)
+            : "An agent has an update for you.",
+        icon: "/icons/roost-192.png",
+        tag:
+          typeof payload.tag === "string" ? payload.tag.slice(0, 200) : "roost",
+        data: { url: payload.url },
+      },
+    ),
   );
 });
 

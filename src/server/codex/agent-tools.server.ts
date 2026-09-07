@@ -23,6 +23,11 @@ import {
   listDelegations,
 } from "../delegations/store.server";
 import { fileTools } from "../files/tools.server";
+import {
+  NotifyAgent,
+  notificationTools,
+  notifyAgent,
+} from "../notifications/tools.server";
 import { runAutomationNow } from "../runs/store.server";
 import { CodexError } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
@@ -54,6 +59,7 @@ export const agentTools: DynamicToolSpec[] = [
   ...approvalTools,
   ...fileTools,
   ...dashboardTools,
+  ...notificationTools,
   {
     type: "function",
     name: "roost_list_agents",
@@ -154,6 +160,12 @@ export function handleAgentTool(
   arguments_: unknown,
 ) {
   const action = Effect.gen(function* () {
+    if (tool === "roost_notify")
+      return yield* notifyAgent(
+        agentId,
+        runId,
+        yield* Schema.decodeUnknown(NotifyAgent)(arguments_),
+      );
     if (tool === "roost_list_dashboards") return yield* listDashboards(agentId);
     if (tool === "roost_save_dashboard")
       return yield* saveDashboard(

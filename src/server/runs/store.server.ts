@@ -33,6 +33,10 @@ export type Run = {
   automationSnapshot: string | null;
 };
 
+export type RunSummary = Pick<Run, "id" | "kind" | "status" | "createdAt"> & {
+  automationName: string | null;
+};
+
 export function insertRun(
   db: DatabaseSync,
   run: {
@@ -158,6 +162,19 @@ export const listRuns = (agentId: string) =>
         .all(agentId) as Run[],
   );
 
+export function readRunSummaries(
+  db: DatabaseSync,
+  agentId: string,
+): RunSummary[] {
+  return db
+    .prepare(
+      `SELECT id, kind, status, createdAt,
+              json_extract(automationSnapshot, '$.name') AS automationName
+       FROM runs WHERE agentId=? ORDER BY createdAt DESC LIMIT 50`,
+    )
+    .all(agentId) as RunSummary[];
+}
+
 export const cancelRun = (agentId: string, id: string) =>
   withAgentStore((db) => {
     db.prepare(
@@ -272,7 +289,8 @@ export const claimRun = (owner: string, allowBackground = true) =>
         "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (? OR q.kind='chat') AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
       )
       .get(owner, now, Number(allowBackground), owner, now - 30000) as
-      Run | undefined;
+      | Run
+      | undefined;
   });
 
 export const persistRun = (run: Run, messages: readonly Message[]) =>

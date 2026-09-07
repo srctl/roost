@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import webpush from "web-push";
 import type { Message } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
+import { readNotificationPreferences } from "./preferences.server";
 
 type Subscription = {
   endpoint: string;
@@ -13,7 +14,9 @@ type Subscription = {
 export type Attention = {
   agentId: string;
   id: string;
-  kind: "approval" | "completed" | "failed";
+  kind: "approval" | "completed" | "failed" | "agent";
+  title?: string;
+  body?: string;
 };
 
 const unavailable = () =>
@@ -114,16 +117,19 @@ export function validateSubscription(input: Subscription): Subscription {
 
 export const readPushSettings = (endpoint?: string, directory?: string) =>
   withAgentStore((db, root) => {
+    const preferences = readNotificationPreferences(db);
     const registered =
       !!endpoint &&
       !!db
         .prepare("SELECT endpoint FROM push_subscriptions WHERE endpoint=?")
         .get(endpoint);
-    if (!contact()) return { publicKey: null, registered, configured: false };
+    if (!contact())
+      return { publicKey: null, registered, configured: false, preferences };
     return {
       publicKey: vapidKeys(root).publicKey,
       registered,
       configured: true,
+      preferences,
     };
   }, directory);
 
@@ -162,15 +168,38 @@ export const removePushSubscription = (endpoint: string, directory?: string) =>
     db.prepare("DELETE FROM push_subscriptions WHERE endpoint=?").run(endpoint);
   }, directory);
 
-export function attentionPayload(attention: Attention) {
+function notificationText(value: string, limit: number) {
+  const text = value
+    .replace(/\bROOST_NO_UPDATE\b/g, "")
+    .replace(/^\s*```[^\n]*$/gm, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/gm, "")
+    .replace(/(\*{1,3}|~~|`{1,3})(.+?)\1/g, "$2")
+    .replace(/\b(_{1,3})([^_]+)\1\b/g, "$2")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
+}
+
+export function attentionPayload(attention: Attention, agentName = "Roost") {
+  const title =
+    attention.title ||
+    {
+      approval: "Approval needed",
+      failed: "Needs attention",
+      agent: "Update",
+      completed: "Turn complete",
+    }[attention.kind];
+  const body =
+    notificationText(attention.body ?? "", 240) ||
+    (attention.kind === "approval"
+      ? "Open the conversation to review the request."
+      : attention.kind === "failed"
+        ? "The turn could not finish. Open the conversation for details."
+        : "Open the conversation to see the update.");
   return {
-    title: "Roost",
-    body:
-      attention.kind === "approval"
-        ? "An agent needs your approval."
-        : attention.kind === "failed"
-          ? "An agent’s run needs attention."
-          : "An agent has finished its work.",
+    title: notificationText(`${agentName} · ${title}`, 100),
+    body,
     tag: `roost:${attention.kind}:${attention.id}`,
     url: `/agents/${encodeURIComponent(attention.agentId)}`,
   };
@@ -186,16 +215,51 @@ export async function deliverAttention(
     options.directory ?? resolve(process.env.ROOST_DATA_DIR ?? ".roost");
   const state = await Effect.runPromise(
     withAgentStore((db, root) => {
+      const preferences = readNotificationPreferences(db);
+      const enabled =
+        attention.kind === "completed"
+          ? preferences.turnCompleted
+          : attention.kind === "agent"
+            ? preferences.agentUpdates
+            : preferences.needsAttention;
+      if (!preferences.enabled || !enabled) return null;
       const subscriptions = db
         .prepare("SELECT subscription FROM push_subscriptions")
         .all();
       const subject = contact();
       if (!subscriptions.length || !subject) return null;
-      return { subscriptions, vapidDetails: { subject, ...vapidKeys(root) } };
+      const agent = db
+        .prepare("SELECT name FROM agents WHERE id=?")
+        .get(attention.agentId);
+      let content = attention;
+      if (attention.kind === "approval") {
+        const approval = db
+          .prepare("SELECT request FROM approvals WHERE id=? AND agentId=?")
+          .get(attention.id, attention.agentId);
+        if (approval) {
+          const request = JSON.parse(String(approval.request)) as {
+            title: string;
+            details: string;
+          };
+          content = {
+            ...attention,
+            title: request.title,
+            body: request.details,
+          };
+        }
+      }
+      return {
+        subscriptions,
+        vapidDetails: { subject, ...vapidKeys(root) },
+        payload: attentionPayload(
+          content,
+          agent ? String(agent.name) : "Roost",
+        ),
+      };
     }, directory),
   );
   if (!state) return { delivered: 0, expired: 0, failed: 0 };
-  const payload = JSON.stringify(attentionPayload(attention));
+  const payload = JSON.stringify(state.payload);
   const outcomes = await Promise.all(
     state.subscriptions.map(async (row) => {
       const serialized = String(row.subscription);
@@ -273,27 +337,53 @@ export function runNotificationKind(run: {
   return "completed" as const;
 }
 
+export const readRunAttention = (id: string, directory?: string) =>
+  withAgentStore((db): Attention | null => {
+    const row = db
+      .prepare(
+        "SELECT agentId,kind,status,automationSnapshot,messages,error,prompt,hasAgentUpdate FROM runs WHERE id=?",
+      )
+      .get(id);
+    if (!row) return null;
+    const kind = runNotificationKind({
+      kind: String(row.kind),
+      status: String(row.status),
+      automationSnapshot: row.automationSnapshot
+        ? String(row.automationSnapshot)
+        : null,
+      messages: String(row.messages),
+    });
+    if (!kind) return null;
+    if (
+      kind === "completed" &&
+      readNotificationPreferences(db).agentUpdates &&
+      row.hasAgentUpdate === 1
+    )
+      return null;
+    const answer = (JSON.parse(String(row.messages)) as Message[])
+      .reverse()
+      .find((message) => message.role === "assistant")
+      ?.text?.replace(/\bROOST_NO_UPDATE\b/g, "")
+      .trim();
+    const body =
+      kind === "failed"
+        ? row.error ||
+          (row.status === "interrupted"
+            ? "The turn was interrupted before it finished."
+            : `Could not finish: ${row.prompt}`)
+        : answer || `Finished: ${row.prompt}`;
+    return {
+      agentId: String(row.agentId),
+      id,
+      kind,
+      body: String(body),
+    };
+  }, directory);
+
 export function notifyRunFinished(id: string) {
-  void Effect.runPromise(
-    withAgentStore((db) =>
-      db
-        .prepare(
-          "SELECT agentId,kind,status,automationSnapshot,messages FROM runs WHERE id=?",
-        )
-        .get(id),
-    ),
-  )
-    .then((row) => {
-      if (!row) return;
-      const kind = runNotificationKind({
-        kind: String(row.kind),
-        status: String(row.status),
-        automationSnapshot: row.automationSnapshot
-          ? String(row.automationSnapshot)
-          : null,
-        messages: String(row.messages),
-      });
-      if (kind) notifyAttention({ agentId: String(row.agentId), id, kind });
+  void Effect.runPromise(readRunAttention(id))
+    .then((attention) => {
+      if (attention) notifyAttention(attention);
     })
     .catch(() => console.warn("Roost could not prepare a push notification."));
 }

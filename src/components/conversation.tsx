@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
-import { useConversation } from "../features/chat/use-conversation";
 import type { InitialConversation } from "../features/chat/functions";
+import { useConversation } from "../features/chat/use-conversation";
 import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
 import { usePreferences } from "../features/settings/preferences";

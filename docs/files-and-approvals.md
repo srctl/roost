@@ -41,7 +41,7 @@ are not. Use the computer viewer for passwords, MFA, and sign-ins.
 
 Approvals keep waiting on the server if you close the browser. Enable
 [push notifications](notifications.md) to be notified on your device. Notifications
-contain no action details and never approve anything. The computer is released
+preview the request; opening one never approves it. The computer is released
 while approval is pending, allowing other agents to use it; after resuming, the
 agent must inspect the current screen again before acting.
 

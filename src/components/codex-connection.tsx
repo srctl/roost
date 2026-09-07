@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
-import { useRouter } from "@tanstack/react-router";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "./ui/button";
-import { colors } from "../styles/tokens.stylex";
-import type { CodexLogin } from "../features/auth/schema";
+import { useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
+  cancelCodexLogin,
   getCodexAccount,
   getCodexLogin,
   startCodexLogin,
-  cancelCodexLogin,
 } from "../features/auth/functions";
+import type { CodexLogin } from "../features/auth/schema";
+import { colors } from "../styles/tokens.stylex";
+import { Button } from "./ui/button";
 
 export function CodexConnection() {
   const router = useRouter();

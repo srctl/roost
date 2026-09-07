@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 5)
+        if (version > 6)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -144,6 +144,19 @@ export function withAgentStore<A>(
             PRAGMA user_version = 5;
             COMMIT;`);
         }
+        if (version < 6) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE notification_settings (id INTEGER PRIMARY KEY CHECK(id=1), preferences TEXT NOT NULL);
+            INSERT INTO notification_settings(id,preferences) VALUES(1,'{"enabled":true,"turnCompleted":true,"agentUpdates":true,"needsAttention":true}');
+            CREATE TABLE agent_notifications (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL, runId TEXT NOT NULL,
+              requestId TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+              createdAt INTEGER NOT NULL, UNIQUE(agentId,requestId)
+            );
+            ALTER TABLE runs ADD COLUMN hasAgentUpdate INTEGER NOT NULL DEFAULT 0;
+            PRAGMA user_version = 6;
+            COMMIT;`);
+        }
         return run(db, directory);
       } finally {
         db.close();
@@ -259,7 +272,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,7)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,8)",
     ).run(threadId);
   });
 

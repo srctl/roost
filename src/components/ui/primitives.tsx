@@ -1,9 +1,32 @@
 import * as stylex from "@stylexjs/stylex";
+import acorn from "../../assets/acorn.svg";
+import bloom from "../../assets/bloom.svg";
+import button from "../../assets/button.svg";
+import ember from "../../assets/ember.svg";
 import moss from "../../assets/moss.svg";
-import wisp from "../../assets/wisp.svg";
+import nimbus from "../../assets/nimbus.svg";
 import peach from "../../assets/peach.svg";
+import pebble from "../../assets/pebble.svg";
+import pip from "../../assets/pip.svg";
+import puddle from "../../assets/puddle.svg";
+import sprout from "../../assets/sprout.svg";
+import wisp from "../../assets/wisp.svg";
+import type { Character } from "../../features/agents/schema";
 
-const characters = { moss, wisp, peach };
+const characters = {
+  moss,
+  wisp,
+  peach,
+  sprout,
+  ember,
+  puddle,
+  pip,
+  bloom,
+  pebble,
+  button,
+  nimbus,
+  acorn,
+} satisfies Record<typeof Character.Type, string>;
 
 export function Avatar({
   character,

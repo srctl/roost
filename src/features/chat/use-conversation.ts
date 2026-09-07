@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileAttachment } from "./files";
 import {
   getConversation,
+  type InitialConversation,
   sendMessage,
   stopMessage,
-  type InitialConversation,
 } from "./functions";
 import { type Entry, mergeEntries } from "./timeline";
 

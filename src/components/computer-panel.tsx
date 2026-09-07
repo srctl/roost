@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import * as stylex from "@stylexjs/stylex";
+import { Dialog } from "@base-ui/react/dialog";
 import type RFB from "@novnc/novnc/lib/rfb.js";
-import { openComputer, controlComputer } from "../features/computer/functions";
+import * as stylex from "@stylexjs/stylex";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { controlComputer, openComputer } from "../features/computer/functions";
+import { colors } from "../styles/tokens.stylex";
+import { ComputerInput } from "./computer-input";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
-import { Dialog } from "@base-ui/react/dialog";
-import { ComputerInput } from "./computer-input";
-import { colors } from "../styles/tokens.stylex";
 
 export function ComputerPanel({
   onClose,
@@ -209,9 +209,11 @@ export function ComputerPanel({
     <Button onClick={() => setAttempt((value) => value + 1)}>Reconnect</Button>
   ) : null;
   const display = (
+    // biome-ignore lint/a11y/useSemanticElements: This groups the remote desktop canvas, not form fields.
     <div
       ref={mountScreen}
       {...stylex.props(styles.screen)}
+      role="group"
       aria-label="Remote desktop"
     />
   );

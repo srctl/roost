@@ -1,24 +1,24 @@
-import { available } from "../../server/available";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
-import { AutomationInput } from "./schema";
 import {
-  listAutomations,
+  AgentStoreError,
+  withAgentStore,
+} from "../../server/agents/store.server";
+import {
+  deleteAutomation,
+  readAutomations,
   saveAutomation,
   toggleAutomation,
-  deleteAutomation,
 } from "../../server/automations/store.server";
-import {
-  listRuns,
-  runAutomationNow,
-  cancelRun,
-} from "../../server/runs/store.server";
-import {
-  withAgentStore,
-  AgentStoreError,
-} from "../../server/agents/store.server";
+import { available } from "../../server/available";
 import type { Run } from "../../server/runs/store.server";
+import {
+  cancelRun,
+  readRunSummaries,
+  runAutomationNow,
+} from "../../server/runs/store.server";
 import { startWorker } from "../../server/runs/worker.server";
+import { AutomationInput } from "./schema";
 
 const result = <A, E extends { message: string }>(
   effect: Effect.Effect<A, E>,
@@ -38,18 +38,14 @@ const Entry = Schema.Struct({ ...AgentId.fields, id: Schema.UUID });
 export const getAgentAutomations = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(AgentId))
-  .handler(({ data }) => {
-    startWorker();
-
-    return result(
-      Effect.gen(function* () {
-        return {
-          automations: yield* listAutomations(data.agentId),
-          runs: yield* listRuns(data.agentId),
-        };
-      }),
-    );
-  });
+  .handler(({ data }) =>
+    result(
+      withAgentStore((db) => ({
+        automations: readAutomations(db, data.agentId),
+        runs: readRunSummaries(db, data.agentId),
+      })),
+    ),
+  );
 
 export const saveAgentAutomation = createServerFn({ method: "POST" })
   .middleware([available])

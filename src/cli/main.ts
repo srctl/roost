@@ -1,35 +1,35 @@
-import { Effect } from "effect";
 import { existsSync } from "node:fs";
 import {
   mkdir,
-  writeFile,
+  mkdtemp,
   readFile,
-  realpath,
   readlink,
+  realpath,
   rename,
   rm,
-  mkdtemp,
   symlink,
+  writeFile,
 } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { Effect } from "effect";
+import {
+  activate,
+  downloadRelease,
+  installRelease,
+  readRelease,
+} from "./releases";
 import {
   command,
+  type Installation,
+  isActive,
   service,
   serviceName,
   serviceUnit,
-  isActive,
   waitForServer,
-  type Installation,
 } from "./service";
-import {
-  activate,
-  installRelease,
-  readRelease,
-  downloadRelease,
-} from "./releases";
-import { withLock, readJson } from "./state";
+import { readJson, withLock } from "./state";
 
 import { applyUpdate } from "./update";
 
@@ -158,7 +158,7 @@ async function setup(options: Record<string, string>) {
   if (old && (await isActive(old))) await service(old, "stop");
   await activate(root, destination);
   await mkdir(join(root, "data"), { recursive: true, mode: 0o700 });
-  await writeFile(`${configPath}.new`, JSON.stringify(c, null, 2) + "\n", {
+  await writeFile(`${configPath}.new`, `${JSON.stringify(c, null, 2)}\n`, {
     mode: 0o600,
   });
   await rename(`${configPath}.new`, configPath);

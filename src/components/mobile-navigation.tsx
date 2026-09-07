@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";

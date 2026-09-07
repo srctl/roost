@@ -150,12 +150,14 @@ export const readApprovals = (agentId: string, id?: string) =>
             )
             .all(agentId)
     ) as Row[];
-    return rows.map((row): Approval => ({
-      ...JSON.parse(row.request),
-      id: row.id,
-      status: row.status,
-      response: row.response ? JSON.parse(row.response) : null,
-    }));
+    return rows.map(
+      (row): Approval => ({
+        ...JSON.parse(row.request),
+        id: row.id,
+        status: row.status,
+        response: row.response ? JSON.parse(row.response) : null,
+      }),
+    );
   });
 
 export const answerApproval = (

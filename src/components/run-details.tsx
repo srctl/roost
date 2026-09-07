@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { useEffect, useState } from "react";
 import { getAgentRun } from "../features/automations/functions";
-import type { Run } from "../server/runs/store.server";
 import type { Message } from "../features/chat/schema";
+import type { Run } from "../server/runs/store.server";
 import { colors } from "../styles/tokens.stylex";
-import { Inspector } from "./ui/inspector";
 import { MessageContent } from "./conversation/message-content";
+import { Inspector } from "./ui/inspector";
 
 export function RunDetails({
   run,
   onClose,
+  loadError,
 }: {
   run: Run;
   onClose: () => void;
+  loadError?: string;
 }) {
   const messages = (JSON.parse(run.messages) as Message[]).filter(
     (message) => message.role !== "user",
@@ -20,6 +22,7 @@ export function RunDetails({
 
   return (
     <Inspector title="Run details" onClose={onClose}>
+      {loadError && <p role="alert">{loadError}</p>}
       <p>
         {run.status} · {new Date(run.createdAt).toLocaleString()}
       </p>
@@ -75,22 +78,20 @@ export function RunInspector({
           return;
         }
 
-        if (!result.ok) {
+        if (result.ok) {
+          setRun(result.value);
+          setError("");
+          if (!["queued", "running"].includes(result.value.status)) return;
+        } else {
           setError(result.error);
-
-          return;
-        }
-
-        setRun(result.value);
-
-        if (["queued", "running"].includes(result.value.status)) {
-          timer = setTimeout(() => void load(), 1000);
         }
       } catch {
         if (active) {
           setError("Could not load this run.");
         }
       }
+
+      if (active) timer = setTimeout(() => void load(), 1000);
     }
 
     void load();
@@ -102,7 +103,7 @@ export function RunInspector({
   }, [agentId, id]);
 
   return run ? (
-    <RunDetails run={run} onClose={onClose} />
+    <RunDetails run={run} onClose={onClose} loadError={error} />
   ) : (
     <Inspector title="Run details" onClose={onClose}>
       <p>{error || "Loading…"}</p>

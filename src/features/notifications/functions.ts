@@ -1,11 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 import { available } from "../../server/available";
+import { setNotificationPreferences } from "../../server/notifications/preferences.server";
 import {
   readPushSettings,
   removePushSubscription,
   savePushSubscription,
 } from "../../server/notifications/push.server";
+import { NotificationPreferencesPatch } from "./schema";
 
 const Endpoint = Schema.String.pipe(Schema.maxLength(4096));
 const result = <A, E extends { message: string }>(
@@ -50,3 +52,8 @@ export const disablePush = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(Schema.Struct({ endpoint: Endpoint })))
   .handler(({ data }) => result(removePushSubscription(data.endpoint)));
+
+export const changeNotificationPreferences = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(NotificationPreferencesPatch))
+  .handler(({ data }) => result(setNotificationPreferences(data)));

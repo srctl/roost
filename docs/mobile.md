@@ -32,7 +32,7 @@ requires a connection to its server to send messages or control the computer.
 
 Home-screen icon links use versioned PNGs from Roost's public GitHub repository.
 iOS may fetch these without the browser's authentication cookie, so serving them
-behind the private exe.dev proxy can produce a blank icon. Only public branding
+behind an authenticated private proxy can produce a blank icon. Only public branding
 assets use this URL; the app, conversations, and desktop remain authenticated.
 The SVG favicon and local PNG copies are also included in every release.
 

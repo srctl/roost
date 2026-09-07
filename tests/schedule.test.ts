@@ -1,7 +1,7 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextOccurrence } from "../src/server/automations/schedule";
+import { test } from "node:test";
 import type { Schedule } from "../src/features/automations/schema";
+import { nextOccurrence } from "../src/server/automations/schedule";
 
 const next = (time: string, days: number[], after: string) =>
   new Date(

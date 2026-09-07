@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
   constants,
   fstatSync,
   mkdirSync,
   openSync,
-  closeSync,
   readFileSync,
   renameSync,
   statSync,
@@ -12,13 +12,13 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { Effect, Schema } from "effect";
+import type { Agent } from "../../features/agents/schema";
+import { putMessage } from "../runs/timeline.server";
 import {
   AgentStoreError,
   getAgentConversation,
   withAgentStore,
 } from "./store.server";
-import { putMessage } from "../runs/timeline.server";
-import type { Agent } from "../../features/agents/schema";
 
 export const SoulUpdate = Schema.Struct({
   agentId: Schema.UUID,
