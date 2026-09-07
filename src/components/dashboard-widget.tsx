@@ -1,12 +1,12 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: Read-only report snapshots allow duplicate labels and cells, with no editable row state to preserve.
 import * as stylex from "@stylexjs/stylex";
-import { Link } from "@tanstack/react-router";
 import type {
   DashboardBlock,
   DashboardWidget as Widget,
 } from "../features/dashboards/schema";
 import { colors } from "../styles/tokens.stylex";
 import { MessageContent } from "./conversation/message-content";
+import { Button } from "./ui/button";
 
 function Chart({
   block,
@@ -222,9 +222,11 @@ function Block({ block }: { block: DashboardBlock }) {
 export function DashboardWidget({
   widget,
   agentName,
+  onDiscuss,
 }: {
   widget: Widget;
   agentName: string;
+  onDiscuss: () => void;
 }) {
   return (
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
@@ -245,13 +247,7 @@ export function DashboardWidget({
             .slice(0, 16)}{" "}
           UTC
         </time>
-        <Link
-          to="/agents/$agentId"
-          params={{ agentId: widget.agentId }}
-          {...stylex.props(styles.link)}
-        >
-          Discuss with {agentName}
-        </Link>
+        <Button onClick={onDiscuss}>Discuss with {agentName}</Button>
       </footer>
     </article>
   );

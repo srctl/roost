@@ -15,9 +15,13 @@ export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const agents = Route.useLoaderData();
   useAgentStartup(agents.ok ? agents.value : undefined);
-  const chatting = useRouterState({
+  const agentPage = useRouterState({
     select: (state) =>
-      state.matches.some((match) => match.routeId === "/agents/$agentId"),
+      state.matches.some(
+        (match) =>
+          match.routeId === "/agents/$agentId" ||
+          match.routeId === "/agents/$agentId_/dashboard",
+      ),
   });
   const shell = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -98,7 +102,7 @@ export function App() {
               </Button>
             </div>
           )}
-          {!chatting && (
+          {!agentPage && (
             <header {...stylex.props(styles.mobileHeader)}>
               <MobileNavigation />
               <Link to="/" {...stylex.props(styles.brand)}>
@@ -109,7 +113,7 @@ export function App() {
           <main
             {...stylex.props(
               styles.workspace,
-              chatting && styles.chatWorkspace,
+              agentPage && styles.chatWorkspace,
             )}
           >
             {!agents.ok && <p role="alert">{agents.error}</p>}

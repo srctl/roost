@@ -2,7 +2,12 @@
 
 Dashboards keep useful trackers outside an agent's conversation. They are **off
 by default**. Enable **Settings → Dashboards**, then open an agent and choose
-**Dashboard** in its conversation header. Each agent has its own dashboard.
+**Dashboard** in its header. Conversation and Dashboard tabs keep both views
+within the same agent. On desktop, the existing conversation sits beside the
+dashboard. Drag the divider to resize chat, or use **Hide chat** / **Show chat**.
+The divider also supports arrow keys, Home, and End. On smaller screens, choose
+**Chat** to open it and **Close chat** to
+return to the widgets. Each agent has its own dashboard.
 The setting is saved on the Roost server and applies to every device.
 Turning it off hides the page's content and prevents dashboard reads and updates;
 existing widgets remain saved for when you enable it again.
@@ -17,7 +22,7 @@ For example:
 Each named widget can combine notes, metrics, tables, line or bar charts, source
 links, and task lists. Charts include a **View values** option. The page shows each
 widget's last saved update time; use **Discuss with…** to
-ask that agent to change or remove it. The agent reads existing widgets before
+focus the conversation and ask that agent to change or remove it. The agent reads existing widgets before
 updating them, so concurrent changes cannot silently overwrite one another.
 
 Widgets are saved reports, not live connections to external services. Their

@@ -1,16 +1,30 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { AgentHeader } from "../components/agent-header";
+import { Conversation } from "../components/conversation";
 import { DashboardWidget } from "../components/dashboard-widget";
 import { Button } from "../components/ui/button";
 import type { Agent } from "../features/agents/schema";
+import { getConversationSnapshot } from "../features/chat/functions";
 import { getDashboard } from "../features/dashboards/functions";
 import { updateDashboardPreference } from "../features/dashboards/preference";
 import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/agents/$agentId_/dashboard")({
-  loader: ({ params }) => loadDashboard(params.agentId),
+  loader: async ({ params }) => {
+    const [dashboard, conversation] = await Promise.all([
+      loadDashboard(params.agentId),
+      getConversationSnapshot({ data: { agentId: params.agentId } }).catch(
+        () => ({
+          ok: false as const,
+          error: "Could not access this conversation. Check Roost and retry.",
+        }),
+      ),
+    ]);
+    return { dashboard, conversation };
+  },
   headers: () => ({ "Cache-Control": "private, no-store" }),
   component: DashboardPage,
 });
@@ -30,24 +44,154 @@ function DashboardPage() {
     ? agents.value.find((agent) => agent.id === agentId)
     : undefined;
   if (!agent) return <p>Agent not found.</p>;
+  return <DashboardWorkspace key={agentId} agent={agent} loaded={loaded} />;
+}
+
+function DashboardWorkspace({
+  agent,
+  loaded,
+}: {
+  agent: Agent;
+  loaded: ReturnType<typeof Route.useLoaderData>;
+}) {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatWidth, setChatWidth] = useState(360);
+  const workspace = useRef<HTMLDivElement>(null);
+  const [maxChatWidth, setMaxChatWidth] = useState(600);
+  useEffect(() => {
+    const element = workspace.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      const maximum = Math.max(300, Math.min(600, element.clientWidth - 360));
+      setMaxChatWidth(maximum);
+      setChatWidth((width) => Math.min(width, maximum));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  function resizeChat(width: number) {
+    setChatWidth(Math.round(Math.max(300, Math.min(maxChatWidth, width))));
+  }
+  const chat = useRef<HTMLElement>(null);
+  const chatButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (chatOpen) chat.current?.querySelector("textarea")?.focus();
+  }, [chatOpen, chatCollapsed]);
   return (
-    <section {...stylex.props(styles.page)}>
-      <header {...stylex.props(styles.header)}>
-        <div>
-          <Link
-            to="/agents/$agentId"
-            params={{ agentId }}
-            {...stylex.props(styles.link)}
+    <section
+      {...stylex.props(styles.page)}
+      style={
+        {
+          "--dashboard-chat-width": `${chatWidth}px`,
+          "--dashboard-chat-display": chatCollapsed ? "none" : "block",
+        } as CSSProperties
+      }
+    >
+      <AgentHeader agent={agent} dashboard>
+        <Button
+          onClick={() => setChatCollapsed(!chatCollapsed)}
+          aria-expanded={!chatCollapsed}
+          aria-controls="dashboard-chat"
+          xstyle={styles.desktopChatToggle}
+        >
+          {chatCollapsed ? "Show chat" : "Hide chat"}
+        </Button>
+        <Button
+          ref={chatButton}
+          onClick={() => setChatOpen(!chatOpen)}
+          aria-expanded={chatOpen}
+          aria-controls="dashboard-chat"
+          xstyle={styles.chatToggle}
+        >
+          Chat
+        </Button>
+      </AgentHeader>
+      <div
+        ref={workspace}
+        {...stylex.props(
+          styles.workspace,
+          chatCollapsed && styles.workspaceCollapsed,
+        )}
+      >
+        <section
+          aria-label="Dashboard widgets"
+          {...stylex.props(styles.content, chatOpen && styles.contentHidden)}
+        >
+          <AgentDashboard
+            agent={agent}
+            loaded={loaded.dashboard}
+            onDiscuss={() => {
+              setChatCollapsed(false);
+              setChatOpen(true);
+              chat.current?.querySelector("textarea")?.focus();
+            }}
+          />
+        </section>
+        {!chatCollapsed && (
+          // biome-ignore lint/a11y/useSemanticElements: This is an interactive pane splitter, not a thematic break.
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label="Resize chat"
+            aria-orientation="vertical"
+            aria-controls="dashboard-chat"
+            aria-valuemin={300}
+            aria-valuemax={maxChatWidth}
+            aria-valuenow={chatWidth}
+            {...stylex.props(styles.resizeHandle)}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.currentTarget.focus();
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (
+                !event.currentTarget.hasPointerCapture(event.pointerId) ||
+                !workspace.current
+              )
+                return;
+              resizeChat(
+                workspace.current.getBoundingClientRect().right - event.clientX,
+              );
+            }}
+            onPointerUp={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }}
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              if (event.key === "Home") resizeChat(300);
+              else if (event.key === "End") resizeChat(maxChatWidth);
+              else
+                resizeChat(chatWidth + (event.key === "ArrowLeft" ? 24 : -24));
+            }}
           >
-            ← {agent.name}
-          </Link>
-          <h1 {...stylex.props(styles.title)}>Dashboard</h1>
-          <p {...stylex.props(styles.description)}>
-            The things you’re keeping an eye on with {agent.name}.
-          </p>
-        </div>
-      </header>
-      <AgentDashboard key={agentId} agent={agent} loaded={loaded} />
+            <span {...stylex.props(styles.resizeLine)} />
+          </div>
+        )}
+        <aside
+          id="dashboard-chat"
+          ref={chat}
+          aria-label={`Chat with ${agent.name}`}
+          {...stylex.props(styles.chat, chatOpen && styles.chatOpen)}
+        >
+          <Conversation
+            agent={agent}
+            initialConversation={loaded.conversation}
+            embedded
+            onClose={() => {
+              setChatOpen(false);
+              chatButton.current?.focus();
+            }}
+          />
+        </aside>
+      </div>
     </section>
   );
 }
@@ -55,9 +199,11 @@ function DashboardPage() {
 function AgentDashboard({
   agent,
   loaded,
+  onDiscuss,
 }: {
   agent: Agent;
   loaded: Awaited<ReturnType<typeof loadDashboard>>;
+  onDiscuss: () => void;
 }) {
   const [result, setResult] = useState(loaded);
   const [refreshError, setRefreshError] = useState(false);
@@ -123,32 +269,18 @@ function AgentDashboard({
               key={`${widget.agentId}:${widget.key}`}
               widget={widget}
               agentName={agent.name}
+              onDiscuss={onDiscuss}
             />
           ))}
         </div>
       ) : (
         <div {...stylex.props(styles.empty)}>
-          <h2 {...stylex.props(styles.emptyTitle)}>
-            Choose what you want to track.
-          </h2>
+          <h2 {...stylex.props(styles.emptyTitle)}>No widgets yet</h2>
           <p {...stylex.props(styles.emptyText)}>
-            Ask {agent.name} to build a tracker with you. Mix notes, tasks,
-            metrics, tables, charts, and source links. Ask for an automation
-            when it should update on a schedule.
+            Ask {agent.name} to create a tracker in the conversation. Notes,
+            tasks, and charts saved by your agent will appear here.
           </p>
-          <p {...stylex.props(styles.example)}>
-            “Make a dashboard for my project: next steps, current status, and
-            the metrics that matter.”
-          </p>
-          <div {...stylex.props(styles.agents)}>
-            <Link
-              to="/agents/$agentId"
-              params={{ agentId: agent.id }}
-              {...stylex.props(styles.link)}
-            >
-              Talk to {agent.name} ↗
-            </Link>
-          </div>
+          <Button onClick={onDiscuss}>Start a tracker →</Button>
         </div>
       )}
     </>
@@ -157,19 +289,76 @@ function AgentDashboard({
 
 const styles = stylex.create({
   page: {
-    maxWidth: 1100,
-    marginInline: "auto",
-    paddingBlock: { default: 24, "@media (max-width: 700px)": 8 },
-  },
-  header: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    flexWrap: "wrap",
-    marginBottom: 28,
+    flexDirection: "column",
+    width: "100%",
+    height: {
+      default: "calc(100svh - 40px)",
+      "@media (max-width: 700px)": "100%",
+    },
+    minHeight: 0,
   },
-  title: { margin: 0, fontSize: 26, fontWeight: 500, letterSpacing: "-0.6px" },
+  workspace: {
+    display: "grid",
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr) 9px var(--dashboard-chat-width)",
+      "@media (max-width: 1100px)": "minmax(0, 1fr)",
+    },
+    flex: 1,
+    minHeight: 0,
+  },
+  workspaceCollapsed: { gridTemplateColumns: "minmax(0, 1fr)" },
+  desktopChatToggle: {
+    display: { default: "inline-flex", "@media (max-width: 1100px)": "none" },
+  },
+  resizeHandle: {
+    display: { default: "flex", "@media (max-width: 1100px)": "none" },
+    alignItems: "stretch",
+    justifyContent: "center",
+    cursor: "col-resize",
+    touchAction: "none",
+    outlineOffset: -2,
+    color: {
+      default: colors.border,
+      ":hover": colors.muted,
+      ":focus-visible": colors.accent,
+    },
+  },
+  resizeLine: {
+    width: 1,
+    backgroundColor: "currentColor",
+    transitionProperty: "background-color",
+    transitionDuration: "120ms",
+  },
+  content: {
+    minWidth: 0,
+    minHeight: 0,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    padding: { default: 28, "@media (max-width: 700px)": 16 },
+  },
+  contentHidden: {
+    display: { default: "block", "@media (max-width: 1100px)": "none" },
+  },
+  chat: {
+    display: {
+      default: "var(--dashboard-chat-display)",
+      "@media (max-width: 1100px)": "none",
+    },
+    minWidth: 0,
+    minHeight: 0,
+    paddingLeft: { default: 20, "@media (max-width: 1100px)": 12 },
+    paddingRight: { default: 0, "@media (max-width: 1100px)": 12 },
+  },
+  chatOpen: {
+    display: {
+      default: "var(--dashboard-chat-display)",
+      "@media (max-width: 1100px)": "block",
+    },
+  },
+  chatToggle: {
+    display: { default: "none", "@media (max-width: 1100px)": "inline-flex" },
+  },
   description: {
     color: colors.muted,
     fontSize: 13,
@@ -178,27 +367,12 @@ const styles = stylex.create({
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: {
-      default: "repeat(2, minmax(0, 1fr))",
-      "@media (max-width: 950px)": "minmax(0, 1fr)",
-    },
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
     gap: 20,
     alignItems: "start",
   },
-  empty: { maxWidth: 500, marginInline: "auto", paddingBlock: 70 },
-  emptyTitle: { fontSize: 20, fontWeight: 500, margin: 0 },
+  empty: { maxWidth: 360, marginInline: "auto", paddingBlock: 80 },
+  emptyTitle: { fontSize: 18, fontWeight: 500, margin: 0 },
   emptyText: { color: colors.muted, lineHeight: 1.8, fontSize: 13 },
-  example: {
-    fontSize: 14,
-    lineHeight: 1.8,
-    paddingBlock: 18,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderTopStyle: "solid",
-    borderBottomStyle: "solid",
-    borderTopColor: colors.border,
-    borderBottomColor: colors.border,
-  },
-  agents: { display: "flex", flexWrap: "wrap", gap: 16, marginTop: 24 },
   link: { color: colors.foreground, textUnderlineOffset: 3, fontSize: 12 },
 });

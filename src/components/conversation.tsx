@@ -1,5 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import { Link } from "@tanstack/react-router";
 import {
   Fragment,
   lazy,
@@ -15,19 +14,17 @@ import type { InitialConversation } from "../features/chat/functions";
 import { useConversation } from "../features/chat/use-conversation";
 import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
-import { useDashboardsEnabled } from "../features/dashboards/preference";
 import { usePreferences } from "../features/settings/preferences";
 import { colors } from "../styles/tokens.stylex";
-import { AgentSettings } from "./agent-settings";
+import { AgentHeader } from "./agent-header";
 import { ApprovalRequests } from "./approval-requests";
 import { Composer } from "./conversation/composer";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { ConversationNotice } from "./conversation/notice";
 import { ToolActivity } from "./conversation/tool-activity";
 import { TypingIndicator } from "./conversation/typing-indicator";
-import { MobileNavigation } from "./mobile-navigation";
 import { Button } from "./ui/button";
-import { Avatar, Icon } from "./ui/primitives";
+import { Icon } from "./ui/primitives";
 import { ScrollArea } from "./ui/scroll-area";
 
 const ComputerPanel = lazy(() =>
@@ -39,11 +36,14 @@ const ComputerPanel = lazy(() =>
 export function Conversation({
   agent,
   initialConversation,
+  embedded = false,
+  onClose,
 }: {
   agent: Agent;
   initialConversation?: InitialConversation;
+  embedded?: boolean;
+  onClose?: () => void;
 }) {
-  const dashboardsEnabled = useDashboardsEnabled();
   const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
     messages,
@@ -142,23 +142,22 @@ export function Conversation({
 
   return (
     <section
-      {...stylex.props(styles.conversation)}
+      {...stylex.props(styles.conversation, embedded && styles.embedded)}
       aria-label={`Conversation with ${agent.name}`}
     >
-      <header {...stylex.props(styles.header)}>
-        <MobileNavigation />
-        <Avatar character={agent.character} />
-        <h1 {...stylex.props(styles.title)}>{agent.name}</h1>
-        <div {...stylex.props(styles.settings)}>
-          {dashboardsEnabled && (
-            <Link
-              to="/agents/$agentId/dashboard"
-              params={{ agentId: agent.id }}
-              {...stylex.props(styles.dashboard)}
-            >
-              Dashboard
-            </Link>
-          )}
+      {embedded ? (
+        <header {...stylex.props(styles.chatHeader)}>
+          <h2 {...stylex.props(styles.chatTitle)}>Conversation</h2>
+          <Button
+            onClick={onClose}
+            aria-label="Close chat"
+            xstyle={styles.closeChat}
+          >
+            <Icon name="close" />
+          </Button>
+        </header>
+      ) : (
+        <AgentHeader agent={agent}>
           {computerEnabled && (
             <Button
               aria-label="Open computer"
@@ -168,9 +167,8 @@ export function Conversation({
               <Icon name="monitor" />
             </Button>
           )}
-          <AgentSettings agent={agent} />
-        </div>
-      </header>
+        </AgentHeader>
+      )}
       <ScrollArea
         label="Conversation history"
         viewportRef={viewport}
@@ -307,46 +305,22 @@ const styles = stylex.create({
     },
     minHeight: { default: 420, "@media (max-width: 700px)": 0 },
   },
-  header: {
+  embedded: {
+    height: "100%",
+    minHeight: 0,
+    maxWidth: "none",
+  },
+  chatHeader: {
     display: "flex",
     alignItems: "center",
-    gap: { default: 10, "@media (max-width: 700px)": 6 },
+    justifyContent: "space-between",
+    minHeight: 44,
     flexShrink: 0,
-    minHeight: {
-      default: 0,
-      "@media (max-width: 700px)": "calc(56px + env(safe-area-inset-top))",
-    },
-    paddingTop: {
-      default: 0,
-      "@media (max-width: 700px)": "env(safe-area-inset-top)",
-    },
-    paddingInline: { default: 0, "@media (max-width: 700px)": 8 },
-    paddingBottom: { default: 12, "@media (max-width: 700px)": 0 },
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: colors.border,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 500,
-    margin: 0,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+  chatTitle: { margin: 0, fontSize: 13, fontWeight: 500 },
+  closeChat: {
+    display: { default: "none", "@media (max-width: 1100px)": "inline-flex" },
   },
-  dashboard: {
-    display: "inline-flex",
-    alignItems: "center",
-    paddingInline: 6,
-    minHeight: { default: 28, "@media (max-width: 700px)": 44 },
-    color: colors.muted,
-    fontSize: 12,
-    textDecoration: "none",
-    borderRadius: 5,
-    outlineOffset: 3,
-  },
-  settings: { flexShrink: 0, marginLeft: "auto", display: "flex", gap: 4 },
   history: {
     flex: 1,
     minHeight: 0,
