@@ -11,15 +11,26 @@ import type { CodexLogin } from "../features/auth/schema";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 
-export function CodexConnection() {
+export function CodexConnection({
+  initial,
+}: {
+  initial?: { configured: boolean; login: CodexLogin } | null;
+}) {
   const router = useRouter();
-  const [login, setLogin] = useState<CodexLogin>({ status: "idle" });
-  const [configured, setConfigured] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [login, setLogin] = useState<CodexLogin>(
+    initial?.login ?? { status: "idle" },
+  );
+  const [configured, setConfigured] = useState(initial?.configured ?? false);
+  const [loading, setLoading] = useState(initial === undefined);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<string | undefined>(
+    initial === null
+      ? "Could not read connection status. Try reloading this page."
+      : undefined,
+  );
   const [copied, setCopied] = useState(false);
   useEffect(() => {
+    if (initial !== undefined) return;
     let current = true;
     void Promise.all([getCodexAccount(), getCodexLogin()])
       .then(([account, state]) => {
@@ -41,7 +52,7 @@ export function CodexConnection() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [initial]);
   useEffect(() => {
     if (login.status !== "pending") return;
     let current = true;

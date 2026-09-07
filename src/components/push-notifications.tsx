@@ -86,16 +86,24 @@ async function activeRegistration() {
   }
 }
 
-export function PushNotifications() {
+export function PushNotifications({
+  initial,
+}: {
+  initial: Awaited<ReturnType<typeof getPushSettings>>;
+}) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const publicKey = initial.ok ? initial.value.publicKey : null;
   const [unavailable, setUnavailable] = useState<string | null>(null);
-  const [setupRequired, setSetupRequired] = useState(false);
+  const setupRequired = initial.ok && !initial.value.configured;
   const [preferences, setPreferences] =
-    useState<NotificationPreferences | null>(null);
-  const [error, setError] = useState<string>();
+    useState<NotificationPreferences | null>(
+      initial.ok ? initial.value.preferences : null,
+    );
+  const [error, setError] = useState<string | undefined>(
+    initial.ok ? undefined : initial.error,
+  );
 
   useEffect(() => {
     let current = true;
@@ -115,21 +123,22 @@ export function PushNotifications() {
                   "Could not check this device’s notifications. Reload Roost to try again.";
                 return undefined;
               });
-        const result = await getPushSettings({
-          data: { endpoint: subscription?.endpoint },
-        });
+        // The saved toggles are already rendered. Only this browser's push
+        // subscription needs a client-side check; never overwrite preferences
+        // here after the user has started editing them.
+        const result = subscription
+          ? await getPushSettings({ data: { endpoint: subscription.endpoint } })
+          : null;
         if (!current) return;
-        if (!result.ok) throw new Error(result.error);
-        setPreferences(result.value.preferences);
-        setPublicKey(result.value.publicKey);
-        setSetupRequired(!result.value.configured);
+        if (result && !result.ok) throw new Error(result.error);
         setEnabled(
           !!subscription &&
+            !!result?.ok &&
             result.value.registered &&
             Notification.permission === "granted",
         );
         if (reason || deviceError) setUnavailable(reason || deviceError);
-        else if (!result.value.configured)
+        else if (setupRequired)
           setUnavailable(
             "Notifications need to be configured on this Roost server. See the notification setup guide.",
           );
@@ -148,7 +157,7 @@ export function PushNotifications() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [setupRequired]);
 
   async function changePreference(
     key: keyof NotificationPreferences,
@@ -263,7 +272,7 @@ export function PushNotifications() {
   }
 
   function deviceDescription() {
-    if (loading) return "Checking notification settings…";
+    if (loading) return "Checking this device’s notification permission…";
     if (unavailable) return unavailable;
     if (!preferences)
       return "Notification settings could not be loaded. Reload Roost to try again.";
@@ -285,14 +294,11 @@ export function PushNotifications() {
         Choose which updates you receive. These settings apply to all your
         devices.
       </p>
-      <div {...stylex.props(styles.preferences)} aria-busy={loading || busy}>
+      <div {...stylex.props(styles.preferences)} aria-busy={busy}>
         {notificationOptions.map(({ key, label, description }) => {
           const checked = preferences?.[key] ?? false;
           const disabled =
-            loading ||
-            busy ||
-            !preferences ||
-            (key !== "enabled" && !preferences.enabled);
+            busy || !preferences || (key !== "enabled" && !preferences.enabled);
           return (
             <div key={key} {...stylex.props(styles.row)}>
               <div>
@@ -355,11 +361,13 @@ export function PushNotifications() {
           }
           onClick={() => void (enabled ? disable() : enable())}
         >
-          {busy
-            ? "Updating…"
-            : enabled
-              ? "Disable on this device"
-              : "Enable on this device"}
+          {loading
+            ? "Checking this device…"
+            : busy
+              ? "Updating…"
+              : enabled
+                ? "Disable on this device"
+                : "Enable on this device"}
         </Button>
       </div>
       <p {...stylex.props(styles.description)}>{deviceDescription()}</p>

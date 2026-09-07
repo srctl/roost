@@ -3,6 +3,9 @@ import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
+import { getComputerStatus } from "../features/computer/functions";
+import { getDashboardSetting } from "../features/dashboards/functions";
+import { getDisplayPreferences } from "../features/settings/display-functions";
 import { getSidebarPreferences } from "../features/settings/sidebar-functions";
 import stylesheet from "../styles/reset.css?url";
 import { colors } from "../styles/tokens.stylex";
@@ -51,11 +54,26 @@ export const Route = createRootRoute({
       : [],
   }),
   loader: async () => {
-    const [agents, sidebarPreferences] = await Promise.all([
+    const [
+      agents,
+      sidebarPreferences,
+      displayPreferences,
+      dashboards,
+      computer,
+    ] = await Promise.all([
       getAgents(),
       getSidebarPreferences(),
+      getDisplayPreferences(),
+      getDashboardSetting().catch(() => null),
+      getComputerStatus().catch(() => null),
     ]);
-    return { ...agents, sidebarPreferences };
+    return {
+      ...agents,
+      sidebarPreferences,
+      displayPreferences,
+      dashboardsEnabled: dashboards?.ok ? dashboards.value.enabled : false,
+      computerEnabled: computer?.enabled ?? false,
+    };
   },
   headers: () => ({ "Cache-Control": "private, no-store" }),
   component: App,

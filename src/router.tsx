@@ -4,7 +4,9 @@ import { routeTree } from "./routeTree.gen";
 export function getRouter() {
   return createRouter({
     routeTree,
-    scrollRestoration: true,
+    // Conversations follow their latest message and manage older-history scroll.
+    scrollRestoration: ({ location }) =>
+      !/^\/agents\/[0-9a-f-]{36}(?:\/dashboard)?$/i.test(location.pathname),
   });
 }
 

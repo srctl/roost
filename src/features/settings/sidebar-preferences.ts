@@ -1,6 +1,6 @@
 export const sidebarCollapsedKey = "roost.sidebarCollapsed";
 export const sidebarWidthKey = "roost.sidebarWidth";
-export const sidebarMinWidth = 180;
+export const sidebarMinWidth = 140;
 export const sidebarMaxWidth = 360;
 export const sidebarDefaultWidth = 216;
 

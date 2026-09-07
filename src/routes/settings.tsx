@@ -8,12 +8,31 @@ import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
 import { PushNotifications } from "../components/push-notifications";
+import { getCodexAccount, getCodexLogin } from "../features/auth/functions";
+import { getPushSettings } from "../features/notifications/functions";
 import { usePreferences } from "../features/settings/preferences";
 import { colors } from "../styles/tokens.stylex";
 
-export const Route = createFileRoute("/settings")({ component: SettingsPage });
+export const Route = createFileRoute("/settings")({
+  loader: async () => {
+    const [connection, notifications] = await Promise.all([
+      Promise.all([getCodexAccount(), getCodexLogin()])
+        .then(([account, login]) => ({ ...account, login }))
+        .catch(() => null),
+      getPushSettings({ data: {} }).catch(() => ({
+        ok: false as const,
+        error:
+          "Could not load notification settings. Reload Roost to try again.",
+      })),
+    ]);
+    return { connection, notifications };
+  },
+  headers: () => ({ "Cache-Control": "private, no-store" }),
+  component: SettingsPage,
+});
 
 function SettingsPage() {
+  const { connection, notifications } = Route.useLoaderData();
   const {
     responseStyle,
     setResponseStyle,
@@ -26,8 +45,8 @@ function SettingsPage() {
     <section {...stylex.props(styles.page)}>
       <h1 {...stylex.props(styles.title)}>Settings</h1>
       <p {...stylex.props(styles.muted)}>Make Roost feel right for you.</p>
-      <CodexConnection />
-      <PushNotifications />
+      <CodexConnection initial={connection} />
+      <PushNotifications initial={notifications} />
       <DashboardSetting />
       <section
         {...stylex.props(styles.responseSetting)}

@@ -15,7 +15,7 @@ The first row includes loading and hydrating the app, restoring the remembered a
 
 ## Changes
 
-- A cookie containing only the last visited agent ID lets the server redirect a full-page launch to that conversation before downloading and hydrating the home page. The ID must still match an existing agent. In-app Home navigation, explicit deep links, unavailable storage, and missing agents retain their existing behavior. Existing local-storage preferences migrate when the agent is next visited.
+- A cookie containing only the last visited agent ID lets the server redirect a full-page launch to that conversation before downloading and hydrating the home page. The ID must still match an existing agent. In-app Home navigation, explicit deep links, unavailable storage, and missing agents retain their existing behavior. Visiting a conversation or its dashboard updates the cookie; local storage no longer redirects an already rendered page.
 - Production builds now generate compressed static assets, served with the matching `Content-Encoding` and `Vary: Accept-Encoding`. Most of the transfer reduction comes from compression; decoded JavaScript is approximately unchanged after including attachments, approvals, and optional dashboard support.
 - Agent identity settings load when their sheet opens. The conversation no longer downloads that settings editor at launch.
 - The service worker caches only same-origin, hashed immutable build assets. It refuses redirected, private, or non-asset responses and bounds the cache to 64 entries. Documents, conversations, attachments, API responses, and authentication pages never enter the offline cache. Cache failures fall back to network access.
@@ -51,3 +51,23 @@ Version 0.1.23:
 - Resolves the ordinary remembered-agent launch on the server and sets the canonical conversation URL before hydration. Query-bearing launches and redirects that change cookies keep ordinary redirect behavior. In-app Home navigation, browser back/forward, reloads, hashes, stale cookies, and explicit deep links were checked separately.
 
 Browser regression checks applied a timeline update after the document response began and before hydration finished. All 10 formatted replies stayed visible, the background poll applied the update, and typed text enabled Send. Deferred navigation/settings/approval panels opened correctly and restored trigger focus when closed. No production data or physical iPhone was used. Snapshot bounds, legacy fallback, compression/cancellation, static-preload traversal, and guarded startup routing have focused regression tests.
+
+## Refresh layout
+
+Conversation response style and activity-detail preferences now use cookies so
+server-rendered messages match the hydrated view. Existing local-storage display
+preferences migrate once on the first upgraded visit; subsequent requests render
+them directly. Dashboard tabs and computer availability are included in the root
+loader instead of appearing after an idle-time request.
+
+Conversation history starts at the latest message as the document is parsed and
+continues following replies during hydration. It manages its own scrolling rather
+than restoring a router position calculated against an older message layout.
+Explicit conversation and dashboard URLs always take precedence over the
+remembered-agent cookie, which is used only for full-page Home launches.
+
+The Settings route also loads Codex connection status and notification preferences
+on the server. Saved toggles are usable independently of the browser's push
+subscription check, whose delayed result cannot overwrite a newer setting edit.
+Device-specific notification permission remains a browser check with an explicit
+checking state.

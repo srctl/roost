@@ -27,6 +27,6 @@ test("sidebar cookies restore layout and reject malformed widths", () => {
   ])
     assert.equal(readSidebarPreferences("invalid", width).width, 216);
   assert.equal(readSidebarPreferences("invalid", "300").collapsed, false);
-  assert.equal(readSidebarPreferences("true", "10").width, 180);
+  assert.equal(readSidebarPreferences("true", "10").width, 140);
   assert.equal(readSidebarPreferences("true", "99999").width, 360);
 });

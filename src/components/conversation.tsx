@@ -12,9 +12,9 @@ import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
 import type { InitialConversation } from "../features/chat/functions";
 import { useConversation } from "../features/chat/use-conversation";
-import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
 import { usePreferences } from "../features/settings/preferences";
+import { Route as RootRoute } from "../routes/__root";
 import { colors } from "../styles/tokens.stylex";
 import { AgentHeader } from "./agent-header";
 import { ApprovalRequests } from "./approval-requests";
@@ -69,7 +69,7 @@ export function Conversation({
     return () => clearTimeout(timer);
   }, [loading]);
   const prepend = useRef<{ height: number; top: number } | null>(null);
-  const [computerEnabled, setComputerEnabled] = useState(false);
+  const { computerEnabled } = RootRoute.useLoaderData();
   const [manualComputerOpen, setManualComputerOpen] = useState(false);
   const [dismissedComputerRun, setDismissedComputerRun] = useState<
     string | null
@@ -78,18 +78,6 @@ export function Conversation({
     computerPreviewAnchor(messages, runId) ?? savedComputerAnchor;
   const computerOpen =
     !manualComputerOpen && !!(computerAnchor && dismissedComputerRun !== runId);
-  useEffect(() => {
-    let current = true;
-    void getComputerStatus()
-      .then((status) => {
-        if (current) setComputerEnabled(status.enabled);
-      })
-      .catch(() => {});
-
-    return () => {
-      current = false;
-    };
-  }, []);
   const viewport = useRef<HTMLDivElement>(null);
   const { responseStyle, showActivityDetails } = usePreferences();
   const followReply = useRef(true);
@@ -110,7 +98,7 @@ export function Conversation({
       prepend.current = null;
     }
   }, [messages, loadingOlder]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (viewport.current && followReply.current)
       viewport.current.scrollTop = viewport.current.scrollHeight;
   }, [
@@ -288,6 +276,9 @@ export function Conversation({
         }}
         onStop={stop}
       />
+      {/* Run after the composer fixes the history viewport height, before the
+          server markup is painted. React follows subsequent message updates. */}
+      <script>{`{const v=document.currentScript?.parentElement?.querySelector('[aria-label="Conversation history"]');if(v)v.scrollTop=v.scrollHeight;}`}</script>
     </section>
   );
 }

@@ -81,14 +81,15 @@ export function Sidebar({
 
 const styles = stylex.create({
   sidebar: {
-    width: "min(var(--sidebar-width, 216px), max(180px, calc(100vw - 480px)))",
+    width: "min(var(--sidebar-width, 216px), max(140px, calc(100vw - 480px)))",
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
     minHeight: 0,
     overflow: "hidden",
     backgroundColor: colors.sidebar,
-    padding: 20,
+    paddingBlock: 20,
+    paddingInline: 12,
     borderRightWidth: 1,
     borderRightStyle: "solid",
     borderRightColor: colors.border,
@@ -143,7 +144,13 @@ const styles = stylex.create({
     textDecoration: "none",
     color: colors.foreground,
   },
-  name: { overflowWrap: "anywhere" },
+  name: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   active: { backgroundColor: colors.selected },
   create: { color: colors.muted, fontSize: 12 },
   footer: {
