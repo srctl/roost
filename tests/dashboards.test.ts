@@ -82,7 +82,7 @@ test("dashboards default off, gate every content operation, and preserve saved c
     assert.deepEqual((await run(listDashboards(agent.id)))[0], saved);
     await run(setDashboardPreference(false));
     assert.deepEqual(await run(getDashboardPreference()), { enabled: false });
-    await assert.rejects(run(listDashboards()), /Dashboards are off/);
+    await assert.rejects(run(listDashboards(agent.id)), /Dashboards are off/);
     await assert.rejects(
       run(
         saveDashboard(agent.id, {
@@ -160,14 +160,17 @@ test("stable dashboard keys are scoped to an agent and stale updates cannot over
       ),
       /changed/,
     );
-    assert.equal((await run(listDashboards())).length, 2);
+    assert.deepEqual(await run(listDashboards(owner.id)), [changed]);
+    assert.deepEqual(await run(listDashboards(other.id)), [otherWidget]);
+    await assert.rejects(run(listDashboards(randomUUID())), /Agent not found/);
     await run(
       deleteDashboard(owner.id, {
         key: content.key,
         expectedRevision: changed.revision,
       }),
     );
-    assert.deepEqual(await run(listDashboards()), [otherWidget]);
+    assert.deepEqual(await run(listDashboards(owner.id)), []);
+    assert.deepEqual(await run(listDashboards(other.id)), [otherWidget]);
   }));
 
 test("native blocks reject executable links, malformed tables, nonfinite charts, and unbounded reports", async () =>

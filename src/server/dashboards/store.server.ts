@@ -37,21 +37,15 @@ export const setDashboardPreference = (value: boolean) =>
     return { enabled: value };
   });
 
-export const listDashboards = (agentId?: string) =>
+export const listDashboards = (agentId: string) =>
   withAgentStore((db) => {
     requireEnabled(db);
-    if (agentId) requireAgent(db, agentId);
-    const rows = agentId
-      ? db
-          .prepare(
-            "SELECT * FROM dashboards WHERE agentId=? ORDER BY updatedAt DESC,key",
-          )
-          .all(agentId)
-      : db
-          .prepare(
-            "SELECT * FROM dashboards ORDER BY updatedAt DESC,agentId,key",
-          )
-          .all();
+    requireAgent(db, agentId);
+    const rows = db
+      .prepare(
+        "SELECT * FROM dashboards WHERE agentId=? ORDER BY updatedAt DESC,key",
+      )
+      .all(agentId);
     return rows.map((row) =>
       Schema.decodeUnknownSync(DashboardWidget)({
         ...row,

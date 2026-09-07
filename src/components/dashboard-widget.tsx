@@ -230,7 +230,6 @@ export function DashboardWidget({
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
       <header {...stylex.props(styles.header)}>
         <h2 {...stylex.props(styles.title)}>{widget.title}</h2>
-        <span {...stylex.props(styles.agent)}>{agentName}</span>
       </header>
       <div {...stylex.props(styles.blocks)}>
         {widget.blocks.map((block, index) => (
@@ -276,7 +275,6 @@ const styles = stylex.create({
     marginBottom: 22,
   },
   title: { margin: 0, fontSize: 17, fontWeight: 500, overflowWrap: "anywhere" },
-  agent: { fontSize: 11, color: colors.muted },
   blocks: {
     display: "flex",
     flexDirection: "column",

@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Link } from "@tanstack/react-router";
 import {
   Fragment,
   lazy,
@@ -14,6 +15,7 @@ import type { InitialConversation } from "../features/chat/functions";
 import { useConversation } from "../features/chat/use-conversation";
 import { getComputerStatus } from "../features/computer/functions";
 import { computerPreviewAnchor } from "../features/computer/preview";
+import { useDashboardsEnabled } from "../features/dashboards/preference";
 import { usePreferences } from "../features/settings/preferences";
 import { colors } from "../styles/tokens.stylex";
 import { AgentSettings } from "./agent-settings";
@@ -41,6 +43,7 @@ export function Conversation({
   agent: Agent;
   initialConversation?: InitialConversation;
 }) {
+  const dashboardsEnabled = useDashboardsEnabled();
   const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
     messages,
@@ -147,6 +150,15 @@ export function Conversation({
         <Avatar character={agent.character} />
         <h1 {...stylex.props(styles.title)}>{agent.name}</h1>
         <div {...stylex.props(styles.settings)}>
+          {dashboardsEnabled && (
+            <Link
+              to="/agents/$agentId/dashboard"
+              params={{ agentId: agent.id }}
+              {...stylex.props(styles.dashboard)}
+            >
+              Dashboard
+            </Link>
+          )}
           {computerEnabled && (
             <Button
               aria-label="Open computer"
@@ -323,7 +335,18 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  settings: { marginLeft: "auto", display: "flex", gap: 4 },
+  dashboard: {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingInline: 6,
+    minHeight: { default: 28, "@media (max-width: 700px)": 44 },
+    color: colors.muted,
+    fontSize: 12,
+    textDecoration: "none",
+    borderRadius: 5,
+    outlineOffset: 3,
+  },
+  settings: { flexShrink: 0, marginLeft: "auto", display: "flex", gap: 4 },
   history: {
     flex: 1,
     minHeight: 0,

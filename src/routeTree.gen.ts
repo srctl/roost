@@ -16,6 +16,7 @@ import { Route as AgentsAgentIdRouteImport } from './routes/agents.$agentId'
 import { Route as AgentsNewRouteImport } from './routes/agents.new'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
+import { Route as AgentsAgentIdDashboardRouteImport } from './routes/agents.$agentId_.dashboard'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsAgentIdDashboardRoute = AgentsAgentIdDashboardRouteImport.update({
+  id: '/agents/$agentId_/dashboard',
+  path: '/agents/$agentId/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/agents/new': typeof AgentsNewRoute
   '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
+  '/agents/$agentId/dashboard': typeof AgentsAgentIdDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/agents/new': typeof AgentsNewRoute
   '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
+  '/agents/$agentId/dashboard': typeof AgentsAgentIdDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/agents/new': typeof AgentsNewRoute
   '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
+  '/agents/$agentId_/dashboard': typeof AgentsAgentIdDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/api/files'
     | '/api/health'
+    | '/agents/$agentId/dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/api/files'
     | '/api/health'
+    | '/agents/$agentId/dashboard'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/api/files'
     | '/api/health'
+    | '/agents/$agentId_/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   AgentsNewRoute: typeof AgentsNewRoute
   ApiFilesRoute: typeof ApiFilesRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  AgentsAgentIdDashboardRoute: typeof AgentsAgentIdDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents/$agentId_/dashboard': {
+      id: '/agents/$agentId_/dashboard'
+      path: '/agents/$agentId/dashboard'
+      fullPath: '/agents/$agentId/dashboard'
+      preLoaderRoute: typeof AgentsAgentIdDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsNewRoute: AgentsNewRoute,
   ApiFilesRoute: ApiFilesRoute,
   ApiHealthRoute: ApiHealthRoute,
+  AgentsAgentIdDashboardRoute: AgentsAgentIdDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

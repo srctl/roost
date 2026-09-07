@@ -1,6 +1,5 @@
 import { Switch } from "@base-ui/react/switch";
 import * as stylex from "@stylexjs/stylex";
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { changeDashboardSetting } from "../features/dashboards/functions";
 import {
@@ -35,7 +34,7 @@ export function DashboardSetting() {
           </label>
           <p id="dashboards-description" {...stylex.props(styles.description)}>
             Keep trackers, project updates, and trends outside the conversation.
-            Work with your agents to choose what belongs here.
+            Open an agent, then choose Dashboard to see its trackers.
           </p>
         </div>
         <Switch.Root
@@ -55,11 +54,6 @@ export function DashboardSetting() {
         Off by default. Saved for all your devices. Turning this off hides
         dashboards and stops dashboard updates; saved content stays.
       </p>
-      {enabled && (
-        <Link to="/dashboard" {...stylex.props(styles.link)}>
-          Open dashboard
-        </Link>
-      )}
       {error && (
         <p role="alert" {...stylex.props(styles.error)}>
           {error}
@@ -91,7 +85,6 @@ const styles = stylex.create({
     maxWidth: 380,
   },
   note: { fontSize: 11, color: colors.muted, lineHeight: 1.6 },
-  link: { color: colors.foreground, fontSize: 12, textUnderlineOffset: 3 },
   error: { fontSize: 12, color: colors.review },
   switch: {
     width: 36,

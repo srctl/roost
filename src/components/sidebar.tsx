@@ -2,7 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
-import { useDashboardsEnabled } from "../features/dashboards/preference";
 import { colors } from "../styles/tokens.stylex";
 import { AgentWorking } from "./agent-working";
 import { Button } from "./ui/button";
@@ -20,7 +19,6 @@ export function Sidebar({
   drawer?: boolean;
 }) {
   const activity = useAgentActivity();
-  const dashboardsEnabled = useDashboardsEnabled();
 
   return (
     <aside
@@ -69,15 +67,6 @@ export function Sidebar({
         </Link>
       </nav>
       <footer {...stylex.props(styles.footer)}>
-        {dashboardsEnabled && (
-          <Link
-            onClick={onNavigate}
-            to="/dashboard"
-            {...stylex.props(styles.row, styles.create)}
-          >
-            Dashboard
-          </Link>
-        )}
         <Link
           onClick={onNavigate}
           to="/settings"

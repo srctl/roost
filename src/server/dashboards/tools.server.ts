@@ -17,7 +17,7 @@ export const dashboardTools: DynamicToolSpec[] = [
     type: "function",
     name: "roost_list_dashboards",
     description:
-      "Read your persistent dashboard widgets and current revisions. Widgets live on the Dashboard page outside the conversation. Dashboards must first be enabled by the user in Settings; you cannot enable them. Use stable keys to update existing trackers rather than making duplicates. You can only access your own agent's widgets.",
+      "Read your persistent dashboard widgets and current revisions. Widgets live on your agent’s Dashboard page, accessible by opening the agent and choosing Dashboard. Dashboards must first be enabled by the user in Settings; you cannot enable them. Use stable keys to update existing trackers rather than making duplicates. You can only access your own agent's widgets.",
     inputSchema: {
       type: "object",
       properties: {},

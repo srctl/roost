@@ -31,13 +31,16 @@ export const changeDashboardSetting = createServerFn({ method: "POST" })
   .handler(({ data }) => result(setDashboardPreference(data.enabled)));
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([available])
-  .handler(() =>
+  .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
+  .handler(({ data }) =>
     result(
       Effect.gen(function* () {
         const preference = yield* getDashboardPreference();
         return {
           ...preference,
-          widgets: preference.enabled ? yield* listDashboards() : [],
+          widgets: preference.enabled
+            ? yield* listDashboards(data.agentId)
+            : [],
         };
       }),
     ),
