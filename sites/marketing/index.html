@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f7f2" />
+    <title>Roost — A home for your AI agents</title>
+    <meta name="description" content="Give your AI agents a place to stay. Roost brings persistent Codex agents, conversations, schedules, and shared computer access together on a machine you control." />
+    <meta property="og:title" content="Roost — A home for your AI agents" />
+    <meta property="og:description" content="Persistent agents. Ongoing conversations. Work that keeps going. Self-host Roost on a machine you control." />
+    <meta property="og:type" content="website" />
+    __CANONICAL__
+    <link rel="icon" href="/roost.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body id="top">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="masthead-brand" href="#top" aria-label="Roost home"><img src="/roost.svg" width="25" height="25" alt="" /><span>roost</span></a>
+      <nav aria-label="Main navigation">
+        <a href="__DOCS_URL__">Field guide <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/srctl/roost">Source <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-inner">
+          <div class="hero-copy">
+            <p class="eyebrow">A little more persistent.</p>
+            <h1 id="hero-title">roost<span class="brand-dot">.</span></h1>
+            <h2>A home for<br />your AI agents.</h2>
+            <p class="hero-description">Give your agents a purpose, a memory, and a place to keep working. All on a machine you control.</p>
+            <div class="hero-actions"><a class="button" href="__GET_STARTED_URL__">Make yourself at home <span aria-hidden="true">↗</span></a><a class="text-link" href="__DOCS_URL__">Read the docs</a></div>
+            <p class="hero-footnote">Self-hosted. Open source. Powered by Codex.</p>
+          </div>
+          <div class="product-scene">
+            <div class="scene-heading"><span>Your own little corner of the internet</span><span aria-hidden="true">↙</span></div>
+            <section class="product-preview" aria-label="Interactive Roost example">
+              <aside class="preview-sidebar" aria-label="Example agents">
+                <span class="preview-brand">roost</span>
+                <span class="preview-label" id="agent-choice-label">Choose an agent</span>
+                <fieldset class="preview-agent-choices" aria-labelledby="agent-choice-label">
+                  <button class="preview-agent" type="button" aria-pressed="true" aria-controls="moss-example" data-caption="One agent. An ongoing conversation."><img src="/moss.svg" width="28" height="28" alt="" /><span>Moss</span><span class="activity-dot" aria-hidden="true"></span></button>
+                  <button class="preview-agent" type="button" aria-pressed="false" aria-controls="wisp-example" data-caption="A shared computer. Room to step in."><img src="/wisp.svg" width="28" height="28" alt="" /><span>Wisp</span><span class="activity-dot" aria-hidden="true"></span></button>
+                  <button class="preview-agent" type="button" aria-pressed="false" aria-controls="peach-example" data-caption="Useful work. Ready to pick up."><img src="/peach.svg" width="28" height="28" alt="" /><span>Peach</span><span class="activity-dot" aria-hidden="true"></span></button>
+                </fieldset>
+                <span class="preview-create">+ &nbsp; Create agent</span>
+                <span class="preview-settings">Settings</span>
+              </aside>
+              <section class="preview-conversation" id="moss-example" aria-label="Moss: scheduled work example">
+                <div class="preview-header"><img src="/moss.svg" width="32" height="32" alt="" /><div><strong>Moss</strong><span class="preview-purpose">Your everyday sidekick</span></div><span class="preview-more" aria-hidden="true">···</span></div>
+                <div class="preview-messages">
+                  <p class="preview-time">A little less on your plate</p>
+                  <p class="user-message">Every weekday morning, help me plan the day. Just the things that need my attention.</p>
+                  <div class="agent-message"><img src="/moss.svg" width="27" height="27" alt="" /><div><strong>Moss</strong><p>Consider it a standing arrangement. I’ll check in at 9, and keep the noise down.</p></div></div>
+                  <div class="schedule-preview"><span class="schedule-icon" aria-hidden="true">↻</span><div><strong>Your morning check-in</strong><span class="schedule-meta">Weekdays · 9:00 am · America/Los_Angeles</span></div><span class="schedule-check" aria-hidden="true">✓</span></div>
+                </div>
+                <div class="preview-composer"><span>A conversation you can come back to</span><span aria-hidden="true">↑</span></div>
+              </section>
+              <section class="preview-conversation" id="wisp-example" aria-label="Wisp: shared computer example" hidden>
+                <div class="preview-header"><img src="/wisp.svg" width="32" height="32" alt="" /><div><strong>Wisp</strong><span class="preview-purpose">Your curious researcher</span></div><span class="preview-more" aria-hidden="true">···</span></div>
+                <div class="preview-messages preview-workspace">
+                  <p class="user-message">Find me an everyday bag under $100.</p>
+                  <div class="agent-message"><img src="/wisp.svg" width="27" height="27" alt="" /><div><strong>Wisp</strong><p>I’m comparing a few options in our shared browser. Come take a look.</p></div></div>
+                  <div class="computer-example">
+                    <div class="computer-toolbar"><span class="computer-title">Shared computer</span><button class="computer-control" type="button" aria-pressed="false">Take control</button></div>
+                    <div class="example-browser" role="img" aria-label="Illustrative browser showing a canvas tote">
+                      <div class="browser-toolbar"><span aria-hidden="true">← &nbsp; →</span><span class="browser-address">fieldandform.example</span><span aria-hidden="true">↻</span></div>
+                      <div class="browser-shop"><span class="shop-brand">Field &amp; Form</span><span>Everyday essentials</span></div>
+                      <div class="shop-product"><div class="tote-illustration" aria-hidden="true"><span></span></div><div class="shop-details"><span>Made for the everyday</span><strong>Canvas tote</strong><p>Olive · $68</p><span class="shop-action">View details <span aria-hidden="true">↗</span></span></div><div class="example-pointer" aria-hidden="true"><span>Wisp</span></div></div>
+                    </div>
+                    <p class="computer-status" aria-live="polite">View only · Wisp is using the computer.</p>
+                  </div>
+                </div>
+                <div class="preview-composer"><span>Watch the work. Step in when you need to.</span><span aria-hidden="true">↑</span></div>
+              </section>
+              <section class="preview-conversation" id="peach-example" aria-label="Peach: files and dashboard example" hidden>
+                <div class="preview-header"><img src="/peach.svg" width="32" height="32" alt="" /><div><strong>Peach</strong><span class="preview-purpose">Your projects, coming together</span></div><span class="preview-more" aria-hidden="true">···</span></div>
+                <div class="preview-messages preview-workspace">
+                  <p class="user-message">Turn these notes into a launch plan. Help me keep track of what’s next.</p>
+                  <div class="agent-message"><img src="/peach.svg" width="27" height="27" alt="" /><div><strong>Peach</strong><p>Your plan is ready. I’ve made a little tracker we can keep up to date, too.</p></div></div>
+                  <div class="dashboard-example"><div class="dashboard-heading"><strong>Launch checklist</strong><span>2 of 3 ready</span></div><ul><li><span class="task-complete" role="img" aria-label="Complete">✓</span>Outline the first release</li><li><span class="task-complete" role="img" aria-label="Complete">✓</span>Prepare the launch plan</li><li><span class="task-pending" role="img" aria-label="To do"></span>Share with the team</li></ul></div>
+                  <a class="example-download" href="/example-launch-plan.md" download="roost-example-launch-plan.md"><span class="download-file-icon" aria-hidden="true">↳</span><span><strong>Launch plan.md</strong><small>Download an example file</small></span><span class="download-arrow" aria-hidden="true">↓</span></a>
+                </div>
+                <div class="preview-composer"><span>A little something to build on.</span><span aria-hidden="true">↑</span></div>
+              </section>
+            </section>
+            <div class="scene-footer"><span id="example-caption" aria-live="polite">One agent. An ongoing conversation.</span><span>Interactive example</span></div>
+          </div>
+        </div>
+        <div class="hero-bottom"><span>Built for the work that doesn’t end with one reply.</span><a href="#how-it-works">Take a look around <span class="scroll-cue" aria-hidden="true">↓</span></a></div>
+      </section>
+      <section class="intro section-shell reveal" id="how-it-works" aria-labelledby="intro-title">
+        <div><p class="eyebrow">Familiar faces. Continuing work.</p><h2 id="intro-title">Pick up where<br />you left off.</h2></div>
+        <div class="intro-description"><p>A research partner. A daily planner. Someone to keep an eye on the details.</p><p>Create agents for the things you care about. Give each one its own character and instructions, then build an ongoing working relationship.</p><a class="text-link arrow-link" href="__GET_STARTED_URL__">Meet your first agent <span aria-hidden="true">↗</span></a></div>
+      </section>
+      <section class="features section-shell" aria-label="What you can do with Roost">
+        <article class="feature-row reveal"><div class="feature-number">01 / Continuity</div><div><h3>A little history goes a long way.</h3><p>Each agent has its own conversations, workspace, and Codex memory. Shape its personality in an editable soul, and come back to the same familiar face.</p></div><div class="character-line" aria-hidden="true"><img src="/moss.svg" width="66" height="66" alt="" /><img src="/wisp.svg" width="66" height="66" alt="" /><img src="/peach.svg" width="66" height="66" alt="" /></div></article>
+        <article class="feature-row reveal"><div class="feature-number">02 / A rhythm of its own</div><div><h3>Make it a regular thing.</h3><p>Turn a request into a schedule. Roost keeps work moving while you’re away from the conversation, and brings the results back when they’re ready.</p><a class="text-link arrow-link" href="__AUTOMATIONS_URL__">Explore automations <span aria-hidden="true">↗</span></a></div><div class="week-preview" role="img" aria-label="Example weekday schedule"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span class="weekend">S</span><span class="weekend">S</span></div></article>
+        <article class="feature-row reveal"><div class="feature-number">03 / Room to do the work</div><div><h3>More than a conversation.</h3><p>Share files, collect outputs, and review approval requests. Connect a Linux desktop to watch your agents work in a browser—and take control when you need to.</p><a class="text-link arrow-link" href="__COMPUTER_URL__">See shared computer access <span aria-hidden="true">↗</span></a></div><div class="file-preview"><span aria-hidden="true">↳</span><span>Research notes.md<small>A little something to build on.</small></span></div></article>
+      </section>
+      <section class="ownership reveal" aria-labelledby="ownership-title"><div class="section-shell ownership-inner"><p class="eyebrow">Your machine. Your Roost.</p><h2 id="ownership-title">A small home.<br />Yours to run.</h2><div class="ownership-copy"><p>Roost is MIT-licensed and self-hosted. Your conversations, files, and agent settings live on your host. Connect your Codex account and start making it yours.</p><p class="ownership-note">Built for one person, with private access to the app. Your host needs to stay running for scheduled work. Codex and connected services process the data needed for their tasks.</p><a class="text-link arrow-link" href="https://github.com/srctl/roost">Open the source <span aria-hidden="true">↗</span></a></div></div></section>
+      <section class="closing section-shell reveal"><img src="/roost.svg" width="70" height="70" alt="" /><div><p class="eyebrow">There’s room for your next idea.</p><h2>Let’s settle in.</h2></div><a class="button" href="__GET_STARTED_URL__">Get started with Roost <span aria-hidden="true">↗</span></a></section>
+    </main>
+    <footer class="site-footer section-shell"><a class="brand" href="#top"><img src="/roost.svg" width="24" height="24" alt="" />roost</a><span class="footer-tagline">A home for persistent AI agents.</span><nav aria-label="Footer navigation"><a href="__DOCS_URL__">Documentation</a><a href="https://github.com/srctl/roost">GitHub ↗</a><a href="https://github.com/srctl/roost/blob/main/LICENSE">MIT license</a></nav></footer>
+  </body>
+</html>

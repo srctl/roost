@@ -14,9 +14,19 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm typecheck && pnpm test && pnpm format:check && pnpm build",
+    "check": "pnpm typecheck && pnpm test && pnpm format:check && pnpm build && pnpm check:sites",
     "test": "node --import tsx --test tests/*.test.ts",
-    "release:pack": "node scripts/package-release.mjs"
+    "release:pack": "node scripts/package-release.mjs",
+    "dev:marketing": "vite --config sites/marketing/vite.config.ts",
+    "build:marketing": "vite build --config sites/marketing/vite.config.ts",
+    "preview:marketing": "vite preview --config sites/marketing/vite.config.ts",
+    "dev:docs": "vite --config sites/docs/vite.config.ts",
+    "build:docs": "vite build --config sites/docs/vite.config.ts",
+    "preview:docs": "vite preview --config sites/docs/vite.config.ts",
+    "build:sites": "pnpm build:marketing && pnpm build:docs",
+    "typecheck:sites": "tsc --project sites/tsconfig.json",
+    "check:sites": "pnpm typecheck:sites && pnpm test:sites && pnpm build:sites",
+    "test:sites": "node --import tsx --test sites/docs/*.test.tsx"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",

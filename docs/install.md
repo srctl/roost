@@ -1,17 +1,22 @@
 # Install and operate Roost
 
-The first distribution supports Linux x64 with systemd, including
-`roost-dev.exe.xyz`. It includes Node 24.15.0 and Codex 0.153.4. Neither replaces
-system-wide executables. Run setup as your normal account, not root.
+The packaged installation supports **Linux x64 with systemd**. It includes its
+own Node and Codex runtimes, without replacing system-wide executables. Run
+setup as your normal account, not root. You need `curl`, `tar`, `sha256sum`,
+`systemctl`, and permission to use `sudo` for service setup.
 
 ## Install from a GitHub release
 
-After the repository has a published release, download its `install.sh` asset,
-inspect it, and run it with the exact repository and version:
+Open [Roost releases](https://github.com/srctl/roost/releases), choose a release,
+and download its `install.sh` asset. Inspect the script before running it.
+Replace `X.Y.Z` below with that release's exact version, without the `v` prefix:
 
 ```sh
-sh install.sh srctl/roost 0.1.0
+sh install.sh srctl/roost X.Y.Z
 ```
+
+If you are working from source instead of a packaged release, see
+[Development](development.md).
 
 The installer downloads that version's archive and verifies `SHA256SUMS` before
 running setup. This bootstrap is for public releases. For a private repository,
@@ -27,18 +32,23 @@ a systemd system service named `roost-<uid>.service`. The service runs as the
 installing user and restarts after failure or machine reboot. Setup uses sudo
 only to install and manage the service. Ensure `~/.local/bin` is in your PATH.
 
-To install a locally built archive before a GitHub repository exists, extract
-it and run `./bin/roost setup --skip-login`. Configure the release source later:
+To install a locally built archive, extract it and run
+`./bin/roost setup --skip-login`. You can configure its release source later:
 
 ```sh
 roost setup --repository srctl/roost --skip-login
 ```
 
-Setup supports `--port 3000`, `--skip-login`, and `--login`. With no existing
-file-based Codex login, interactive setup starts device authentication.
+Setup supports `--port 3000` and `--skip-login`. After installation,
+`roost setup --login` starts terminal sign-in.
+
+## Connect Codex
+
+With no existing file-based Codex login, interactive setup starts device
+authentication.
 For a noninteractive installation, open **Settings → Connect Codex** in the
 Roost UI afterward. Copy the device code, open the OpenAI sign-in page, and
-enter the code. Roost updates automatically when sign-in finishes. Use
+enter the code. The connection status updates when sign-in finishes. Use
 **Reconnect Codex** if a saved login expires or becomes invalid.
 
 The terminal flow remains available:
@@ -49,6 +59,18 @@ roost setup --login
 
 Sign in on the machine running Roost. Credentials stay in that user's Codex
 home; installation does not copy credentials or agents from another machine.
+The same login serves all agents in this installation.
+
+For a source checkout with a separately installed Codex CLI, authenticate as
+the operating-system user running Roost and use file-based credential storage:
+
+```sh
+codex login -c cli_auth_credentials_store='"file"'
+```
+
+`ROOST_CODEX_BINARY` selects an alternate Codex executable for source builds.
+The executable and your account determine which models Roost can offer.
+Packaged installations select the bundled executable automatically.
 
 ## Server commands
 
@@ -67,17 +89,20 @@ Roost binds to `127.0.0.1` only. It currently has no application authentication.
 From your computer, forward an available local port:
 
 ```sh
-ssh -N -L 3003:127.0.0.1:3000 roost-dev.exe.xyz
+ssh -N -L 3003:127.0.0.1:3000 user@your-server
 ```
 
-Then open `http://127.0.0.1:3003`. The remote desktop browser can open
-`http://127.0.0.1:3000` directly.
+Replace `user@your-server` with your SSH destination, then open
+`http://127.0.0.1:3003`. A browser on the Roost host can open
+`http://127.0.0.1:3000` directly. If you use a reverse proxy instead of SSH, it
+must authenticate both HTTP and WebSocket traffic. The public marketing and
+docs sites do not require access to this private server.
 
 ## Update
 
 ```sh
 roost update                 # Latest published stable release
-roost update --version 0.1.1 # An exact newer version
+roost update --version X.Y.Z # Replace with an exact newer version
 ```
 
 For private repositories, provide `GH_TOKEN` through your shell environment.
@@ -99,7 +124,7 @@ actions an agent already performed. Downgrades are refused.
 ```text
 ~/.local/share/roost/
   config.json         # Port, user, and GitHub repository
-  current -> releases/0.1.0
+  current -> releases/X.Y.Z
   releases/           # Application, CLI, and pinned runtimes per version
   data/               # SQLite, workspaces, souls, and isolated agent memory
   backups/            # Full data snapshots taken with the server stopped
@@ -137,22 +162,7 @@ can leave `operation.lock` and maintenance mode set. Recovery is manual:
 
 5. Run `roost server start` and inspect its logs and health response.
 
-## Build and publish
+## Release development
 
-```sh
-corepack pnpm check
-ROOST_VERSION=0.1.0 ROOST_REPOSITORY=srctl/roost corepack pnpm release:pack
-```
-
-Packaging produces `dist/roost-linux-x64.tar.gz`, `SHA256SUMS`, and `install.sh`.
-The archive includes application assets, the CLI, pinned runtimes, and license
-notices. It excludes `.roost`, source credentials, and the development checkout.
-Runtime URLs and trusted checksums are checked into `scripts/runtime-versions.json`.
-To change a runtime, verify its official release checksum and update that file.
-Set `ROOST_RUNTIME_CACHE` if you want a persistent download cache; a mismatched
-cached archive is rejected.
-
-The release workflow runs checks and packaging for a pushed `vX.Y.Z` tag,
-creates a draft release, uploads all assets, then publishes it. Enable GitHub's
-immutable releases setting on the repository to prevent later replacement.
-Roost is distributed under the MIT license. This workflow does not create a repository or publish anything until a tag is pushed.
+See [Development](development.md#build-and-publish-releases) for packaging, pinned
+runtimes, and the release workflow.

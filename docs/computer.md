@@ -41,7 +41,7 @@ programs on the machine do not participate in this coordination.
 
 ## Linux configuration
 
-Use the desktop described in [the setup record](remote-desktop-setup.md), or an
+Use the desktop described in [the setup guide](remote-desktop-setup.md), or an
 existing X11 desktop owned by the same operating-system user as Roost. Install
 ImageMagick (`import`) and `xdotool`. Keep the VNC listener on loopback. The
 embedded client supports the existing trusted, single-user VNC session with no
@@ -52,7 +52,7 @@ For the installed systemd service, add a drop-in with:
 ```ini
 [Service]
 Environment=ROOST_DESKTOP_DISPLAY=:1
-Environment=ROOST_DESKTOP_ORIGIN=https://roost-dev.exe.xyz
+Environment=ROOST_DESKTOP_ORIGIN=https://roost.example.com
 Environment=ROOST_DESKTOP_VNC_PORT=5901
 ```
 
@@ -69,7 +69,6 @@ installation can take control of its shared desktop.
 
 Roost is still a single-user application. Keep it on loopback with SSH access,
 or behind a reverse proxy that authenticates **both HTTP and WebSocket** requests.
-On roost-dev, the existing private exe.dev HTTPS proxy provides that boundary.
 Origin checks and tickets do not replace authentication. Do not expose the
 no-auth VNC or noVNC listeners publicly.
 

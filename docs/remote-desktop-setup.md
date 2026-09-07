@@ -1,75 +1,60 @@
-# Remote desktop setup notes
+# Remote desktop setup
 
-Implementation record: September 5, 2026 (Pacific), September 6 (UTC).
-This tracks a working machine setup and requirements for a future Codex setup
-prompt. This records the original desktop provisioning. For the subsequent Roost viewer
-and agent integration, see [shared computer setup](computer.md).
+This guide provisions a persistent Linux desktop and browser for Roost. It is
+based on a setup validated on Ubuntu 24.04 amd64 with systemd. The browser
+profile stays on the host when a viewer disconnects. Installing Roost alone does
+not create this desktop.
 
-## Purpose
+For Roost's built-in viewer and agent controls, see [Shared computer](computer.md).
+The separate noVNC service below also lets you connect through an SSH tunnel.
 
-Let a person open an agent's remote desktop, use its browser, and sign into
-services there. Keep the desktop and browser profile on the remote machine after
-the viewer disconnects.
+## Choose the session
 
-## Verified machine
+Before installing anything, verify the target host's OS, architecture, user,
+home directory, service manager, administrative access, and available resources.
+Inspect existing desktops, browser profiles, processes, display numbers,
+services, and ports. Reuse a suitable desktop instead of replacing another
+session. On exe.dev, `ssh exe.dev ls --json` can identify your VM's SSH destination.
 
-| Item                    | Observed value                                              |
-| ----------------------- | ----------------------------------------------------------- |
-| Provider / host         | exe.dev / `roost-dev.exe.xyz`                               |
-| OS / architecture       | Ubuntu 24.04.4 LTS / amd64                                  |
-| Session user            | `exedev`, UID 1000, home `/home/exedev`                     |
-| Administrative access   | SSH key authentication and passwordless sudo                |
-| Service manager         | systemd; no working user service bus in the SSH session     |
-| Capacity                | 2 CPUs, 8 GiB RAM, 25 GiB disk; about 17 GiB free afterward |
-| Original desktop        | None                                                        |
-| Existing provider proxy | Private, port 8000; left unchanged                          |
-| Desktop                 | XFCE 4.18, TigerVNC 1.13.1, display `:1`                    |
-| Browser                 | Google Chrome 152.0.7977.82, official amd64 Debian package  |
-| Browser viewer          | noVNC 1.3.0 and websockify 0.10.0                           |
+Use a persistent, non-root account for the desktop and browser. The example
+service files use an account named `roost` with home `/home/roost`; replace
+`User`, `Group`, and all home paths with your actual session owner. Use the same
+operating-system user that runs Roost. This is not an instruction to create an
+additional account.
 
-These resources are the tested configuration, not measured minimum requirements.
-The installation increased rounded disk usage from 6.0 to 6.7 GiB, including
-download/cache files. Package versions are observations, not required pins.
+The reference setup used XFCE 4.18, TigerVNC 1.13.1, Chrome 152.0.7977.82, noVNC
+1.3.0, and websockify 0.10.0. These are historical observations, not version pins.
+It ran on 2 CPUs and 8 GiB RAM; installation added approximately 0.7 GiB of disk
+usage including downloads and caches. Those values are not measured minimum
+requirements. Allow space for browser data and agent files as well.
 
-## Requirements to check on every target
+The commands below require Ubuntu amd64, systemd, sudo, and outbound access to
+OS repositories and Chrome's official distribution source. ARM hosts, other
+distributions, containers without systemd, and Wayland desktops need a different
+package or session recipe. Keep browser sandboxing enabled; do not add
+`--no-sandbox` to work around a failed launch.
 
-1. Resolve the actual host and verify SSH access, OS, architecture, session user,
-   home directory, privilege escalation, and service manager. On exe.dev, discover
-   the VM with `ssh exe.dev ls --json`; use its returned SSH destination.
-2. Inspect existing desktops, browser profiles, processes, display numbers,
-   services, ports, available memory, and disk space. Reuse an appropriate desktop
-   where possible; do not overwrite another session or occupied port.
-3. Use a persistent, non-root account for the desktop and browser. This setup
-   requires an X11 desktop, session D-Bus, fonts, a VNC server, and a browser.
-4. Provide authenticated, encrypted viewer access. Here SSH supplies both;
-   neither VNC nor noVNC is exposed on a public interface.
-5. Allow outbound access to OS repositories and the chosen browser's official
-   distribution source. The commands below apply to Ubuntu amd64 with systemd.
-   Other distributions, ARM, containers without systemd, and existing Wayland
-   desktops need a different package/session recipe.
-6. Keep browser sandboxing enabled. Chrome ran as `exedev` without `--no-sandbox`.
-   Diagnose platform restrictions if another target fails rather than silently
-   disabling the sandbox.
+## Install packages
 
-## Installation performed
-
-On the VM:
+Run on the host:
 
 ```sh
 sudo apt-get update -qq
 sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   tigervnc-standalone-server xfce4 xfce4-terminal dbus-x11 novnc websockify \
-  xfonts-base curl ca-certificates
+  xfonts-base curl ca-certificates imagemagick xdotool
 
 curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
   -o /tmp/roost-google-chrome.deb
 sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/roost-google-chrome.deb
 ```
 
-Chrome's package also configures its vendor update source. Normal OS/browser
-updates remain the machine owner's responsibility.
+Chrome's package configures its vendor update source. OS and browser updates
+remain the machine owner's responsibility. ImageMagick and `xdotool` provide
+Roost's screenshot and input support.
 
-Created `/home/exedev/.vnc/xstartup` with mode `0700`, inside a `0700` directory:
+As the desktop session user, create `~/.vnc` with mode `0700` and save this script
+as `~/.vnc/xstartup`, also with mode `0700`:
 
 ```sh
 #!/bin/sh
@@ -78,10 +63,15 @@ unset DBUS_SESSION_BUS_ADDRESS
 exec dbus-run-session -- startxfce4
 ```
 
-The desktop needs its own D-Bus session. System services with `User=exedev` were
-used because `systemctl --user` returned `Failed to connect to bus: No medium found`.
+The desktop needs its own D-Bus session. System services with an explicit `User`
+work on hosts where `systemctl --user` fails with
+`Failed to connect to bus: No medium found` in an SSH session.
 
-Created `/etc/systemd/system/roost-desktop.service`:
+## Configure systemd
+
+Create `/etc/systemd/system/roost-desktop.service`, substituting your user, group,
+and home directory. Display `:1` uses VNC port 5901; choose a free display if
+another desktop already uses it.
 
 ```ini
 [Unit]
@@ -90,11 +80,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=exedev
-Group=exedev
-WorkingDirectory=/home/exedev
-Environment=HOME=/home/exedev
-ExecStart=/usr/bin/tigervncserver :1 -fg -localhost yes -SecurityTypes None -geometry 1600x1000 -depth 24 -AlwaysShared -xstartup /home/exedev/.vnc/xstartup
+User=roost
+Group=roost
+WorkingDirectory=/home/roost
+Environment=HOME=/home/roost
+ExecStart=/usr/bin/tigervncserver :1 -fg -localhost yes -SecurityTypes None -geometry 1600x1000 -depth 24 -AlwaysShared -xstartup /home/roost/.vnc/xstartup
 Restart=on-failure
 RestartSec=5
 
@@ -102,7 +92,8 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Created `/etc/systemd/system/roost-novnc.service`:
+For a standalone browser viewer, create
+`/etc/systemd/system/roost-novnc.service` with the same user and group:
 
 ```ini
 [Unit]
@@ -112,8 +103,8 @@ Requires=roost-desktop.service
 
 [Service]
 Type=simple
-User=exedev
-Group=exedev
+User=roost
+Group=roost
 ExecStart=/usr/bin/websockify --web=/usr/share/novnc 127.0.0.1:6080 127.0.0.1:5901
 Restart=on-failure
 RestartSec=5
@@ -122,126 +113,119 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Enabled and started both:
+Enable and start both:
 
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable --now roost-desktop.service roost-novnc.service
 ```
 
-`SecurityTypes None` intentionally relies on SSH authentication. Any process/user
-on the VM can reach these loopback ports, as can local processes on the Mac while
-its tunnel is open. This recipe assumes those local users/processes are trusted.
-It is not a multi-tenant security boundary. Do not copy it onto a shared machine
-without revisiting authentication/isolation, and never bind these unauthenticated
-services to a public interface or publish them through an HTTP proxy.
+`SecurityTypes None` relies on authenticated SSH access and trusted local
+processes. Every local user or process can reach the loopback listeners; this
+recipe is not a multi-tenant boundary. Keep both listeners on loopback. Do not
+publish these unauthenticated services through a public interface or HTTP proxy.
+Roost's embedded viewer uses the protected app connection described in
+[Shared computer](computer.md).
 
-## Connecting from the Mac
+## Connect through SSH
 
-The following background tunnel was opened and verified:
+On your computer, replace `user@your-server` with the host's SSH destination:
 
 ```sh
 ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -fN \
   -L 127.0.0.1:6080:127.0.0.1:6080 \
-  -L 127.0.0.1:5901:127.0.0.1:5901 roost-dev.exe.xyz
+  -L 127.0.0.1:5901:127.0.0.1:5901 user@your-server
 ```
 
 Open [the desktop viewer](http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=remote).
-The native VNC endpoint is `127.0.0.1:5901`; a native viewer was not tested.
-Both local ports must be free before running the tunnel command. Reuse an
-existing verified tunnel or choose different local ports when needed.
+The native VNC endpoint is `127.0.0.1:5901`. Both local ports must be free;
+reuse an existing verified tunnel or choose different local ports if needed.
+Native VNC client compatibility needs verification with your chosen client.
 
 The browser's local HTTP/WebSocket connection is unencrypted, so noVNC may label
-it that way. Traffic between the Mac and VM travels inside encrypted SSH.
-The tunnel must be restarted after it exits, such as after a Mac restart or a
-prolonged network failure. Omit `-f` to keep it in a terminal and stop it with
-Ctrl-C. Closing a viewer tab does not stop the background tunnel or desktop.
+it that way. Traffic to the host travels inside encrypted SSH. Local processes
+on your computer can access the forwarded ports while the tunnel is open.
+Restart the tunnel after it exits, including after a computer restart or a long
+network failure. Omit `-f` to keep it in a terminal and stop it with Ctrl-C.
+Closing a viewer tab does not stop the background tunnel or desktop.
 
-## Verification and current handoff
+## Verify the desktop
 
-- Both services are `active` and `enabled`.
-- `ss -lnt` shows noVNC on `127.0.0.1:6080`, and VNC on `127.0.0.1:5901`
-  and `[::1]:5901`; no public desktop listeners.
-- `/vnc.html` returns HTTP 200.
-- A real noVNC connection through the Mac's SSH tunnel displayed the XFCE desktop.
-- Remote pointer input opened Applications → Web Browser and launched Chrome.
-- Chrome displayed its first-run terms screen. The user must review/accept it
-  and perform sign-ins. No account authentication or saved login was tested.
-- Reboot recovery, native VNC compatibility, clipboard transfer, and agent reuse
-  of the browser are not yet verified. Services are enabled for boot, but the VM
-  was not rebooted to test this.
-
-Diagnostic commands on the VM:
+Check the services and listeners on the host:
 
 ```sh
 systemctl is-active roost-desktop roost-novnc
 systemctl is-enabled roost-desktop roost-novnc
 ss -lnt
 journalctl -u roost-desktop -u roost-novnc -n 50 --no-pager
-tail -n 50 /home/exedev/.vnc/*.log
+```
+
+As the session user, inspect desktop logs and windows:
+
+```sh
+tail -n 50 ~/.vnc/*.log
 DISPLAY=:1 xwininfo -root -tree
 ```
 
-To start again after a desktop logout, run
-`sudo systemctl restart roost-desktop roost-novnc`. Restarting the desktop ends
-its running GUI applications; coordinate with anyone using it first. To stop
-and disable this setup without deleting browser data, use
-`sudo systemctl disable --now roost-novnc roost-desktop`.
+Confirm that VNC listens only on `127.0.0.1:5901` (and optionally `[::1]:5901`),
+noVNC listens only on `127.0.0.1:6080`, and `/vnc.html` responds. Then make a real
+viewer connection, inspect the rendered desktop, and launch the browser. Open
+ports alone do not prove the desktop works.
 
-## Requirements for a future Roost setup prompt
+Handle browser terms, passwords, MFA, and account sign-ins yourself. Verify that
+Roost's computer control uses this same display and profile. Native viewer
+support, clipboard behavior, and reboot recovery must be tested separately if
+you need them; enabling services for boot is not a reboot test.
 
-- Accept a target machine and desired session owner; discover platform details
-  and select an appropriate recipe rather than assuming `exedev`, apt, or amd64.
-- Inspect first, change only missing configuration, and preserve existing
-  desktops, profiles, services, provider routes, and unrelated work.
-- Record packages, service files, session user/home, display, ports, browser
-  profile, connection method, verification evidence, and remaining manual steps.
-- Verify an actual rendered desktop and browser launch, not just open ports.
-  Hand browser terms, credentials, and MFA to the user; keep secrets out of
-  setup prompts, documentation, logs, and source control.
-- Define how the agent uses the same browser session. In this setup the desktop
-  is `DISPLAY=:1` and Chrome uses the normal profile under
-  `/home/exedev/.config/google-chrome`. A separate headless or temporary profile
-  will not automatically inherit those sign-ins. Do not launch two independent
-  browsers against one profile or copy credentials as a workaround.
-- Choose and verify the agent's browser-control mechanism separately. No remote
-  debugging port or Roost browser adapter was configured here. A shared Unix
-  account also shares access to its browser data; agent isolation is unresolved.
-- Distinguish durable profile data from open application state: disconnecting
-  leaves the desktop running, while a reboot terminates processes. Websites may
-  expire sessions regardless of profile persistence.
-- Return the viewer URL, exact reconnect command, lifecycle commands, and any
-  platform limitations. A future embedded Roost viewer needs authenticated HTTP
-  and WebSocket routing; do not expose this no-auth listener to achieve it.
+To restart after a desktop logout:
 
-## Live desktop inside Roost
+```sh
+sudo systemctl restart roost-desktop roost-novnc
+```
 
-Requested next capability: stream the desktop currently visible in noVNC into
-Roost so the user can watch activity on the remote machine. This is a tracked
-requirement, not implemented functionality.
+Restarting the desktop ends its GUI applications. Coordinate with anyone using
+it first. To stop and disable the services without deleting browser data:
 
-Proposed approach: embed a noVNC client connected to the existing desktop's VNC
-stream. The source is the remote display, not a screen capture of the user's
-local viewer tab. Both viewers should show the same running session.
+```sh
+sudo systemctl disable --now roost-novnc roost-desktop
+```
 
-- Associate each viewer with the correct machine and desktop session. Activity
-  from an agent using a separate headless browser will not appear on this display.
-- Provide an authenticated WebSocket route to the target's private VNC bridge.
-  Authorize access to that specific machine/session and validate the connection
-  origin. Keep upstream access private and use HTTPS/WSS for hosted Roost.
-- Do not hardcode `127.0.0.1:6080` into hosted Roost: in a user's browser it refers
-  to that user's computer and only works with their local SSH tunnel. Decide how
-  Roost reaches the machine based on where Roost itself runs.
-- Show connection, disconnection, and reconnecting states. Closing the panel
-  should detach the viewer without ending the remote desktop or its applications.
-- Proposed interaction: watch by default, with an explicit take-control action
-  for sign-ins or intervention. Coordinate agent input while a person controls
-  the session; the handoff mechanism remains to be designed.
-- Verify simultaneous viewing, live updates, resize behavior, reconnecting, and
-  rejection of unauthorized connections against a real remote machine.
+## Connect the desktop to Roost
 
-Initial scope is a live view. Recording, replay, and audio are not requested.
+Configure the display, viewer origin, and loopback VNC port as described in
+[Shared computer](computer.md#linux-configuration). Roost embeds the VNC stream,
+starts in view-only mode, and coordinates agent input when you take control.
+Closing its viewer detaches your session and leaves the desktop running.
+Recording and replay are not implemented.
+
+The stream comes from the remote display. An agent using a separate headless
+browser will not appear there. Keep Chrome on the session owner's normal profile
+(`~/.config/google-chrome`); a temporary browser profile will not inherit its
+sign-ins. Do not launch two independent browsers against one profile or copy
+credentials to work around session problems. Roost's X11 adapter does not need a
+Chrome remote debugging port.
+
+A hosted viewer cannot use a hardcoded `127.0.0.1:6080` URL: that address resolves
+on the viewer's computer. Roost reaches its configured VNC port on the Roost
+host through its own WebSocket route. Remote app access needs an authenticated
+HTTP and WebSocket proxy or an SSH tunnel. Origin checks do not replace
+access authentication. External VNC clients do not participate in Roost's input
+coordination.
+
+Disconnecting leaves applications running. Rebooting the host ends those
+processes, although its browser profile remains on disk and systemd can restart
+the desktop. Websites may expire login sessions independently.
+
+## For automated provisioning
+
+A setup agent should inspect the actual platform and change only missing
+configuration. Preserve desktops, profiles, services, provider routes, and
+unrelated work. Record the installed packages, service files, user/home, display,
+ports, browser profile, access method, and verification results. Return the
+viewer URL, reconnect command, lifecycle commands, and remaining manual steps.
+Keep credentials out of setup prompts, logs, documentation, and source control.
+Verify rendered output and browser reuse before reporting the setup complete.
 
 ## References
 
