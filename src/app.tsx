@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { MobileNavigation } from "./components/mobile-navigation";
 import { Sidebar } from "./components/sidebar";
 import { Button } from "./components/ui/button";
@@ -11,8 +11,35 @@ import { PreferencesProvider } from "./features/settings/preferences";
 import { Route } from "./routes/__root";
 import { colors } from "./styles/tokens.stylex";
 
+const sidebarCollapsedKey = "roost.sidebarCollapsed";
+
 export function App() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsedState] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsedState(localStorage.getItem(sidebarCollapsedKey) === "true");
+    } catch {
+      // Keep navigation usable when browser storage is unavailable.
+    }
+  }, []);
+
+  function setCollapsed(value: boolean) {
+    setCollapsedState(value);
+    try {
+      localStorage.setItem(sidebarCollapsedKey, String(value));
+    } catch {
+      // The choice still applies for this visit.
+    }
+  }
+
+  const [sidebarWidth, setSidebarWidth] = useState(216);
+  const [maxSidebarWidth, setMaxSidebarWidth] = useState(360);
+  const navigation = useRef<HTMLDivElement>(null);
+  function resizeSidebar(width: number) {
+    setSidebarWidth(
+      Math.round(Math.max(180, Math.min(maxSidebarWidth, width))),
+    );
+  }
   const agents = Route.useLoaderData();
   useAgentStartup(agents.ok ? agents.value : undefined);
   const agentPage = useRouterState({
@@ -24,6 +51,17 @@ export function App() {
       ),
   });
   const shell = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = shell.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      const maximum = Math.max(180, Math.min(360, element.clientWidth - 480));
+      setMaxSidebarWidth(maximum);
+      setSidebarWidth((width) => Math.min(width, maximum));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
@@ -83,11 +121,67 @@ export function App() {
       <AgentActivityProvider>
         <div ref={shell} {...stylex.props(styles.app)}>
           {!collapsed && (
-            <div {...stylex.props(styles.desktopNavigation)}>
+            <div
+              ref={navigation}
+              {...stylex.props(styles.desktopNavigation)}
+              style={
+                { "--sidebar-width": `${sidebarWidth}px` } as CSSProperties
+              }
+            >
               <Sidebar
                 agents={agents.ok ? agents.value : []}
                 onCollapse={() => setCollapsed(true)}
               />
+              {/* biome-ignore lint/a11y/useSemanticElements: This is an interactive pane splitter, not a thematic break. */}
+              <div
+                role="separator"
+                tabIndex={0}
+                aria-label="Resize agents sidebar"
+                aria-orientation="vertical"
+                aria-controls="agent-sidebar"
+                aria-valuemin={180}
+                aria-valuemax={maxSidebarWidth}
+                aria-valuenow={sidebarWidth}
+                {...stylex.props(styles.resizeHandle)}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  event.currentTarget.focus();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  if (
+                    !event.currentTarget.hasPointerCapture(event.pointerId) ||
+                    !navigation.current
+                  )
+                    return;
+                  resizeSidebar(
+                    event.clientX -
+                      navigation.current.getBoundingClientRect().left,
+                  );
+                }}
+                onPointerUp={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId))
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                      event.key,
+                    )
+                  )
+                    return;
+                  event.preventDefault();
+                  if (event.key === "Home") resizeSidebar(180);
+                  else if (event.key === "End") resizeSidebar(maxSidebarWidth);
+                  else
+                    resizeSidebar(
+                      sidebarWidth + (event.key === "ArrowRight" ? 24 : -24),
+                    );
+                }}
+              >
+                <span {...stylex.props(styles.resizeLine)} />
+              </div>
             </div>
           )}
           {collapsed && (
@@ -134,7 +228,29 @@ const styles = stylex.create({
     alignSelf: "flex-start",
     flexShrink: 0,
   },
+  resizeHandle: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: -4,
+    width: 9,
+    zIndex: 1,
+    display: "flex",
+    justifyContent: "center",
+    cursor: "col-resize",
+    touchAction: "none",
+    outlineOffset: -2,
+    color: {
+      default: "transparent",
+      ":hover": colors.muted,
+      ":focus-visible": colors.accent,
+    },
+  },
+  resizeLine: { width: 1, backgroundColor: "currentColor" },
   expand: {
+    position: "sticky",
+    top: 0,
+    alignSelf: "flex-start",
     padding: 12,
     flexShrink: 0,
     display: { default: "block", "@media (max-width: 700px)": "none" },
