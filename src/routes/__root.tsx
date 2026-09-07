@@ -3,6 +3,7 @@ import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
+import { getSidebarPreferences } from "../features/settings/sidebar-functions";
 import stylesheet from "../styles/reset.css?url";
 import { colors } from "../styles/tokens.stylex";
 
@@ -49,7 +50,14 @@ export const Route = createRootRoute({
       ? [{ type: "module", src: "/@id/virtual:stylex:runtime" }]
       : [],
   }),
-  loader: () => getAgents(),
+  loader: async () => {
+    const [agents, sidebarPreferences] = await Promise.all([
+      getAgents(),
+      getSidebarPreferences(),
+    ]);
+    return { ...agents, sidebarPreferences };
+  },
+  headers: () => ({ "Cache-Control": "private, no-store" }),
   component: App,
   shellComponent: RootDocument,
 });

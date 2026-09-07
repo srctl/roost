@@ -8,39 +8,40 @@ import { Icon } from "./components/ui/primitives";
 import { AgentActivityProvider } from "./features/agents/activity";
 import { useAgentStartup } from "./features/agents/use-agent-startup";
 import { PreferencesProvider } from "./features/settings/preferences";
+import {
+  saveSidebarPreference,
+  sidebarCollapsedKey,
+  sidebarMaxWidth,
+  sidebarMinWidth,
+  sidebarWidthKey,
+} from "./features/settings/sidebar-preferences";
 import { Route } from "./routes/__root";
 import { colors } from "./styles/tokens.stylex";
 
-const sidebarCollapsedKey = "roost.sidebarCollapsed";
-
 export function App() {
-  const [collapsed, setCollapsedState] = useState(false);
-  useEffect(() => {
-    try {
-      setCollapsedState(localStorage.getItem(sidebarCollapsedKey) === "true");
-    } catch {
-      // Keep navigation usable when browser storage is unavailable.
-    }
-  }, []);
+  const agents = Route.useLoaderData();
+  const [collapsed, setCollapsedState] = useState(
+    agents.sidebarPreferences.collapsed,
+  );
+  const [preferredSidebarWidth, setPreferredSidebarWidth] = useState(
+    agents.sidebarPreferences.width,
+  );
+  const [maxSidebarWidth, setMaxSidebarWidth] = useState(sidebarMaxWidth);
+  const sidebarWidth = Math.min(preferredSidebarWidth, maxSidebarWidth);
+  const navigation = useRef<HTMLDivElement>(null);
 
   function setCollapsed(value: boolean) {
     setCollapsedState(value);
-    try {
-      localStorage.setItem(sidebarCollapsedKey, String(value));
-    } catch {
-      // The choice still applies for this visit.
-    }
+    saveSidebarPreference(sidebarCollapsedKey, value);
   }
 
-  const [sidebarWidth, setSidebarWidth] = useState(216);
-  const [maxSidebarWidth, setMaxSidebarWidth] = useState(360);
-  const navigation = useRef<HTMLDivElement>(null);
   function resizeSidebar(width: number) {
-    setSidebarWidth(
-      Math.round(Math.max(180, Math.min(maxSidebarWidth, width))),
+    const next = Math.round(
+      Math.max(sidebarMinWidth, Math.min(maxSidebarWidth, width)),
     );
+    setPreferredSidebarWidth(next);
+    saveSidebarPreference(sidebarWidthKey, next);
   }
-  const agents = Route.useLoaderData();
   useAgentStartup(agents.ok ? agents.value : undefined);
   const agentPage = useRouterState({
     select: (state) =>
@@ -55,9 +56,11 @@ export function App() {
     const element = shell.current;
     if (!element) return;
     const observer = new ResizeObserver(() => {
-      const maximum = Math.max(180, Math.min(360, element.clientWidth - 480));
+      const maximum = Math.max(
+        sidebarMinWidth,
+        Math.min(sidebarMaxWidth, element.clientWidth - 480),
+      );
       setMaxSidebarWidth(maximum);
-      setSidebarWidth((width) => Math.min(width, maximum));
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -125,7 +128,9 @@ export function App() {
               ref={navigation}
               {...stylex.props(styles.desktopNavigation)}
               style={
-                { "--sidebar-width": `${sidebarWidth}px` } as CSSProperties
+                {
+                  "--sidebar-width": `${preferredSidebarWidth}px`,
+                } as CSSProperties
               }
             >
               <Sidebar
@@ -139,7 +144,7 @@ export function App() {
                 aria-label="Resize agents sidebar"
                 aria-orientation="vertical"
                 aria-controls="agent-sidebar"
-                aria-valuemin={180}
+                aria-valuemin={sidebarMinWidth}
                 aria-valuemax={maxSidebarWidth}
                 aria-valuenow={sidebarWidth}
                 {...stylex.props(styles.resizeHandle)}
@@ -172,7 +177,7 @@ export function App() {
                   )
                     return;
                   event.preventDefault();
-                  if (event.key === "Home") resizeSidebar(180);
+                  if (event.key === "Home") resizeSidebar(sidebarMinWidth);
                   else if (event.key === "End") resizeSidebar(maxSidebarWidth);
                   else
                     resizeSidebar(

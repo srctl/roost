@@ -81,7 +81,7 @@ export function Sidebar({
 
 const styles = stylex.create({
   sidebar: {
-    width: "var(--sidebar-width, 216px)",
+    width: "min(var(--sidebar-width, 216px), max(180px, calc(100vw - 480px)))",
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
