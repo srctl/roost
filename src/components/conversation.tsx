@@ -5,6 +5,7 @@ import {
   Suspense,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,8 +14,10 @@ import type { Agent } from "../features/agents/schema";
 import type { InitialConversation } from "../features/chat/functions";
 import { useConversation } from "../features/chat/use-conversation";
 import { computerPreviewAnchor } from "../features/computer/preview";
+import { useLiveEntries, useMountedAfterLoad } from "../features/motion";
 import { usePreferences } from "../features/settings/preferences";
 import { Route as RootRoute } from "../routes/__root";
+import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { AgentHeader } from "./agent-header";
 import { ApprovalRequests } from "./approval-requests";
@@ -23,6 +26,7 @@ import { AgentMessage, UserMessage } from "./conversation/message";
 import { ConversationNotice } from "./conversation/notice";
 import { ToolActivity } from "./conversation/tool-activity";
 import { TypingIndicator } from "./conversation/typing-indicator";
+import { Appear } from "./ui/appear";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
 import { ScrollArea } from "./ui/scroll-area";
@@ -32,6 +36,19 @@ const ComputerPanel = lazy(() =>
     default: module.ComputerPanel,
   })),
 );
+
+/** How long a programmatic smooth scroll may keep the viewport pinned. */
+const SETTLE_MS = 700;
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function scrollToEnd(element: HTMLElement, smooth: boolean) {
+  if (smooth)
+    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+  else element.scrollTop = element.scrollHeight;
+}
 
 export function Conversation({
   agent,
@@ -68,6 +85,10 @@ export function Conversation({
     const timer = setTimeout(() => setShowLoading(true), 500);
     return () => clearTimeout(timer);
   }, [loading]);
+  // Switching agents fades the new history in; the first page load stays still.
+  const live = useMountedAfterLoad();
+  const ids = useMemo(() => messages.map((message) => message.id), [messages]);
+  const entering = useLiveEntries(ids, !loading);
   const prepend = useRef<{ height: number; top: number } | null>(null);
   const { computerEnabled } = RootRoute.useLoaderData();
   const [manualComputerOpen, setManualComputerOpen] = useState(false);
@@ -81,6 +102,11 @@ export function Conversation({
   const viewport = useRef<HTMLDivElement>(null);
   const { responseStyle, showActivityDetails } = usePreferences();
   const followReply = useRef(true);
+  // Sending scrolls smoothly so the new bubble glides up from the composer.
+  // Streaming updates keep jumping instantly; a smooth scroll every poll would
+  // fight the reader. While a smooth scroll settles, scroll events are ours.
+  const smoothNext = useRef(false);
+  const settleUntil = useRef(0);
   const liveStatus =
     [...messages]
       .reverse()
@@ -99,8 +125,14 @@ export function Conversation({
     }
   }, [messages, loadingOlder]);
   useLayoutEffect(() => {
-    if (viewport.current && followReply.current)
-      viewport.current.scrollTop = viewport.current.scrollHeight;
+    const element = viewport.current;
+    if (!element || !followReply.current) return;
+    const smooth =
+      (smoothNext.current || settleUntil.current > Date.now()) &&
+      !prefersReducedMotion();
+    smoothNext.current = false;
+    if (smooth) settleUntil.current = Date.now() + SETTLE_MS;
+    scrollToEnd(element, smooth);
   }, [
     messages,
     savedComputerAnchor,
@@ -117,7 +149,8 @@ export function Conversation({
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        if (followReply.current) element.scrollTop = element.scrollHeight;
+        if (followReply.current)
+          scrollToEnd(element, settleUntil.current > Date.now());
       });
     });
     observer.observe(element);
@@ -162,12 +195,16 @@ export function Conversation({
         viewportRef={viewport}
         onScroll={(event) => {
           const element = event.currentTarget;
-          followReply.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight <
-            64;
+          const distance =
+            element.scrollHeight - element.scrollTop - element.clientHeight;
+          if (settleUntil.current > Date.now()) {
+            if (distance < 2) settleUntil.current = 0;
+            return;
+          }
+          followReply.current = distance < 64;
         }}
       >
-        <div {...stylex.props(styles.history)}>
+        <div {...stylex.props(styles.history, live && styles.enter)}>
           {loading && showLoading && (
             <p role="status">Loading conversation… You can start typing.</p>
           )}
@@ -198,16 +235,26 @@ export function Conversation({
           {messages.map((message) => (
             <Fragment key={message.id}>
               {message.role === "user" ? (
-                <UserMessage files={message.files}>{message.text}</UserMessage>
+                <UserMessage
+                  files={message.files}
+                  entering={entering.has(message.id)}
+                >
+                  {message.text}
+                </UserMessage>
               ) : message.role === "notice" ? (
                 <ConversationNotice agentId={agent.id} message={message} />
               ) : message.role === "activity" ? (
-                <ToolActivity agentId={agent.id} message={message} />
+                <ToolActivity
+                  agentId={agent.id}
+                  message={message}
+                  entering={entering.has(message.id)}
+                />
               ) : (
                 <AgentMessage
                   name={agent.name}
                   title={message.title}
                   files={message.files}
+                  entering={entering.has(message.id)}
                 >
                   {message.text}
                 </AgentMessage>
@@ -249,12 +296,12 @@ export function Conversation({
         </Suspense>
       )}
       {error && (
-        <div role="alert" {...stylex.props(styles.error)}>
+        <Appear role="alert" xstyle={styles.error}>
           {error}
           <Button disabled={busy} onClick={() => void reload()}>
             Reload conversation
           </Button>
-        </div>
+        </Appear>
       )}
       <ApprovalRequests agentId={agent.id} busy={busy} />
       <Composer
@@ -271,6 +318,7 @@ export function Conversation({
         }
         onSend={(text, files) => {
           followReply.current = true;
+          smoothNext.current = true;
 
           return send(text, files);
         }}
@@ -282,6 +330,11 @@ export function Conversation({
     </section>
   );
 }
+
+const fadeIn = stylex.keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+});
 
 const styles = stylex.create({
   conversation: {
@@ -318,6 +371,17 @@ const styles = stylex.create({
     paddingBlock: { default: 24, "@media (max-width: 700px)": 16 },
     paddingLeft: { default: 0, "@media (max-width: 700px)": 12 },
   },
+  enter: {
+    animationName: fadeIn,
+    animationDuration: motion.base,
+    animationTimingFunction: motion.easeOut,
+    animationFillMode: "backwards",
+  },
   empty: { paddingTop: 60, color: colors.muted, textAlign: "center" },
-  error: { color: colors.review, fontSize: 12, paddingBlock: 8 },
+  error: {
+    display: "block",
+    color: colors.review,
+    fontSize: 12,
+    paddingBlock: 8,
+  },
 });

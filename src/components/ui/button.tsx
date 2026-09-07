@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import * as stylex from "@stylexjs/stylex";
+import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 
 // Adapted from shadcn/ui's Base UI button; see THIRD_PARTY_NOTICES.md.
@@ -38,12 +39,26 @@ const styles = stylex.create({
     paddingInline: 6,
     borderWidth: 0,
     borderRadius: 5,
-    backgroundColor: "transparent",
-    color: colors.muted,
+    // A translucent wash of the text colour reads on every surface and theme.
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover)": {
+        ":not(:disabled):hover":
+          "color-mix(in srgb, currentColor 9%, transparent)",
+      },
+    },
+    color: {
+      default: colors.muted,
+      "@media (hover: hover)": { ":not(:disabled):hover": colors.foreground },
+    },
     fontSize: 12,
     whiteSpace: "nowrap",
     fontWeight: 400,
     cursor: { default: "pointer", ":disabled": "default" },
     outlineOffset: 3,
+    transform: { default: "scale(1)", ":not(:disabled):active": "scale(0.94)" },
+    transitionProperty: "background-color, color, transform, opacity",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
   },
 });

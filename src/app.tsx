@@ -5,8 +5,10 @@ import { MobileNavigation } from "./components/mobile-navigation";
 import { Sidebar } from "./components/sidebar";
 import { Button } from "./components/ui/button";
 import { Icon } from "./components/ui/primitives";
+import { ResizeHandle } from "./components/ui/resize-handle";
 import { AgentActivityProvider } from "./features/agents/activity";
 import { useAgentStartup } from "./features/agents/use-agent-startup";
+import { useMarkLoaded } from "./features/motion";
 import { PreferencesProvider } from "./features/settings/preferences";
 import {
   saveSidebarPreference,
@@ -16,6 +18,7 @@ import {
   sidebarWidthKey,
 } from "./features/settings/sidebar-preferences";
 import { Route } from "./routes/__root";
+import { motion } from "./styles/motion.stylex";
 import { colors } from "./styles/tokens.stylex";
 
 export function App() {
@@ -43,6 +46,7 @@ export function App() {
     saveSidebarPreference(sidebarWidthKey, next);
   }
   useAgentStartup(agents.ok ? agents.value : undefined);
+  useMarkLoaded();
   const agentPage = useRouterState({
     select: (state) =>
       state.matches.some(
@@ -123,72 +127,35 @@ export function App() {
     <PreferencesProvider>
       <AgentActivityProvider>
         <div ref={shell} {...stylex.props(styles.app)}>
-          {!collapsed && (
-            <div
-              ref={navigation}
-              {...stylex.props(styles.desktopNavigation)}
-              style={
-                {
-                  "--sidebar-width": `${preferredSidebarWidth}px`,
-                } as CSSProperties
-              }
-            >
-              <Sidebar
-                agents={agents.ok ? agents.value : []}
-                onCollapse={() => setCollapsed(true)}
-              />
-              {/* biome-ignore lint/a11y/useSemanticElements: This is an interactive pane splitter, not a thematic break. */}
-              <div
-                role="separator"
-                tabIndex={0}
-                aria-label="Resize agents sidebar"
-                aria-orientation="vertical"
-                aria-controls="agent-sidebar"
-                aria-valuemin={sidebarMinWidth}
-                aria-valuemax={maxSidebarWidth}
-                aria-valuenow={sidebarWidth}
-                {...stylex.props(styles.resizeHandle)}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return;
-                  event.preventDefault();
-                  event.currentTarget.focus();
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }}
-                onPointerMove={(event) => {
-                  if (
-                    !event.currentTarget.hasPointerCapture(event.pointerId) ||
-                    !navigation.current
-                  )
-                    return;
-                  resizeSidebar(
-                    event.clientX -
-                      navigation.current.getBoundingClientRect().left,
-                  );
-                }}
-                onPointerUp={(event) => {
-                  if (event.currentTarget.hasPointerCapture(event.pointerId))
-                    event.currentTarget.releasePointerCapture(event.pointerId);
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
-                      event.key,
-                    )
-                  )
-                    return;
-                  event.preventDefault();
-                  if (event.key === "Home") resizeSidebar(sidebarMinWidth);
-                  else if (event.key === "End") resizeSidebar(maxSidebarWidth);
-                  else
-                    resizeSidebar(
-                      sidebarWidth + (event.key === "ArrowRight" ? 24 : -24),
-                    );
-                }}
-              >
-                <span {...stylex.props(styles.resizeLine)} />
-              </div>
-            </div>
-          )}
+          {/* The sidebar stays mounted while collapsed so its width can animate
+              shut. Inert keeps the hidden links out of the tab order. */}
+          <div
+            ref={navigation}
+            inert={collapsed}
+            {...stylex.props(
+              styles.desktopNavigation,
+              collapsed && styles.navigationCollapsed,
+            )}
+            style={
+              {
+                "--sidebar-width": `${preferredSidebarWidth}px`,
+              } as CSSProperties
+            }
+          >
+            <Sidebar
+              agents={agents.ok ? agents.value : []}
+              onCollapse={() => setCollapsed(true)}
+            />
+            <ResizeHandle
+              label="Resize agents sidebar"
+              controls="agent-sidebar"
+              pane={navigation}
+              value={sidebarWidth}
+              min={sidebarMinWidth}
+              max={maxSidebarWidth}
+              onResize={resizeSidebar}
+            />
+          </div>
           {collapsed && (
             <div {...stylex.props(styles.expand)}>
               <Button
@@ -232,26 +199,13 @@ const styles = stylex.create({
     height: "100dvh",
     alignSelf: "flex-start",
     flexShrink: 0,
+    width: "min(var(--sidebar-width, 216px), max(140px, calc(100vw - 480px)))",
+    overflow: "hidden",
+    transitionProperty: "width",
+    transitionDuration: motion.slow,
+    transitionTimingFunction: motion.easeInOut,
   },
-  resizeHandle: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: -4,
-    width: 9,
-    zIndex: 1,
-    display: "flex",
-    justifyContent: "center",
-    cursor: "col-resize",
-    touchAction: "none",
-    outlineOffset: -2,
-    color: {
-      default: "transparent",
-      ":hover": colors.muted,
-      ":focus-visible": colors.accent,
-    },
-  },
-  resizeLine: { width: 1, backgroundColor: "currentColor" },
+  navigationCollapsed: { width: 0 },
   expand: {
     position: "sticky",
     top: 0,

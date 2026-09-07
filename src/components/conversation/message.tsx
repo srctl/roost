@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { FileAttachment } from "../../features/chat/files";
 import { usePreferences } from "../../features/settings/preferences";
+import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 import { FileLinks } from "./file-links";
 import { MessageContent } from "./message-content";
@@ -9,9 +10,12 @@ import { MessageContent } from "./message-content";
 export function UserMessage({
   children,
   files,
+  entering = false,
 }: {
   children: ReactNode;
   files?: readonly FileAttachment[];
+  /** Plays the send animation: the bubble rises from the composer into place. */
+  entering?: boolean;
 }) {
   const { responseStyle } = usePreferences();
 
@@ -20,6 +24,7 @@ export function UserMessage({
       {...stylex.props(
         styles.userMessage,
         responseStyle === "messages" && styles.outgoing,
+        entering && styles.sent,
       )}
     >
       {children}
@@ -33,11 +38,14 @@ export function AgentMessage({
   title,
   files,
   children,
+  entering = false,
 }: {
   name: string;
   title?: string;
   files?: readonly FileAttachment[];
   children: string;
+  /** Fades the reply in when it first arrives during this visit. */
+  entering?: boolean;
 }) {
   const { responseStyle } = usePreferences();
 
@@ -47,6 +55,7 @@ export function AgentMessage({
       {...stylex.props(
         styles.message,
         responseStyle === "messages" && styles.incoming,
+        entering && styles.received,
       )}
     >
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
@@ -55,6 +64,16 @@ export function AgentMessage({
     </article>
   );
 }
+
+const rise = stylex.keyframes({
+  from: { opacity: 0, transform: "translateY(18px) scale(0.97)" },
+  to: { opacity: 1, transform: "translateY(0) scale(1)" },
+});
+
+const fadeUp = stylex.keyframes({
+  from: { opacity: 0, transform: "translateY(8px)" },
+  to: { opacity: 1, transform: "translateY(0)" },
+});
 
 const styles = stylex.create({
   automation: { fontSize: 11, color: colors.muted, marginBottom: 6 },
@@ -92,5 +111,19 @@ const styles = stylex.create({
     borderBottomRightRadius: 5,
     backgroundColor: colors.action,
     color: colors.onAccent,
+  },
+  sent: {
+    transformOrigin: "bottom right",
+    animationName: rise,
+    animationDuration: motion.slow,
+    animationTimingFunction: motion.easeOut,
+    animationFillMode: "backwards",
+  },
+  received: {
+    transformOrigin: "bottom left",
+    animationName: fadeUp,
+    animationDuration: motion.slow,
+    animationTimingFunction: motion.easeOut,
+    animationFillMode: "backwards",
   },
 });

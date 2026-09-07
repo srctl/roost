@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
+import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { AgentWorking } from "./agent-working";
 import { Button } from "./ui/button";
@@ -143,6 +144,15 @@ const styles = stylex.create({
     borderRadius: 6,
     textDecoration: "none",
     color: colors.foreground,
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover)": {
+        ":hover": `color-mix(in srgb, ${colors.selected} 55%, transparent)`,
+      },
+    },
+    transitionProperty: "background-color, color",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
   },
   name: {
     flex: 1,
@@ -152,7 +162,13 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   active: { backgroundColor: colors.selected },
-  create: { color: colors.muted, fontSize: 12 },
+  create: {
+    color: {
+      default: colors.muted,
+      "@media (hover: hover)": { ":hover": colors.foreground },
+    },
+    fontSize: 12,
+  },
   footer: {
     flexShrink: 0,
     marginTop: "auto",

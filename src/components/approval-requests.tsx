@@ -5,6 +5,7 @@ import {
   respondToApproval,
 } from "../features/approvals/functions";
 import type { Approval, ApprovalResponse } from "../features/approvals/schema";
+import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 
@@ -198,6 +199,11 @@ function ApprovalCard({
   );
 }
 
+const rise = stylex.keyframes({
+  from: { opacity: 0, transform: "translateY(12px)" },
+  to: { opacity: 1, transform: "translateY(0)" },
+});
+
 const styles = stylex.create({
   list: { flexShrink: 0, maxHeight: "45vh", overflowY: "auto" },
   card: {
@@ -208,6 +214,11 @@ const styles = stylex.create({
     borderColor: colors.border,
     borderRadius: 10,
     fontSize: 13,
+    // Requests are fetched after load, so this only plays for real arrivals.
+    animationName: rise,
+    animationDuration: motion.slow,
+    animationTimingFunction: motion.easeOut,
+    animationFillMode: "backwards",
   },
   details: {
     whiteSpace: "pre-wrap",
@@ -218,7 +229,10 @@ const styles = stylex.create({
     overflowY: "auto",
   },
   actions: { display: "flex", gap: 8, alignItems: "center" },
-  approve: { color: colors.foreground, backgroundColor: colors.surface },
+  approve: {
+    color: colors.foreground,
+    backgroundColor: { default: colors.bubble, ":hover": colors.selected },
+  },
   question: { borderWidth: 0, padding: 0, marginBlock: 12 },
   option: { display: "flex", gap: 8, alignItems: "start", marginBlock: 8 },
   description: { display: "block", color: colors.muted },

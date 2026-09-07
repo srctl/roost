@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useDashboardsEnabled } from "../features/dashboards/preference";
+import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { AgentSettings } from "./agent-settings";
 import { MobileNavigation } from "./mobile-navigation";
@@ -120,7 +121,8 @@ const styles = stylex.create({
     marginBottom: -1,
     outlineOffset: -2,
     transitionProperty: "color, border-color",
-    transitionDuration: "120ms",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
   },
   active: { color: colors.foreground, borderBottomColor: colors.foreground },
 });

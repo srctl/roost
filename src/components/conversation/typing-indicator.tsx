@@ -1,12 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
+import { useMountedAfterLoad } from "../../features/motion";
+import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 
 export function TypingIndicator({ name }: { name: string }) {
+  const live = useMountedAfterLoad();
+
   return (
     <div
       role="status"
       aria-label={`${name} is replying`}
-      {...stylex.props(styles.bubble)}
+      {...stylex.props(styles.bubble, live && styles.appear)}
     >
       <span aria-hidden="true" {...stylex.props(styles.dot)} />
       <span aria-hidden="true" {...stylex.props(styles.dot, styles.second)} />
@@ -18,6 +22,11 @@ export function TypingIndicator({ name }: { name: string }) {
 const pulse = stylex.keyframes({
   "0%, 60%, 100%": { opacity: 0.4, transform: "translateY(0)" },
   "30%": { opacity: 1, transform: "translateY(-3px)" },
+});
+
+const pop = stylex.keyframes({
+  from: { opacity: 0, transform: "scale(0.6)" },
+  to: { opacity: 1, transform: "scale(1)" },
 });
 
 const styles = stylex.create({
@@ -32,6 +41,13 @@ const styles = stylex.create({
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     backgroundColor: colors.bubble,
+  },
+  appear: {
+    transformOrigin: "bottom left",
+    animationName: pop,
+    animationDuration: motion.base,
+    animationTimingFunction: motion.spring,
+    animationFillMode: "backwards",
   },
   dot: {
     width: 6,

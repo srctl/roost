@@ -76,6 +76,16 @@ The StyleX Vite plugin runs before React and compiles styles for the client and
 server builds. The root route links the emitted stylesheet so the server-rendered
 page is styled before hydration.
 
+Motion follows shared tokens in `src/styles/motion.stylex.ts`: three durations
+(`fast`, `base`, `slow`) and three easings. The durations collapse to zero under
+`prefers-reduced-motion`, so any transition or animation that reads them honours
+that setting without its own media query. Entrance animations only play for
+changes the visitor caused: `useMountedAfterLoad` gates elements that mount after
+the first client render, `useLiveEntries` marks conversation entries appended
+after the history was first shown, and `useOpenAfterMount` lets lazily loaded
+Base UI popups mount closed so their open transition runs. Server-rendered markup
+never replays an entrance at startup.
+
 React Compiler is enabled for client components and hooks through Vite's
 `reactCompilerPreset`. It runs before StyleX and framework transforms and uses
 React 19's built-in compiler runtime. Components the compiler cannot safely

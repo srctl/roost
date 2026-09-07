@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button";
 import { Avatar, Icon } from "../components/ui/primitives";
 import { getStartupAgent } from "../features/agents/startup-functions";
 import { agentStyles } from "../features/agents/styles";
+import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
@@ -105,9 +106,15 @@ const styles = stylex.create({
     borderBottomColor: colors.border,
     color: colors.foreground,
     textDecoration: "none",
-    backgroundColor: { default: "transparent", ":hover": colors.surface },
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover)": { ":hover": colors.bubble },
+    },
     borderRadius: 6,
     outlineOffset: 2,
+    transitionProperty: "background-color",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
   },
   name: { flex: 1, minWidth: 0, overflowWrap: "anywhere", fontSize: 16 },
   empty: {

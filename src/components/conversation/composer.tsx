@@ -15,7 +15,9 @@ import {
   MAX_FILE_BYTES,
 } from "../../features/chat/files";
 import { usePreferences } from "../../features/settings/preferences";
+import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
+import { Appear } from "../ui/appear";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/primitives";
 
@@ -156,10 +158,10 @@ export function Composer({
   return (
     <form onSubmit={submit} {...stylex.props(styles.composerArea)}>
       {busy && responseStyle === "codex" && (
-        <div role="status" {...stylex.props(styles.progress)}>
+        <Appear role="status" xstyle={styles.progress}>
           <span {...stylex.props(styles.progressDot)} />
           <span>{`${status ?? "Replying"}…`}</span>
-        </div>
+        </Appear>
       )}
       {files.length > 0 && (
         <ul aria-label="Attached files" {...stylex.props(styles.attachments)}>
@@ -184,14 +186,14 @@ export function Composer({
         </ul>
       )}
       {uploading && (
-        <p role="status" {...stylex.props(styles.uploadStatus)}>
+        <Appear role="status" xstyle={styles.uploadStatus}>
           Uploading…
-        </p>
+        </Appear>
       )}
       {uploadError && (
-        <p role="alert" {...stylex.props(styles.uploadError)}>
+        <Appear role="alert" xstyle={styles.uploadError}>
           {uploadError}
-        </p>
+        </Appear>
       )}
       <div {...stylex.props(styles.composer)}>
         <input
@@ -259,7 +261,7 @@ export function Composer({
             aria-label="Stop response"
             xstyle={styles.send}
           >
-            <span aria-hidden="true" {...stylex.props(styles.stopIcon)} />
+            <Appear pop aria-hidden="true" xstyle={styles.stopIcon} />
           </Button>
         ) : (
           <Button
@@ -275,13 +277,25 @@ export function Composer({
             aria-label="Send message"
             xstyle={styles.send}
           >
-            <Icon name="up" size={16} />
+            <Appear pop xstyle={styles.sendIcon}>
+              <Icon name="up" size={16} />
+            </Appear>
           </Button>
         )}
       </div>
     </form>
   );
 }
+
+const slideIn = stylex.keyframes({
+  from: { opacity: 0, transform: "translateY(4px) scale(0.96)" },
+  to: { opacity: 1, transform: "translateY(0) scale(1)" },
+});
+
+const breathe = stylex.keyframes({
+  "0%, 100%": { opacity: 0.35, transform: "scale(0.8)" },
+  "50%": { opacity: 1, transform: "scale(1)" },
+});
 
 const styles = stylex.create({
   attachments: {
@@ -303,6 +317,12 @@ const styles = stylex.create({
     backgroundColor: colors.surface,
     fontSize: 11,
     color: colors.muted,
+    transformOrigin: "bottom left",
+    // Attachments only exist after the page loads, so this never runs at startup.
+    animationName: slideIn,
+    animationDuration: motion.base,
+    animationTimingFunction: motion.easeOut,
+    animationFillMode: "backwards",
   },
   filename: {
     overflow: "hidden",
@@ -329,6 +349,7 @@ const styles = stylex.create({
     width: { default: 28, "@media (max-width: 700px)": 36 },
     height: { default: 28, "@media (max-width: 700px)": 44 },
     borderWidth: 0,
+    opacity: { default: 1, ":disabled": 0.45 },
   },
   composerArea: {
     marginTop: "auto",
@@ -354,6 +375,14 @@ const styles = stylex.create({
     height: 5,
     borderRadius: "50%",
     backgroundColor: colors.accent,
+    animationName: breathe,
+    animationDuration: "1.6s",
+    animationIterationCount: "infinite",
+    animationTimingFunction: "ease-in-out",
+    animationPlayState: {
+      default: "running",
+      "@media (prefers-reduced-motion: reduce)": "paused",
+    },
   },
   stopIcon: {
     width: 10,
@@ -361,6 +390,7 @@ const styles = stylex.create({
     borderRadius: 2,
     backgroundColor: "currentColor",
   },
+  sendIcon: { display: "grid", placeItems: "center" },
   composer: {
     display: "flex",
     alignItems: "flex-end",
@@ -370,7 +400,13 @@ const styles = stylex.create({
     borderColor: { default: colors.border, ":focus-within": colors.accent },
     borderRadius: 14,
     padding: 10,
-    boxShadow: "0 2px 8px #00000003",
+    boxShadow: {
+      default: "0 2px 8px #00000003",
+      ":focus-within": `0 2px 12px #00000006, 0 0 0 3px color-mix(in srgb, ${colors.accent} 14%, transparent)`,
+    },
+    transitionProperty: "border-color, box-shadow",
+    transitionDuration: motion.base,
+    transitionTimingFunction: motion.easeOut,
   },
   input: {
     display: "block",
@@ -408,5 +444,7 @@ const styles = stylex.create({
     borderRadius: "50%",
     backgroundColor: colors.action,
     color: colors.onAccent,
+    // The button lights up as soon as there is something to send.
+    opacity: { default: 1, ":disabled": 0.35 },
   },
 });

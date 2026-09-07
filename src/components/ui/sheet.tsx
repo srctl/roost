@@ -1,6 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 
 // shadcn Sheet composition, using Base UI with Roost's StyleX theme.
@@ -38,10 +39,8 @@ const styles = stylex.create({
       ":is([data-starting-style], [data-ending-style])": 0,
     },
     transitionProperty: "opacity",
-    transitionDuration: {
-      default: "180ms",
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
+    transitionDuration: motion.base,
+    transitionTimingFunction: motion.easeOut,
   },
   panel: {
     position: "fixed",
@@ -69,9 +68,10 @@ const styles = stylex.create({
       ":is([data-starting-style], [data-ending-style])": "translateX(100%)",
     },
     transitionProperty: "transform",
-    transitionDuration: {
-      default: "180ms",
-      "@media (prefers-reduced-motion: reduce)": "0ms",
+    transitionDuration: motion.slow,
+    transitionTimingFunction: {
+      default: motion.easeOut,
+      ":is([data-ending-style])": motion.easeInOut,
     },
   },
 });

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { lazy, type RefObject, Suspense } from "react";
 import type { Agent } from "../features/agents/schema";
+import { useOpenAfterMount } from "../features/motion";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -29,8 +30,10 @@ export function AgentSettingsDialog({
   onOpenChange: (open: boolean) => void;
   trigger: RefObject<HTMLButtonElement | null>;
 }) {
+  const shown = useOpenAfterMount(open);
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={shown} onOpenChange={onOpenChange}>
       <SheetContent finalFocus={trigger}>
         <header {...stylex.props(styles.header)}>
           <div {...stylex.props(styles.heading)}>
