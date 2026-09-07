@@ -1,6 +1,6 @@
-import type { ReactNode, Ref, UIEventHandler } from "react";
 import { ScrollArea as Primitive } from "@base-ui/react/scroll-area";
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode, Ref, UIEventHandler } from "react";
 import { colors } from "../../styles/tokens.stylex";
 
 // shadcn's Base UI Scroll Area composition, styled with Roost's StyleX tokens.

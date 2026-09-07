@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { randomUUID } from "node:crypto";
-import { createInterface } from "node:readline";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
 
 const path = join(
   process.env.CODEX_HOME ?? process.env.ROOST_DATA_DIR,
@@ -13,7 +13,7 @@ let thread = existsSync(path)
   ? JSON.parse(readFileSync(path, "utf8"))
   : { id: randomUUID(), turns: [] };
 
-const send = (message) => process.stdout.write(JSON.stringify(message) + "\n");
+const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 
 const threadPath = (id) =>
   join(process.env.CODEX_HOME ?? process.env.ROOST_DATA_DIR, `fake-${id}.json`);
@@ -25,11 +25,11 @@ const persist = () => {
 
 const pendingTools = new Map();
 
-const requestTool = (params) =>
+const requestTool = (params, method = "item/tool/call") =>
   new Promise((resolve) => {
     const id = randomUUID();
     pendingTools.set(id, resolve);
-    send({ id, method: "item/tool/call", params });
+    send({ id, method, params });
   });
 
 createInterface({ input: process.stdin }).on("line", async (line) => {
@@ -96,6 +96,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     return;
   }
   if (method === "turn/start") {
+    let acknowledged = false;
     const turn = {
       id: `turn-${thread.turns.length}`,
       status: "completed",
@@ -113,6 +114,61 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         },
       ],
     };
+    send({
+      method: "turn/started",
+      params: { threadId: thread.id, turn: { ...turn, status: "inProgress" } },
+    });
+    if (params.input[0].text.startsWith("approval:")) {
+      acknowledged = true;
+      send({ id, result: { turn: { ...turn, status: "inProgress" } } });
+      const kind = params.input[0].text.slice("approval:".length);
+      const scope = {
+        threadId: thread.id,
+        turnId: turn.id,
+        itemId: "approval-action",
+      };
+      const result =
+        kind === "command"
+          ? await requestTool(
+              {
+                ...scope,
+                command: "printf approved",
+                cwd: process.cwd(),
+                reason: "Run the requested command",
+              },
+              "item/commandExecution/requestApproval",
+            )
+          : kind === "question"
+            ? await requestTool(
+                {
+                  ...scope,
+                  questions: [
+                    {
+                      id: "choice",
+                      question: "Allow this action?",
+                      isSecret: false,
+                      isOther: false,
+                      options: [
+                        { label: "Accept", description: "Run once" },
+                        { label: "Decline", description: "Do not run" },
+                      ],
+                    },
+                  ],
+                },
+                "item/tool/requestUserInput",
+              )
+            : await requestTool({
+                ...scope,
+                namespace: null,
+                tool: "roost_request_approval",
+                arguments: {
+                  title: "Send this draft?",
+                  details:
+                    "Email recipient@example.com with: Here is the requested report.",
+                },
+              });
+      turn.items[1].text = JSON.stringify(result.result ?? result.error);
+    }
     if (params.input[0].text.startsWith("delegate:")) {
       const target = params.input[0].text.slice("delegate:".length);
       const delegated = await requestTool({
@@ -161,13 +217,29 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         ...call,
         threadId: "another-thread",
       });
+      const stale = await requestTool({ ...call, turnId: "old-stale-turn" });
       thread.toolChecks = {
         updated: update.result.success,
         foreignRejected: !!foreign.error,
+        staleRejected: !!stale.error,
       };
     }
     if (params.input[0].text === "quiet")
       turn.items[1].text = "ROOST_NO_UPDATE";
+    if (params.input[0].text === "artifact") {
+      writeFileSync("report.txt", "Roost fixture report\nDownload verified.\n");
+      const published = await requestTool({
+        threadId: thread.id,
+        turnId: turn.id,
+        itemId: "artifact-file",
+        namespace: null,
+        tool: "roost_publish_artifact",
+        arguments: { path: "report.txt", name: "report.txt" },
+      });
+      if (!published.result?.success)
+        throw new Error(JSON.stringify(published));
+      turn.items[1].text = "Your report is ready to download.";
+    }
     if (params.input[0].text === "delayed")
       await new Promise((resolve) => setTimeout(resolve, 200));
     if (params.input[0].text === "slow") {
@@ -238,6 +310,6 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         },
       },
     });
-    send({ id, result: { turn } });
+    if (!acknowledged) send({ id, result: { turn } });
   }
 });

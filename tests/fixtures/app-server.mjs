@@ -5,7 +5,7 @@ let ready = false;
 const lines = createInterface({ input: process.stdin });
 
 const send = (id, result) =>
-  process.stdout.write(JSON.stringify({ id, result }) + "\n");
+  process.stdout.write(`${JSON.stringify({ id, result })}\n`);
 
 lines.on("line", (line) => {
   const request = JSON.parse(line);

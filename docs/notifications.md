@@ -2,14 +2,47 @@
 
 In **Settings → Notifications**, choose **Enable on this device** and allow the
 browser permission prompt. Each browser or installed PWA subscribes separately.
-Disable notifications in the same place to stop delivery to that device.
+Choose **Disable on this device** to stop delivery to just that browser or PWA.
 
-Roost sends a notification when a conversation or scheduled task finishes,
-fails, or requests approval. Quiet automations that return `ROOST_NO_UPDATE`
-stay quiet. Cancelled runs and intermediate specialist delegations do not send
-completion notifications. Notification previews contain only a generic status,
-never agent names, prompts, responses, or approval details. Tapping one opens
-the agent's conversation; it does not approve anything.
+The notification switches are saved on your Roost server and apply to all devices:
+
+- **Notifications enabled** stops all new notifications when turned off. Device
+  subscriptions and your choices below are kept for when you turn it back on.
+- **Turn completed** alerts you when a conversation or scheduled task finishes.
+- **Agent updates** allows agents to send useful updates during a task, such as
+  a confirmed delivery or a change they were asked to track.
+- **Needs attention** alerts you about approval requests and failed or interrupted
+  work.
+
+All switches start on; device delivery still requires enabling that device.
+Turning off turn-completion alerts does not turn off agent updates or requests
+needing attention. Notifications already handed to a push provider can still arrive
+after you turn a switch off.
+
+Notifications name the agent and preview useful content: the final response,
+failure reason, approval request, or an update written by the agent. For example,
+**Shoppy · Package delivered** might say “Your order was delivered at 2:14 PM.
+The carrier says it is by the front door.” These previews can appear on your lock
+screen. Tapping one opens the agent's conversation; it does not approve anything.
+
+Quiet automations that return `ROOST_NO_UPDATE` stay quiet. Cancelled runs and
+intermediate specialist delegations do not send completion notifications. When an
+agent explicitly posts an update and agent updates are enabled, Roost skips the
+routine completion alert for that run.
+
+## Updates from agents
+
+Agents have a `roost_notify` tool for updates within the work you requested.
+For example, ask Shoppy to check a delivery and notify you when it arrives. A
+recurring check still needs an automation; sending a notification does not create
+one. The tool accepts a short title, useful body, and a stable request ID. The
+sender and conversation link come from the running agent.
+
+Updates are saved in the conversation even when push notifications are off or no
+devices are subscribed. Retrying the same request does not send another alert.
+Agents cannot change your notification preferences. The tool reports whether a
+push provider accepted the notification; it cannot confirm that a device showed
+it or that you read it.
 
 ## Server setup
 

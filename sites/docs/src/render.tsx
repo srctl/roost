@@ -24,10 +24,7 @@ const groups = [
     pages: [
       ["deployment", "Choose a host"],
       ["deploy-exe-dev", "exe.dev"],
-      ["deploy-railway", "Railway"],
       ["deploy-linux", "Linux"],
-      ["deploy-macos", "macOS"],
-      ["deploy-vercel", "Vercel"],
     ],
   },
   {

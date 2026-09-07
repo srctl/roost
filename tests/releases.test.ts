@@ -1,35 +1,35 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
+import { once } from "node:events";
 import {
-  mkdtemp,
   mkdir,
-  writeFile,
+  mkdtemp,
   readFile,
   realpath,
   rm,
+  writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { Worker } from "node:worker_threads";
-import { once } from "node:events";
 import { Effect } from "effect";
-import { withAgentStore, saveAgent } from "../src/server/agents/store.server";
-import {
-  enqueueChat,
-  claimRun,
-  schedulerTick,
-  finishRun,
-} from "../src/server/runs/store.server";
-import { saveAutomation } from "../src/server/automations/store.server";
-import { activeRuns, maintenance, withLock } from "../src/cli/state";
 import {
   activate,
   installRelease,
-  verifyDigest,
   validateArchive,
+  verifyDigest,
 } from "../src/cli/releases";
+import { activeRuns, maintenance, withLock } from "../src/cli/state";
 import { applyUpdate } from "../src/cli/update";
+import { saveAgent, withAgentStore } from "../src/server/agents/store.server";
+import { saveAutomation } from "../src/server/automations/store.server";
+import {
+  claimRun,
+  enqueueChat,
+  finishRun,
+  schedulerTick,
+} from "../src/server/runs/store.server";
 
 const run = Effect.runPromise;
 
@@ -107,13 +107,21 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 3);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 6);
         assert.equal(
           db.prepare("SELECT maintenance FROM runtime_control").get()
             ?.maintenance,
           0,
         );
         db.exec(`DROP TABLE delegations;
+          DROP TABLE files;
+          DROP TABLE approvals;
+          DROP TABLE push_subscriptions;
+          DROP TABLE dashboard_settings;
+          DROP TABLE dashboards;
+          DROP TABLE notification_settings;
+          DROP TABLE agent_notifications;
+          ALTER TABLE runs DROP COLUMN hasAgentUpdate;
           DROP TRIGGER timeline_insert_revision;
           DROP TRIGGER timeline_update_revision;
           DROP INDEX timeline_agent_position;
@@ -134,8 +142,30 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 3);
-        db.exec("PRAGMA user_version=4");
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 6);
+        assert.equal(
+          db.prepare("SELECT enabled FROM dashboard_settings WHERE id=1").get()
+            ?.enabled,
+          0,
+        );
+        assert.deepEqual(
+          JSON.parse(
+            String(
+              db
+                .prepare(
+                  "SELECT preferences FROM notification_settings WHERE id=1",
+                )
+                .get()?.preferences,
+            ),
+          ),
+          {
+            enabled: true,
+            turnCompleted: true,
+            agentUpdates: true,
+            needsAttention: true,
+          },
+        );
+        db.exec("PRAGMA user_version=7");
       }, directory),
     );
     await assert.rejects(

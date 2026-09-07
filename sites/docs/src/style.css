@@ -170,7 +170,6 @@
   }
   .nav-group a {
     display: block;
-    margin-left: -10px;
     padding: 7px 10px;
     color: #72796c;
     text-decoration: none;
@@ -489,6 +488,10 @@
     font-weight: 600;
     border-bottom: 1px solid #bdc9ad;
     padding: 12px 14px 12px 0;
+    white-space: nowrap;
+  }
+  .prose th:first-child {
+    min-width: 120px;
   }
   .prose td {
     border-bottom: 1px solid var(--line);
@@ -512,6 +515,9 @@
 }
 
 @media (max-width: 760px) {
+  .prose th:first-child {
+    min-width: 96px;
+  }
   .site-header {
     height: 68px;
     padding: 0 22px;

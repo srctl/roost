@@ -1,12 +1,33 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import * as stylex from "@stylexjs/stylex";
-import { Avatar, Icon } from "../components/ui/primitives";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
 import { Button } from "../components/ui/button";
+import { Avatar, Icon } from "../components/ui/primitives";
+import { getStartupAgent } from "../features/agents/startup-functions";
 import { agentStyles } from "../features/agents/styles";
 import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    // Only full page launches restore the last agent. Clicking Home still opens
+    // the agent list; explicit links to settings or other agents stay intact.
+    if (!import.meta.env.SSR) return;
+    const agentId = await getStartupAgent();
+    if (agentId)
+      throw redirect({
+        to: "/agents/$agentId",
+        params: { agentId },
+        replace: true,
+        headers: { "Cache-Control": "private, no-store" },
+      });
+  },
+  component: Home,
+});
 
 function Home() {
   const result = RootRoute.useLoaderData();

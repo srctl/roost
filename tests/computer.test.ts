@@ -1,19 +1,19 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { Effect } from "effect";
+import type { Message } from "../src/features/chat/schema";
 import { desktopKeys } from "../src/features/computer/keyboard";
 import { computerPreviewAnchor } from "../src/features/computer/preview";
-import type { Message } from "../src/features/chat/schema";
 import {
-  createViewer,
-  connectViewer,
-  disconnectViewer,
-  viewerControl,
+  attachViewer,
   beginComputerAction,
+  computerStatus,
+  connectViewer,
+  createViewer,
+  disconnectViewer,
   endComputerAction,
   releaseComputer,
-  attachViewer,
-  computerStatus,
+  viewerControl,
 } from "../src/server/computer/session.server";
 import {
   computerAction,

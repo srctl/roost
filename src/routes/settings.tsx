@@ -1,11 +1,13 @@
-import { CodexConnection } from "../components/codex-connection";
-import { createFileRoute } from "@tanstack/react-router";
-import { Switch } from "@base-ui/react/switch";
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
+import { Switch } from "@base-ui/react/switch";
 import * as stylex from "@stylexjs/stylex";
-import { ToolActivity } from "../components/conversation/tool-activity";
+import { createFileRoute } from "@tanstack/react-router";
+import { CodexConnection } from "../components/codex-connection";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
+import { ToolActivity } from "../components/conversation/tool-activity";
+import { DashboardSetting } from "../components/dashboard-setting";
+import { PushNotifications } from "../components/push-notifications";
 import { usePreferences } from "../features/settings/preferences";
 import { colors } from "../styles/tokens.stylex";
 
@@ -25,6 +27,8 @@ function SettingsPage() {
       <h1 {...stylex.props(styles.title)}>Settings</h1>
       <p {...stylex.props(styles.muted)}>Make Roost feel right for you.</p>
       <CodexConnection />
+      <PushNotifications />
+      <DashboardSetting />
       <section
         {...stylex.props(styles.responseSetting)}
         aria-labelledby="response-style-label"

@@ -1,11 +1,12 @@
-import { useAgentActivity } from "../features/agents/activity";
-import { AgentWorking } from "./agent-working";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
+import { useAgentActivity } from "../features/agents/activity";
+import type { Agent } from "../features/agents/schema";
+import { useDashboardsEnabled } from "../features/dashboards/preference";
+import { colors } from "../styles/tokens.stylex";
+import { AgentWorking } from "./agent-working";
 import { Button } from "./ui/button";
 import { Avatar, Icon } from "./ui/primitives";
-import type { Agent } from "../features/agents/schema";
-import { colors } from "../styles/tokens.stylex";
 
 export function Sidebar({
   agents,
@@ -19,6 +20,7 @@ export function Sidebar({
   drawer?: boolean;
 }) {
   const activity = useAgentActivity();
+  const dashboardsEnabled = useDashboardsEnabled();
 
   return (
     <aside
@@ -67,6 +69,15 @@ export function Sidebar({
         </Link>
       </nav>
       <footer {...stylex.props(styles.footer)}>
+        {dashboardsEnabled && (
+          <Link
+            onClick={onNavigate}
+            to="/dashboard"
+            {...stylex.props(styles.row, styles.create)}
+          >
+            Dashboard
+          </Link>
+        )}
         <Link
           onClick={onNavigate}
           to="/settings"
@@ -85,6 +96,8 @@ const styles = stylex.create({
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
+    minHeight: 0,
+    overflow: "hidden",
     backgroundColor: colors.sidebar,
     padding: 20,
     borderRightWidth: 1,
@@ -93,13 +106,14 @@ const styles = stylex.create({
   },
   drawer: {
     width: "100%",
-    minHeight: "100%",
+    height: "100%",
     paddingTop: "max(12px, env(safe-area-inset-top))",
     paddingBottom: "max(16px, env(safe-area-inset-bottom))",
     paddingInline: 16,
     borderRightWidth: 0,
   },
   brandRow: {
+    flexShrink: 0,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -115,8 +129,21 @@ const styles = stylex.create({
     textDecoration: "none",
     color: colors.foreground,
   },
-  heading: { color: colors.muted, fontSize: 11, marginBottom: 8 },
-  list: { display: "flex", flexDirection: "column", gap: 4 },
+  heading: {
+    flexShrink: 0,
+    color: colors.muted,
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minHeight: 0,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    scrollbarWidth: "thin",
+  },
   row: {
     display: "flex",
     alignItems: "center",
@@ -131,6 +158,7 @@ const styles = stylex.create({
   active: { backgroundColor: colors.selected },
   create: { color: colors.muted, fontSize: 12 },
   footer: {
+    flexShrink: 0,
     marginTop: "auto",
     paddingTop: 32,
     fontSize: 11,

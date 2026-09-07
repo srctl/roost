@@ -162,6 +162,41 @@ can leave `operation.lock` and maintenance mode set. Recovery is manual:
 
 5. Run `roost server start` and inspect its logs and health response.
 
+## Back up a packaged installation
+
+Automatic update backups contain Roost's app data. The host's `~/.codex` login
+and configuration, and any browser profile, live separately.
+
+For a manual backup of the default installation, let active work finish or stop
+it deliberately, then run on the Roost host:
+
+```sh
+(
+  set -eu
+  ~/.local/bin/roost server stop
+  ROOST_BACKUP="$HOME/roost-backup-$(date +%Y%m%d-%H%M%S)"
+  umask 077
+  mkdir "$ROOST_BACKUP"
+  cp -a "$HOME/.local/share/roost/data" "$ROOST_BACKUP/data"
+  if [ -d "$HOME/.codex" ]; then
+    cp -a "$HOME/.codex" "$ROOST_BACKUP/codex-host"
+  fi
+  cp "$HOME/.local/share/roost/config.json" "$ROOST_BACKUP/config.json"
+  readlink "$HOME/.local/share/roost/current" > "$ROOST_BACKUP/release.txt"
+  ~/.local/bin/roost server start
+  printf '%s\n' "$ROOST_BACKUP"
+)
+```
+
+A failed copy leaves Roost stopped; resolve the error before restarting. Keep a
+protected copy off the host because it includes login credentials. Use your
+configured paths for custom installations. Back up the browser profile
+separately with Chrome stopped if you need its persistent sessions.
+
+Restore matching application and data versions. Never run an old executable
+against a database already migrated by a newer version. For migration or update
+failures, follow [recovery after an interruption](#recovering-after-a-hard-interruption).
+
 ## Release development
 
 See [Development](development.md#build-and-publish-releases) for packaging, pinned

@@ -1,213 +1,79 @@
 # Deploy on exe.dev
 
-exe.dev is a good default for keeping Roost available when your laptop is closed.
-It provides a persistent Linux VM and a private HTTPS address, including
-WebSocket support. Roost's files and SQLite database stay on that VM.
-[Persistent storage](https://exe.dev/docs/serverful),
-[HTTPS and WebSockets](https://exe.dev/vps).
+Run Roost on an exe.dev VM so your agents can keep working while your laptop is
+closed. The installer handles Node, Codex, and starting Roost for you.
 
-Keep Roost private. It has no application login of its own, and everyone granted
-access to the app can use the same agents and computer.
+You'll need an [exe.dev account](https://exe.dev) and a Codex account. Use the
+default VM image; Roost's packaged installer requires Linux x64 with systemd.
 
-## 1. Choose or create a VM
+## 1. Create a VM
 
-On your computer, connect with `ssh exe.dev` to register or sign in if needed.
-Then inspect your existing VMs:
+Run this on your computer:
 
 ```sh
-ssh exe.dev ls --json
+ssh exe.dev new --name=roost-home
 ```
 
-Reuse the intended VM when it already exists. To create a new, dedicated VM,
-replace `roost-home` with an unused name and run this once:
+Then connect using the SSH command printed in the result. Keep the HTTPS URL
+handy—you'll open it in step 4. [exe.dev VM creation](https://exe.dev/docs/cli-new).
 
-```sh
-ssh exe.dev new --name=roost-home --json
-```
+Already have a dedicated VM for Roost? Skip creation and use its name instead of
+`roost-home` below. If Roost is already installed, use [the update command](install.md#update).
 
-This uses the default image. Resources depend on your account plan; inspect the
-result instead of assuming a particular architecture or capacity. The official
-[`new` reference](https://exe.dev/docs/cli-new) describes resource options.
+## 2. Install Roost
 
-Save the VM name, `ssh_dest`, and `https_url` returned by `ls --json`. Use
-`ssh_dest` exactly: it can include a routing username. Do not derive it from the
-browser URL. [SSH API response fields](https://exe.dev/docs/api).
-
-```sh
-ROOST_VM='roost-home'
-ROOST_SSH_DEST='COPY_THE_RETURNED_SSH_DEST'
-ssh "$ROOST_SSH_DEST"
-```
-
-## 2. Inspect the host and install Roost
-
-Run inside that SSH session:
-
-```sh
-uname -sm
-id
-ps -p 1 -o comm=
-command -v curl tar sha256sum systemctl sudo
-ss -lnt
-```
-
-Continue only with **Linux x86_64**, systemd, a non-root account, and sudo access.
-Choose an unused port; this guide uses 3000. The default image supports systemd
-services, but custom images may differ. [exe.dev systemd example](https://exe.dev/docs/use-case-gh-action-runner).
-
-Check for an existing installation first:
-
-```sh
-ls -ld "$HOME/.local/share/roost" "$HOME/.local/bin/roost" 2>/dev/null
-```
-
-If either exists, inspect the installation and use its existing `roost server`
-commands. Do not install over an unrelated path or create a second copy. Also
-check any custom `ROOST_HOME` previously chosen for this host.
-
-For a new installation, choose a version from
-[Roost releases](https://github.com/srctl/roost/releases). Replace `X.Y.Z` with
-that exact version, without the `v` prefix:
+Inside the VM, replace `X.Y.Z` with the version you want from
+[Roost releases](https://github.com/srctl/roost/releases), without the `v` prefix.
+Run this as your normal user:
 
 ```sh
 ROOST_VERSION='X.Y.Z'
-ROOST_DOWNLOAD="$(mktemp -d)"
+ROOST_INSTALLER="$(mktemp)"
 curl -fL "https://github.com/srctl/roost/releases/download/v${ROOST_VERSION}/install.sh" \
-  -o "$ROOST_DOWNLOAD/install.sh"
+  -o "$ROOST_INSTALLER" &&
+  sh "$ROOST_INSTALLER" srctl/roost "$ROOST_VERSION" --skip-login
 ```
 
-Inspect the downloaded script, then run it as the same non-root user:
+The installer checks prerequisites, verifies the download, and starts Roost on
+port 3000. It also sets Roost to start again after a reboot.
+
+## 3. Connect the private web address
+
+Leave the SSH session with `exit`. Back on your computer, run:
 
 ```sh
-sh "$ROOST_DOWNLOAD/install.sh" srctl/roost "$ROOST_VERSION" --port 3000 --skip-login
+ssh exe.dev share set-private roost-home
+ssh exe.dev share port roost-home 3000
 ```
 
-Setup verifies the release checksum, installs bundled Node/Codex runtimes,
-creates a systemd service, and starts Roost on `127.0.0.1:3000`. It does not
-replace the VM's existing Codex executable. See [Install and operate Roost](install.md)
-for installer behavior, custom paths, and recovery.
+Keep this address private: Roost has no app login of its own. exe.dev protects
+it with your account sign-in. On a reused VM, review existing access with
+`ssh exe.dev share show roost-home` because making it private retains previous
+grants. [exe.dev proxy settings](https://exe.dev/docs/proxy),
+[sharing](https://exe.dev/docs/sharing).
 
-Verify inside the VM:
+## 4. Open Roost and connect Codex
 
-```sh
-"$HOME/.local/bin/roost" server start
-curl -fsS http://127.0.0.1:3000/api/health
-systemctl is-enabled "roost-$(id -u).service"
-ss -lnt
-```
+Open the HTTPS URL from step 1 and sign into exe.dev. In Roost:
 
-Expect a health response with `status: "ok"` and the chosen release version, an
-enabled service, and a loopback listener. Health checks the HTTP server and
-SQLite; it does not prove Codex sign-in or an agent task works.
+1. Open **Settings → Connect Codex** and finish signing in.
+2. Create an agent and ask it to write a small file in its workspace.
+3. Reload and confirm the conversation and file are still there.
 
-## 3. Keep the HTTPS proxy private
+Check the URL in a signed-out browser too—it should ask you to sign into exe.dev.
+Roost now runs independently of your laptop and browser.
 
-Return to your computer. Review existing shares and the current proxy port
-before changing them, especially on a reused VM:
+## Add computer use when you're ready
 
-```sh
-ssh exe.dev share show "$ROOST_VM" --json
-ssh exe.dev share port "$ROOST_VM"
-```
+Chat and scheduled work are ready after setup. To let agents use a browser,
+follow [Remote desktop setup](remote-desktop-setup.md), then
+[Shared computer](computer.md). Use the same VM account and set
+`ROOST_DESKTOP_ORIGIN` to your Roost HTTPS origin.
 
-For the dedicated Roost VM, set the target port and private access:
+## After setup
 
-```sh
-ssh exe.dev share set-private "$ROOST_VM"
-ssh exe.dev share port "$ROOST_VM" 3000
-ssh exe.dev share show "$ROOST_VM" --json
-```
-
-Changing the proxy port preserves visibility, so explicitly keep it private.
-`set-private` retains previously granted users and links: review that access list
-as well. Roost cannot separate users inside one installation. [Proxy settings](https://exe.dev/docs/proxy),
-[sharing behavior](https://exe.dev/docs/sharing).
-
-Open the returned `https_url`, sign into exe.dev, and confirm Roost loads. Its
-proxy can reach a localhost listener; do not change Roost to bind publicly.
-If the VM already hosts another app on its default proxy port, leave that route
-alone and use its private port-qualified address, such as
-`https://YOUR_VM.exe.xyz:3000/`, or an SSH tunnel.
-[Localhost deployment](https://exe.dev/docs/migrating-to-exe),
-[additional proxy ports](https://exe.dev/docs/proxy#additional-ports).
-
-Check the same address in a signed-out/private browser. It should require
-exe.dev authentication rather than display Roost or its health JSON. Do not
-use `share set-public` for the private app.
-
-## 4. Connect Codex and the computer
-
-In Roost, open **Settings → Connect Codex** and complete the device sign-in.
-Alternatively, run `~/.local/bin/roost setup --login` inside the VM. The user
-completes authentication; agents should not copy credentials from another
-computer or include device codes in deployment reports. Device-code access may
-need enabling in ChatGPT account or workspace settings.
-[Codex authentication](https://learn.chatgpt.com/docs/auth#login-on-headless-devices).
-
-Create an agent and send a small task. Confirm its reply completes and remains
-after reloading. A working health endpoint alone is insufficient verification.
-
-For browser use, follow [Remote desktop setup](remote-desktop-setup.md), then
-[Shared computer](computer.md). Use the same operating-system account as Roost
-and set `ROOST_DESKTOP_ORIGIN` to the exact HTTPS origin you use, including a port
-if present. Verify the live viewer, **Take control**, **Return control**, and a
-harmless agent computer action. Keep VNC/noVNC ports private.
-
-For phone use, configure [push notifications](notifications.md) and
-[home-screen installation](mobile.md).
-
-## Stop, restart, update, and back up
-
-Run inside the VM:
-
-```sh
-~/.local/bin/roost server logs
-~/.local/bin/roost server stop
-~/.local/bin/roost server start
-~/.local/bin/roost update
-```
-
-Run only the operation you need. Stop/start interrupts active work; it is not a
-pause. Before maintenance, let runs finish or stop them deliberately. Updates
-already create an app data backup and attempt rollback on failed activation;
-that automatic backup excludes the host's `~/.codex` credentials and configuration.
-See [update and recovery](install.md#update).
-
-For an additional manual backup of the default installation, stop Roost, then
-run:
-
-```sh
-(
-  set -eu
-  ~/.local/bin/roost server stop
-  ROOST_BACKUP="$HOME/roost-backup-$(date +%Y%m%d-%H%M%S)"
-  umask 077
-  mkdir "$ROOST_BACKUP"
-  cp -a "$HOME/.local/share/roost/data" "$ROOST_BACKUP/data"
-  if [ -d "$HOME/.codex" ]; then
-    cp -a "$HOME/.codex" "$ROOST_BACKUP/codex-host"
-  fi
-  cp "$HOME/.local/share/roost/config.json" "$ROOST_BACKUP/config.json"
-  readlink "$HOME/.local/share/roost/current" > "$ROOST_BACKUP/release.txt"
-  ~/.local/bin/roost server start
-  printf '%s\n' "$ROOST_BACKUP"
-)
-```
-
-A failed copy leaves Roost stopped; resolve the error before restarting. Keep a
-protected copy off the VM; it includes login credentials. Use the configured path
-for custom installations. Back up the configured browser profile separately with
-Chrome stopped if you need its persistent session data. Restore matching application
-and data versions; never put an old
-executable against a database already migrated by a newer version.
-
-## Agent handoff checklist
-
-- Record the VM name, actual SSH destination, OS/architecture, service user,
-  release version, app port, data directory, and private browser URL.
-- Reuse existing resources and preserve other services and proxy routes.
-- Verify local health, authenticated app access, signed-out denial, and one
-  completed Codex task. Record desktop and notification checks separately.
-- Report stop/start/update commands, backup location, and any remaining user
-  sign-in or verification. Do not report reboot recovery as tested unless a
-  deliberate reboot check was actually performed.
+- [Update and back up Roost](install.md#update).
+- [Server commands and logs](install.md#server-commands).
+- [Use Roost on your phone](mobile.md).
+- [Deploy with an agent](for-agents.md#a-useful-deployment-request), including
+  [verification of persistence and scheduled work](deployment.md#acceptance-checks-for-every-platform).

@@ -1,12 +1,12 @@
-import { CodexConnection } from "../components/codex-connection";
-import { useState, useRef, type FormEvent } from "react";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import * as stylex from "@stylexjs/stylex";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { type FormEvent, useRef, useState } from "react";
+import { CodexConnection } from "../components/codex-connection";
 import { Button } from "../components/ui/button";
 import { Avatar } from "../components/ui/primitives";
 import { createAgent, getConnection } from "../features/agents/functions";
+import { Character } from "../features/agents/schema";
 import { agentStyles as styles } from "../features/agents/styles";
-import type { Character } from "../features/agents/schema";
 
 export const Route = createFileRoute("/agents/new")({
   loader: () => getConnection(),
@@ -81,7 +81,7 @@ function CreateAgentPage() {
         <form onSubmit={submit} {...stylex.props(styles.form)}>
           <fieldset disabled={busy} {...stylex.props(styles.characters)}>
             <legend>Choose a character</legend>
-            {(["moss", "wisp", "peach"] as const).map((character) => (
+            {Character.literals.map((character) => (
               <label key={character} {...stylex.props(styles.character)}>
                 <input
                   type="radio"

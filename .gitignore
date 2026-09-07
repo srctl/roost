@@ -10,3 +10,4 @@ dist/
 .roost/
 
 .pnpm-store/
+.playwright-cli/

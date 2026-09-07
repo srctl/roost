@@ -1,7 +1,7 @@
-import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
-import { open, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 export function maintenance(root: string, enabled: boolean) {
   const path = join(root, "data/roost.sqlite");
@@ -40,7 +40,7 @@ export async function withLock<T>(
 ): Promise<T> {
   await mkdir(root, { recursive: true, mode: 0o700 });
   const path = join(root, "operation.lock");
-  let lock;
+  let lock: Awaited<ReturnType<typeof open>>;
   try {
     lock = await open(path, "wx", 0o600);
   } catch {

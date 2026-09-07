@@ -1,10 +1,18 @@
-import type { ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { colors } from "../../styles/tokens.stylex";
+import type { ReactNode } from "react";
+import type { FileAttachment } from "../../features/chat/files";
 import { usePreferences } from "../../features/settings/preferences";
+import { colors } from "../../styles/tokens.stylex";
+import { FileLinks } from "./file-links";
 import { MessageContent } from "./message-content";
 
-export function UserMessage({ children }: { children: ReactNode }) {
+export function UserMessage({
+  children,
+  files,
+}: {
+  children: ReactNode;
+  files?: readonly FileAttachment[];
+}) {
   const { responseStyle } = usePreferences();
 
   return (
@@ -15,6 +23,7 @@ export function UserMessage({ children }: { children: ReactNode }) {
       )}
     >
       {children}
+      <FileLinks files={files} />
     </div>
   );
 }
@@ -22,10 +31,12 @@ export function UserMessage({ children }: { children: ReactNode }) {
 export function AgentMessage({
   name,
   title,
+  files,
   children,
 }: {
   name: string;
   title?: string;
+  files?: readonly FileAttachment[];
   children: string;
 }) {
   const { responseStyle } = usePreferences();
@@ -39,7 +50,8 @@ export function AgentMessage({
       )}
     >
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
-      <MessageContent>{children}</MessageContent>
+      {children && <MessageContent>{children}</MessageContent>}
+      <FileLinks files={files} />
     </article>
   );
 }

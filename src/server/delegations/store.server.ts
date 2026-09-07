@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Schema } from "effect";
+import type { Message } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
 import { assertAvailable } from "../maintenance.server";
 import { putMessage } from "../runs/timeline.server";
-import type { Message } from "../../features/chat/schema";
 
 export const DelegateTask = Schema.Struct({
   requestId: Schema.UUID,

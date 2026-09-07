@@ -32,8 +32,11 @@ export const agentStyles = stylex.create({
   textarea: { minHeight: 132, resize: "vertical" },
   characters: {
     minWidth: 0,
-    flexWrap: "wrap",
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: {
+      default: "repeat(3, minmax(0, 1fr))",
+      "@media (max-width: 450px)": "repeat(2, minmax(0, 1fr))",
+    },
     gap: 12,
     borderWidth: 0,
     borderStyle: "solid",

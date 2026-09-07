@@ -2,8 +2,8 @@
 
 For a persistent Roost installation, **start with [exe.dev](deploy-exe-dev.md)**.
 Its persistent Linux machine and private HTTPS proxy fit Roost's current design.
-A Linux x64 VPS is another straightforward option. Use macOS when you want Roost
-on your own Mac and are comfortable keeping that Mac awake.
+A Linux x64 VPS or home server with systemd uses the same packaged installer.
+Both can run the persistent app and its optional shared computer.
 
 Roost has two different hosting needs: the **private app** runs agents and stores
 their data; the **public websites** are static marketing and documentation files.
@@ -11,23 +11,18 @@ They can live on different providers. Publishing the websites does not run agent
 
 ## Pick a platform
 
-| Platform and guide | Running the app | Shared computer |
+| Platform | Running the app | Shared computer |
 | --- | --- | --- |
-| [exe.dev](deploy-exe-dev.md) | Recommended persistent VM route | Add the Linux X11 desktop |
-| [Linux](deploy-linux.md) | Packaged install on an x64 VM or home server with systemd | Add an X11 desktop |
-| [macOS](deploy-macos.md) | Source build with a per-user background service | Linux-only adapter; unavailable on macOS |
-| [Railway](deploy-railway.md) | Custom runtime, volume, sandbox verification, and private access required | Custom container work |
-| [Vercel](deploy-vercel.md) | Public websites only; incompatible with the current app | Not applicable |
-| [Other containers](#other-container-hosts) | Custom image and runtime validation required | Host-specific work |
-
-For the two public websites, [Vercel](deploy-vercel.md) or another static host
-can serve the generated files independently of the app.
+| [exe.dev](deploy-exe-dev.md) | Recommended VM with private HTTPS access | Add the Linux X11 desktop |
+| [Linux](deploy-linux.md) | Your own x64 VPS or home server with systemd | Add an X11 desktop |
 
 The VM recommendation is based on Roost's architecture and the provider's
 [persistent filesystem](https://exe.dev/docs/serverful) and
-[private proxy](https://exe.dev/docs/proxy). Platform guides were checked against
-the source and official platform documentation in September 2026. Writing these
-guides did not deploy or test a fresh Roost installation on every platform.
+[private proxy](https://exe.dev/docs/proxy).
+
+Railway is still unverified for Roost's Codex sandbox and shared computer. It
+needs a custom runtime before it can join these installation options; see
+[Railway requirements](deploy-railway.md) if you want to evaluate it.
 
 ## Requirements the app cannot skip
 
@@ -108,31 +103,12 @@ old app against a newer database after a failed upgrade. Service restarts mark
 in-flight work interrupted; Roost does not automatically repeat it. Never delete
 a VM or volume as a way to restart or update it.
 
-## Other container hosts
+## Local development and public websites
 
-Fly Machines and Render paid services offer persistent storage, but this repo
-does not include a tested Roost container image. Treat them as custom deployment
-work, not a one-click alternative to the Linux installer:
+For a local source build, see [macOS setup](deploy-macos.md). It supports chat
+and scheduled work while your Mac is awake, but Roost's shared computer needs
+Linux X11.
 
-- On **Fly**, mount a persistent volume for both app data and the host Codex
-  home, keep one Machine, and disable automatic stopping. Fly's proxy can treat
-  a background worker as idle even while it is busy. Use an authenticated
-  private-access route. See [long-running tasks](https://fly.io/docs/blueprints/long-running-tasks/)
-  and [volumes](https://fly.io/docs/volumes/overview/).
-- On **Render**, select a service with a persistent disk and keep every durable
-  path under its mount. A disk is attached to one instance and affects deployment
-  behavior; filesystem writes outside it are ephemeral. See
-  [persistent disks](https://render.com/docs/disks).
-
-For either provider, first implement a reproducible image containing the app,
-Node, a compatible Codex executable, and required sandbox/runtime utilities.
-Verify the workspace-write sandbox on the actual host without disabling it.
-Set the foreground start command to `node .output/server/index.mjs`, persist
-login state, establish private access, and run every acceptance check above.
-Do not use `roost setup` inside a container without systemd. A successful
-container build alone is not a verified deployment recipe.
-
-For additional **static** hosts, any provider that serves directory indexes and
-ordinary text files can serve the website outputs. Follow
-[Public websites](public-sites.md), and verify `/llms.txt`, `/llms-full.txt`, and
-the individual Markdown URLs along with the HTML pages.
+To publish the marketing and documentation sites, follow
+[Public websites](public-sites.md), including the [Vercel guide](deploy-vercel.md).
+These static sites run independently of your private Roost installation.

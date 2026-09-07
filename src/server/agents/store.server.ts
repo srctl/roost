@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 3)
+        if (version > 6)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -108,6 +108,53 @@ export function withAgentStore<A>(
               UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
             END;
             PRAGMA user_version = 3;
+            COMMIT;`);
+        }
+        if (version < 4) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE files (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL, runId TEXT,
+              name TEXT NOT NULL, mimeType TEXT NOT NULL, size INTEGER NOT NULL,
+              kind TEXT NOT NULL CHECK(kind IN ('attachment','artifact')), createdAt INTEGER NOT NULL
+            );
+            CREATE INDEX files_agent_run ON files(agentId,runId);
+            CREATE TABLE approvals (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL, runId TEXT NOT NULL,
+              threadId TEXT NOT NULL, requestKey TEXT NOT NULL, request TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending', response TEXT,
+              createdAt INTEGER NOT NULL, resolvedAt INTEGER,
+              UNIQUE(runId,requestKey)
+            );
+            CREATE INDEX approvals_agent_status ON approvals(agentId,status);
+            CREATE TABLE push_subscriptions (
+              endpoint TEXT PRIMARY KEY, subscription TEXT NOT NULL, createdAt INTEGER NOT NULL
+            );
+            PRAGMA user_version = 4;
+            COMMIT;`);
+        }
+        if (version < 5) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE dashboard_settings (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 0);
+            INSERT INTO dashboard_settings(id,enabled) VALUES(1,0);
+            CREATE TABLE dashboards (
+              agentId TEXT NOT NULL, key TEXT NOT NULL, title TEXT NOT NULL,
+              blocks TEXT NOT NULL, revision INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+              PRIMARY KEY(agentId,key)
+            );
+            PRAGMA user_version = 5;
+            COMMIT;`);
+        }
+        if (version < 6) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE notification_settings (id INTEGER PRIMARY KEY CHECK(id=1), preferences TEXT NOT NULL);
+            INSERT INTO notification_settings(id,preferences) VALUES(1,'{"enabled":true,"turnCompleted":true,"agentUpdates":true,"needsAttention":true}');
+            CREATE TABLE agent_notifications (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL, runId TEXT NOT NULL,
+              requestId TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+              createdAt INTEGER NOT NULL, UNIQUE(agentId,requestId)
+            );
+            ALTER TABLE runs ADD COLUMN hasAgentUpdate INTEGER NOT NULL DEFAULT 0;
+            PRAGMA user_version = 6;
             COMMIT;`);
         }
         return run(db, directory);
@@ -225,7 +272,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,6)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,8)",
     ).run(threadId);
   });
 

@@ -1,5 +1,5 @@
-import type { Schedule } from "../../features/automations/schema";
 import { Cron, CronDate } from "croner";
+import type { Schedule } from "../../features/automations/schema";
 
 // Calendar dates include the whole day in the schedule's timezone.
 export function scheduleWindow(schedule: Schedule) {

@@ -1,16 +1,16 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -174,7 +174,7 @@ cpSync(
 
 writeFileSync(
   join(bundle, "release.json"),
-  JSON.stringify(
+  `${JSON.stringify(
     {
       version,
       platform: "linux",
@@ -186,7 +186,7 @@ writeFileSync(
     },
     null,
     2,
-  ) + "\n",
+  )}\n`,
 );
 
 const archive = join(output, "roost-linux-x64.tar.gz");

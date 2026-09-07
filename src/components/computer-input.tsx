@@ -1,15 +1,15 @@
+import type RFB from "@novnc/novnc/lib/rfb.js";
+import * as stylex from "@stylexjs/stylex";
 import {
+  type ReactNode,
+  type RefObject,
   useEffect,
   useRef,
   useState,
-  type RefObject,
-  type ReactNode,
 } from "react";
-import type RFB from "@novnc/novnc/lib/rfb.js";
-import * as stylex from "@stylexjs/stylex";
+import { desktopKeys } from "../features/computer/keyboard";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
-import { desktopKeys } from "../features/computer/keyboard";
 
 export function ComputerInput({
   client,
@@ -84,7 +84,9 @@ export function ComputerInput({
       <div ref={area} {...stylex.props(styles.area)}>
         {children}
         {enabled && trackpad && (
+          // biome-ignore lint/a11y/useSemanticElements: The remote trackpad is not a form fieldset.
           <div
+            role="group"
             aria-label="Desktop trackpad"
             {...stylex.props(styles.trackpad)}
             onPointerDown={(event) => {

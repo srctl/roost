@@ -1,6 +1,19 @@
 import { Schema } from "effect";
 
-export const Character = Schema.Literal("moss", "wisp", "peach");
+export const Character = Schema.Literal(
+  "moss",
+  "wisp",
+  "peach",
+  "sprout",
+  "ember",
+  "puddle",
+  "pip",
+  "bloom",
+  "pebble",
+  "button",
+  "nimbus",
+  "acorn",
+);
 const Name = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(60));
 
 const Instructions = Schema.Trim.pipe(

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { useEffect, useState } from "react";
 import { getSoulHistory, undoAgentSoul } from "../features/agents/functions";
 import type { SoulChange } from "../server/agents/soul.server";
 import { colors } from "../styles/tokens.stylex";
-import { Inspector } from "./ui/inspector";
 import { Button } from "./ui/button";
+import { Inspector } from "./ui/inspector";
 
 function changedPassages(before: string, after: string) {
   const left = before.trimEnd().split("\n"),

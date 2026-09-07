@@ -1,8 +1,7 @@
-import { useEffect, useRef } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import type { Agent } from "./schema";
-
-const key = "roost.lastAgentId";
+import { lastAgentKey } from "./startup";
 
 export function useAgentStartup(agents: readonly Agent[] | undefined) {
   const router = useRouter();
@@ -18,8 +17,14 @@ export function useAgentStartup(agents: readonly Agent[] | undefined) {
     const current = agents.find((agent) => pathname === `/agents/${agent.id}`);
     let lastAgentId: string | null;
     try {
-      if (current) localStorage.setItem(key, current.id);
-      lastAgentId = localStorage.getItem(key);
+      if (current) {
+        // Resolve the next launch before downloading the home page. The cookie
+        // contains only an agent ID, never chat data or authorization.
+        // biome-ignore lint/suspicious/noDocumentCookie: This non-sensitive launch hint also needs to work without the Cookie Store API.
+        document.cookie = `${lastAgentKey}=${current.id}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+      }
+      if (current) localStorage.setItem(lastAgentKey, current.id);
+      lastAgentId = localStorage.getItem(lastAgentKey);
     } catch {
       return;
     }

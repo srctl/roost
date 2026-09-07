@@ -1,27 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getConversation, sendMessage, stopMessage } from "./functions";
-import { mergeEntries, type Entry } from "./timeline";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FileAttachment } from "./files";
+import {
+  getConversation,
+  type InitialConversation,
+  sendMessage,
+  stopMessage,
+} from "./functions";
+import { type Entry, mergeEntries } from "./timeline";
 
-export function useConversation(agentId: string) {
-  const [entries, setEntries] = useState<readonly Entry[]>([]);
+export function useConversation(
+  agentId: string,
+  initialConversation?: InitialConversation,
+) {
+  const initial = initialConversation?.ok
+    ? initialConversation.value
+    : undefined;
+  const ready = !!initial && !initial.needsImport;
+  const [entries, setEntries] = useState<readonly Entry[]>(
+    initial?.entries ?? [],
+  );
   const messages = useMemo(
     () => entries.map((entry) => entry.message),
     [entries],
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!ready);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [before, setBefore] = useState<number | null>(null);
-  const cursor = useRef<number | undefined>(undefined);
+  const [before, setBefore] = useState<number | null>(initial?.before ?? null);
+  const cursor = useRef<number | undefined>(
+    ready ? initial.revision : undefined,
+  );
   const paging = useRef(false);
-  const [computerAnchor, setComputerAnchor] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const [runId, setRunId] = useState<string | null>(null);
+  const [computerAnchor, setComputerAnchor] = useState<string | null>(
+    initial?.computerAnchor ?? null,
+  );
+  const [busy, setBusy] = useState(initial?.busy ?? false);
+  const [error, setError] = useState<string | undefined>(
+    initialConversation && !initialConversation.ok
+      ? initialConversation.error
+      : undefined,
+  );
+  const [runId, setRunId] = useState<string | null>(initial?.runId ?? null);
   const submitting = useRef(false);
   const mounted = useRef(true);
   const generation = useRef(0);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     const version = ++generation.current;
     try {
       const result = await getConversation({
@@ -35,16 +58,19 @@ export function useConversation(agentId: string) {
       }
       if (submitting.current) return;
       setError(undefined);
-      if (cursor.current === undefined) setBefore(result.value.before);
+      const firstPage = cursor.current === undefined;
+      if (firstPage) setBefore(result.value.before);
       cursor.current = result.value.revision;
       setEntries((current) =>
-        mergeEntries(
-          current,
-          result.value.entries.filter(
-            (entry) =>
-              !current.length || entry.position >= current[0]!.position,
-          ),
-        ),
+        firstPage
+          ? result.value.entries
+          : mergeEntries(
+              current,
+              result.value.entries.filter(
+                (entry) =>
+                  !current.length || entry.position >= current[0]!.position,
+              ),
+            ),
       );
       setLoading(false);
       setBusy(result.value.busy);
@@ -54,7 +80,7 @@ export function useConversation(agentId: string) {
       if (mounted.current && version === generation.current)
         setError("Disconnected from Roost. Your run continues on the server.");
     }
-  }
+  }, [agentId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -73,7 +99,7 @@ export function useConversation(agentId: string) {
       mounted.current = false;
       clearTimeout(timer);
     };
-  }, [agentId]);
+  }, [reload]);
 
   async function loadOlder() {
     if (before === null || paging.current) return;
@@ -102,8 +128,14 @@ export function useConversation(agentId: string) {
     }
   }
 
-  async function send(text: string) {
-    if (submitting.current || loading || busy || !text.trim()) return;
+  async function send(text: string, files: readonly FileAttachment[] = []) {
+    if (
+      submitting.current ||
+      loading ||
+      busy ||
+      (!text.trim() && !files.length)
+    )
+      return false;
     generation.current++;
     submitting.current = true;
     setBusy(true);
@@ -114,18 +146,32 @@ export function useConversation(agentId: string) {
       ...entries,
       {
         position: (entries.at(-1)?.position ?? 0) + 0.5,
-        message: { id: messageId, role: "user", text },
+        message: {
+          id: messageId,
+          role: "user",
+          text,
+          ...(files.length ? { files } : {}),
+        },
       },
     ]);
     try {
-      const result = await sendMessage({ data: { agentId, messageId, text } });
+      const result = await sendMessage({
+        data: {
+          agentId,
+          messageId,
+          text,
+          attachmentIds: files.map((file) => file.id),
+        },
+      });
       if (!result.ok) throw new Error(result.error);
       setRunId(result.value.id);
+      return true;
     } catch {
       if (mounted.current)
         setError(
           "Couldn't confirm the send. Check the conversation before resending.",
         );
+      return false;
     } finally {
       submitting.current = false;
       if (mounted.current) await reload();

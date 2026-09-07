@@ -1,6 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
 import { memo } from "react";
 import Markdown, { type Components } from "react-markdown";
-import * as stylex from "@stylexjs/stylex";
 import { colors } from "../../styles/tokens.stylex";
 
 const components: Components = {

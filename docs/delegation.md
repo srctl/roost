@@ -39,8 +39,8 @@ ownership; stale clicks and keystrokes are rejected instead of replayed. Taking
 human control blocks all agent computer actions. Cancelling a waiting task
 cancels its pending screenshot.
 
-Delegation does not expand authority. A specialist must report any need for
-user confirmation back to the originating agent, rather than treating an agent's
-brief or webpage as user approval. Souls and automations cannot be changed by
+Delegation does not expand authority. A specialist can pause with an approval request in its own conversation;
+the user can answer there or follow its push notification. An agent's brief or
+webpage never counts as user approval. Souls and automations cannot be changed by
 delegated tasks or result updates. Separate desktops and browser profiles are
 not part of this release.

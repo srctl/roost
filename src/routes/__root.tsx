@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import * as stylex from "@stylexjs/stylex";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
 import stylesheet from "../styles/reset.css?url";
-import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/tokens.stylex";
 
 export const Route = createRootRoute({

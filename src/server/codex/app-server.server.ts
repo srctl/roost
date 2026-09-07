@@ -1,8 +1,8 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { Data, Effect, Schema } from "effect";
-import { codexErrorMessage } from "./auth-errors.server";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
+import { codexErrorMessage } from "./auth-errors.server";
 import type { InitializeParams } from "./protocol/InitializeParams";
 import type { GetAccountParams } from "./protocol/v2/GetAccountParams";
 import type { ModelListParams } from "./protocol/v2/ModelListParams";
@@ -39,7 +39,11 @@ export function openAppServer(
 }
 
 class AppServer {
-  onRequest?: (method: string, params: unknown) => Promise<unknown>;
+  onRequest?: (
+    method: string,
+    params: unknown,
+    requestId: string | number,
+  ) => Promise<unknown>;
 
   get connected() {
     return !this.failure;
@@ -97,8 +101,11 @@ class AppServer {
       if (typeof message.method === "string") {
         if (message.id !== undefined) {
           const request =
-            this.onRequest?.(message.method, message.params) ??
-            Promise.reject();
+            this.onRequest?.(
+              message.method,
+              message.params,
+              message.id as string | number,
+            ) ?? Promise.reject();
           void request.then(
             (result) => {
               if (!this.failure) this.send({ id: message.id, result });
@@ -160,7 +167,7 @@ class AppServer {
   }
 
   private send(message: unknown) {
-    this.child.stdin.write(JSON.stringify(message) + "\n");
+    this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
   request(method: string, params: unknown) {

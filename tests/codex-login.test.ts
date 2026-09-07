@@ -1,18 +1,18 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { test } from "node:test";
 import { setTimeout } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+import { CODEX_SIGN_IN_REQUIRED } from "../src/features/auth/schema";
+import { codexErrorMessage } from "../src/server/codex/auth-errors.server";
 import {
-  startLogin,
-  getLogin,
   cancelLogin,
   closeLogin,
+  getLogin,
+  startLogin,
 } from "../src/server/codex/login.server";
-import { codexErrorMessage } from "../src/server/codex/auth-errors.server";
-import { CODEX_SIGN_IN_REQUIRED } from "../src/features/auth/schema";
 
 test("device login survives requests, shares pending flow, and clears codes on completion or cancellation", async () => {
   const home = await mkdtemp(join(tmpdir(), "roost-login-"));

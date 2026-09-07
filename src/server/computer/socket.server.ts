@@ -1,9 +1,9 @@
 import { connect, type Socket } from "node:net";
 import { defineWebSocketHandler } from "nitro";
 import {
+  attachViewer,
   connectViewer,
   disconnectViewer,
-  attachViewer,
   viewerConnected,
 } from "./session.server";
 
@@ -16,6 +16,7 @@ export default defineWebSocketHandler({
       throw new Response("Forbidden", { status: 403 });
     return { context: { ticket: id } };
   },
+
   open(peer) {
     // Only the configured local desktop is reachable; clients cannot choose a host.
     const socket = connect(
@@ -31,6 +32,7 @@ export default defineWebSocketHandler({
     socket.on("error", () => peer.close(1011, "Desktop unavailable"));
     socket.on("close", () => peer.close());
   },
+
   message(peer, message) {
     if (!viewerConnected(String(peer.context.ticket))) return;
     const data = message.uint8Array();
@@ -41,11 +43,13 @@ export default defineWebSocketHandler({
     }
     sockets.get(peer.id)?.write(data);
   },
+
   close(peer) {
     sockets.get(peer.id)?.destroy();
     sockets.delete(peer.id);
     disconnectViewer(String(peer.context.ticket));
   },
+
   error(peer) {
     sockets.get(peer.id)?.destroy();
     sockets.delete(peer.id);
