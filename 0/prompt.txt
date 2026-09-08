@@ -3,3 +3,7 @@ Hello
 ---
 
 For the README on github, could you add some nice screenshots to it so that people know what this looks like? And also some of the features?
+
+---
+
+can you push up the changes to the readme
