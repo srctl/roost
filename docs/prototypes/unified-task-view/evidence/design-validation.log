@@ -1,7 +1,0 @@
-PASS a-desktop: loaded 23 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS a-mobile: loaded 38 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS b-desktop: loaded 32 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS b-mobile: loaded 35 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS c-desktop: loaded 21 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS c-mobile: loaded 35 editable elements in Excalidraw 0.18.0; native text preserved through serialization; SVG + rendered PNG exported.
-PASS: all six editor loads/round-trips/exports; no browser exceptions.

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Baseline } from "./.baseline";
-import { agent, tasks as initialTasks, jobs, type Task } from "./fixtures";
+import { tasks as initialTasks, type Task } from "./fixtures";
 import "./styles.css";
 
 const layouts = [
@@ -77,8 +76,6 @@ function App() {
         (filter === "In progress" && item.reserved) ||
         (filter === "Backlog" && item.status === "Backlog")),
   );
-  const baseline =
-    new URLSearchParams(location.search).get("view") === "baseline";
 
   function select(item: Task) {
     setSelected(item.id);
@@ -127,307 +124,289 @@ function App() {
         </b>
         <span>Project: Roost</span>
       </header>
-      <main className={!baseline && detail ? "mobile-detail" : ""}>
-        {baseline ? (
-          <>
-            <p>Before · Existing Jobs content in isolated fixture harness</p>
-            <Baseline agent={agent} loaded={{ ok: true, value: jobs }} />
-          </>
-        ) : (
-          <>
-            <div className="page-heading">
-              <div>
-                <p className="eyebrow">PROJECT OVERVIEW</p>
-                <h1>Work, with the whole picture.</h1>
-                <p className="muted">
-                  Task intent, execution, and review — connected by task.
-                </p>
-              </div>
-              <span className="research-label">
-                Concept {String.fromCharCode(65 + layout)} ·{" "}
-                {layout === 0 ? "Recommended" : "Alternative"}
+      <main className={detail ? "mobile-detail" : ""}>
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">PROJECT OVERVIEW</p>
+            <h1>Work, with the whole picture.</h1>
+            <p className="muted">
+              Task intent, execution, and review — connected by task.
+            </p>
+          </div>
+          <span className="research-label">
+            Concept {String.fromCharCode(65 + layout)} ·{" "}
+            {layout === 0 ? "Recommended" : "Alternative"}
+          </span>
+        </div>
+        <nav className="layout-nav" aria-label="Layout options">
+          {layouts.map((name, index) => (
+            <button
+              type="button"
+              key={name}
+              aria-pressed={layout === index}
+              onClick={() => setLayout(index)}
+            >
+              {name}
+            </button>
+          ))}
+        </nav>
+        <section className="overview" aria-label="Capacity and attention">
+          <div>
+            <span className="eyebrow">EXECUTION CAPACITY</span>
+            <h2>{capacity} / 2 task slots held</h2>
+            <p>
+              {capacity === 2
+                ? "1 working · 1 blocked · no slot available"
+                : "1 blocked · 1 slot available"}
+            </p>
+            <small>
+              Blocked work keeps its slot until a confirmed handoff or stop.
+            </small>
+          </div>
+          <div>
+            <span className="eyebrow">HUMAN ATTENTION</span>
+            <h2>{attention} tasks need you</h2>
+            <p>Approval + experience review</p>
+            <small>Human review is separate from execution capacity.</small>
+          </div>
+          <div>
+            <span className="eyebrow">SOURCE FRESHNESS · FIXTURE</span>
+            <p>
+              Notion: observed 10:42 UTC
+              <br />
+              Worker: observed 10:42 UTC
+              <br />
+              <span className={stale ? "warning" : ""}>
+                GitHub:{" "}
+                {stale
+                  ? "unavailable · last seen 10:12 UTC"
+                  : "observed 10:42 UTC"}
               </span>
-            </div>
-            <nav className="layout-nav" aria-label="Layout options">
-              {layouts.map((name, index) => (
+            </p>
+          </div>
+        </section>
+        <div className="controls">
+          <nav className="filters" aria-label="Filter tasks">
+            {["All tasks", "Needs you", "In progress", "Backlog"].map(
+              (name) => (
                 <button
                   type="button"
                   key={name}
-                  aria-pressed={layout === index}
-                  onClick={() => setLayout(index)}
+                  aria-pressed={filter === name}
+                  onClick={() => {
+                    setFilter(name);
+                    setDetail(false);
+                  }}
                 >
                   {name}
                 </button>
+              ),
+            )}
+          </nav>
+          <label className="search">
+            Search tasks{" "}
+            <input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setDetail(false);
+              }}
+              placeholder="Search by title"
+            />
+          </label>
+        </div>
+        <p className="mobile-context">
+          {capacity} / 2 slots held · {attention} tasks need you
+        </p>
+        <div
+          className={`workspace layout-${layout} ${detail ? "show-detail" : "show-list"}`}
+        >
+          <section className="task-list" aria-label="Tasks">
+            <div className="section-heading">
+              <h2>
+                {layout === 2 ? "Attention first" : "Tasks"}{" "}
+                <span className="muted">{visible.length}</span>
+              </h2>
+              <small>
+                {layout === 1
+                  ? "Grouped by Notion status"
+                  : "Priority within attention group"}
+              </small>
+            </div>
+            {visible.length === 0 && (
+              <p className="empty">
+                No matching tasks. Clear search or choose All tasks.
+              </p>
+            )}
+            <div className={layout === 1 ? "board" : "cards"}>
+              {(layout === 1
+                ? ["Backlog", "In progress", "Human review", "Done"]
+                : layout === 2
+                  ? ["Needs you", "Continuing without you"]
+                  : ["All"]
+              ).map((group) => (
+                <div key={group} className="task-group">
+                  {group !== "All" && <h3>{group}</h3>}
+                  {visible
+                    .filter(
+                      (item) =>
+                        group === "All" ||
+                        (layout === 1
+                          ? item.status === group
+                          : Boolean(item.attention) ===
+                            (group === "Needs you")),
+                    )
+                    .sort(
+                      (a, b) =>
+                        Number(Boolean(b.attention)) -
+                          Number(Boolean(a.attention)) ||
+                        a.priority.localeCompare(b.priority),
+                    )
+                    .map((item) => (
+                      <TaskCard
+                        key={item.id}
+                        task={item}
+                        selected={selected === item.id}
+                        stale={stale}
+                        onSelect={() => select(item)}
+                      />
+                    ))}
+                </div>
               ))}
-            </nav>
-            <section className="overview" aria-label="Capacity and attention">
+            </div>
+          </section>
+          <aside className="detail" aria-label="Task details">
+            <button
+              type="button"
+              className="back"
+              onClick={() => setDetail(false)}
+            >
+              ← Back to tasks
+            </button>
+            <p className="eyebrow">{task.priority} · SELECTED TASK</p>
+            <h2>{task.title}</h2>
+            <p>{task.summary}</p>
+            <div className="next-action">
+              <span className="eyebrow">
+                NEXT ACTION · {task.owner.toUpperCase()}
+              </span>
+              <h3>
+                {task.attention ||
+                  (task.reserved ? "Work is continuing" : "No human blocker")}
+              </h3>
+              <p>
+                {task.id === "export"
+                  ? "Inspect the network request in the worker’s original terminal. GitHub also reports one failed check."
+                  : task.status === "Human review"
+                    ? "Review the result against the task’s acceptance criteria. Passing checks do not accept the experience."
+                    : "Use the source context before deciding the next step."}
+              </p>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => destination(task.action)}
+              >
+                {task.action} ↗
+              </button>
+            </div>
+            <dl className="facts">
               <div>
-                <span className="eyebrow">EXECUTION CAPACITY</span>
-                <h2>{capacity} / 2 task slots held</h2>
-                <p>
-                  {capacity === 2
-                    ? "1 working · 1 blocked · no slot available"
-                    : "1 blocked · 1 slot available"}
-                </p>
+                <dt>Notion task · {task.priority}</dt>
+                <dd>{task.status}</dd>
                 <small>
-                  Blocked work keeps its slot until a confirmed handoff or stop.
+                  {task.status === "Backlog"
+                    ? "Readiness: Ready to implement"
+                    : "Task status is independent of worker state"}
                 </small>
               </div>
               <div>
-                <span className="eyebrow">HUMAN ATTENTION</span>
-                <h2>{attention} tasks need you</h2>
-                <p>Approval + experience review</p>
-                <small>Human review is separate from execution capacity.</small>
+                <dt>Roost job / worker</dt>
+                <dd>
+                  {task.job} / {task.worker}
+                </dd>
+                <small>
+                  {task.reserved
+                    ? "Execution slot reserved"
+                    : "No execution slot reserved"}
+                </small>
               </div>
               <div>
-                <span className="eyebrow">SOURCE FRESHNESS · FIXTURE</span>
-                <p>
-                  Notion: observed 10:42 UTC
-                  <br />
-                  Worker: observed 10:42 UTC
-                  <br />
-                  <span className={stale ? "warning" : ""}>
-                    GitHub:{" "}
-                    {stale
-                      ? "unavailable · last seen 10:12 UTC"
-                      : "observed 10:42 UTC"}
-                  </span>
-                </p>
+                <dt>GitHub PR</dt>
+                <dd>{task.pr}</dd>
+                <small>
+                  {task.pr === "No PR"
+                    ? "No pull request linked"
+                    : "Linked explicitly to this task; fixture repository"}
+                </small>
               </div>
-            </section>
-            <div className="controls">
-              <nav className="filters" aria-label="Filter tasks">
-                {["All tasks", "Needs you", "In progress", "Backlog"].map(
-                  (name) => (
-                    <button
-                      type="button"
-                      key={name}
-                      aria-pressed={filter === name}
-                      onClick={() => {
-                        setFilter(name);
-                        setDetail(false);
-                      }}
-                    >
-                      {name}
-                    </button>
-                  ),
-                )}
-              </nav>
-              <label className="search">
-                Search tasks{" "}
-                <input
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setDetail(false);
-                  }}
-                  placeholder="Search by title"
-                />
-              </label>
-            </div>
-            <p className="mobile-context">
-              {capacity} / 2 slots held · {attention} tasks need you
-            </p>
-            <div
-              className={`workspace layout-${layout} ${detail ? "show-detail" : "show-list"}`}
-            >
-              <section className="task-list" aria-label="Tasks">
-                <div className="section-heading">
-                  <h2>
-                    {layout === 2 ? "Attention first" : "Tasks"}{" "}
-                    <span className="muted">{visible.length}</span>
-                  </h2>
-                  <small>
-                    {layout === 1
-                      ? "Grouped by Notion status"
-                      : "Priority within attention group"}
-                  </small>
-                </div>
-                {visible.length === 0 && (
-                  <p className="empty">
-                    No matching tasks. Clear search or choose All tasks.
-                  </p>
-                )}
-                <div className={layout === 1 ? "board" : "cards"}>
-                  {(layout === 1
-                    ? ["Backlog", "In progress", "Human review", "Done"]
-                    : layout === 2
-                      ? ["Needs you", "Continuing without you"]
-                      : ["All"]
-                  ).map((group) => (
-                    <div key={group} className="task-group">
-                      {group !== "All" && <h3>{group}</h3>}
-                      {visible
-                        .filter(
-                          (item) =>
-                            group === "All" ||
-                            (layout === 1
-                              ? item.status === group
-                              : Boolean(item.attention) ===
-                                (group === "Needs you")),
-                        )
-                        .sort(
-                          (a, b) =>
-                            Number(Boolean(b.attention)) -
-                              Number(Boolean(a.attention)) ||
-                            a.priority.localeCompare(b.priority),
-                        )
-                        .map((item) => (
-                          <TaskCard
-                            key={item.id}
-                            task={item}
-                            selected={selected === item.id}
-                            stale={stale}
-                            onSelect={() => select(item)}
-                          />
-                        ))}
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <aside className="detail" aria-label="Task details">
-                <button
-                  type="button"
-                  className="back"
-                  onClick={() => setDetail(false)}
-                >
-                  ← Back to tasks
-                </button>
-                <p className="eyebrow">{task.priority} · SELECTED TASK</p>
-                <h2>{task.title}</h2>
-                <p>{task.summary}</p>
-                <div className="next-action">
-                  <span className="eyebrow">
-                    NEXT ACTION · {task.owner.toUpperCase()}
-                  </span>
-                  <h3>
-                    {task.attention ||
-                      (task.reserved
-                        ? "Work is continuing"
-                        : "No human blocker")}
-                  </h3>
-                  <p>
-                    {task.id === "export"
-                      ? "Inspect the network request in the worker’s original terminal. GitHub also reports one failed check."
-                      : task.status === "Human review"
-                        ? "Review the result against the task’s acceptance criteria. Passing checks do not accept the experience."
-                        : "Use the source context before deciding the next step."}
-                  </p>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => destination(task.action)}
-                  >
-                    {task.action} ↗
-                  </button>
-                </div>
-                <dl className="facts">
-                  <div>
-                    <dt>Notion task · {task.priority}</dt>
-                    <dd>{task.status}</dd>
-                    <small>
-                      {task.status === "Backlog"
-                        ? "Readiness: Ready to implement"
-                        : "Task status is independent of worker state"}
-                    </small>
-                  </div>
-                  <div>
-                    <dt>Roost job / worker</dt>
-                    <dd>
-                      {task.job} / {task.worker}
-                    </dd>
-                    <small>
-                      {task.reserved
-                        ? "Execution slot reserved"
-                        : "No execution slot reserved"}
-                    </small>
-                  </div>
-                  <div>
-                    <dt>GitHub PR</dt>
-                    <dd>{task.pr}</dd>
-                    <small>
-                      {task.pr === "No PR"
-                        ? "No pull request linked"
-                        : "Linked explicitly to this task; fixture repository"}
-                    </small>
-                  </div>
-                  <div>
-                    <dt>Checks {stale && "· STALE"}</dt>
-                    <dd>
-                      {stale && task.pr !== "No PR"
-                        ? "Current result unknown"
-                        : task.checks}
-                    </dd>
-                    <small>
-                      {stale
-                        ? `Last observed: ${task.checks}`
-                        : "Results belong to the shown commit; mergeability not evaluated"}
-                    </small>
-                  </div>
-                </dl>
-                <div className="source-links">
-                  {["Notion task", "Worker progress", "GitHub PR"].map(
-                    (name) => (
-                      <button
-                        type="button"
-                        key={name}
-                        disabled={
-                          (name === "GitHub PR" && task.pr === "No PR") ||
-                          (name === "Worker progress" && task.job === "No job")
-                        }
-                        onClick={() => destination(name)}
-                      >
-                        {name} ↗
-                      </button>
-                    ),
-                  )}
-                </div>
-                <p className="footnote">
-                  Only a human marks Done. Worker idle, job completed, passing
-                  checks, or a merged PR do not do this.
-                </p>
-              </aside>
-            </div>
-            <section className="simulation">
-              <b>Try fixture scenarios</b>
               <div>
-                <button
-                  type="button"
-                  onClick={() => setStale((value) => !value)}
-                >
+                <dt>Checks {stale && "· STALE"}</dt>
+                <dd>
+                  {stale && task.pr !== "No PR"
+                    ? "Current result unknown"
+                    : task.checks}
+                </dd>
+                <small>
                   {stale
-                    ? "Restore GitHub fixture"
-                    : "Simulate GitHub unavailable"}
-                </button>
-                <button type="button" disabled={capacity < 2} onClick={handoff}>
-                  Simulate verified handoff
-                </button>
+                    ? `Last observed: ${task.checks}`
+                    : "Results belong to the shown commit; mergeability not evaluated"}
+                </small>
+              </div>
+            </dl>
+            <div className="source-links">
+              {["Notion task", "Worker progress", "GitHub PR"].map((name) => (
                 <button
                   type="button"
-                  onClick={() => {
-                    setTasks(initialTasks);
-                    setStale(false);
-                    setNotice("");
-                    setSelected("export");
-                    setFilter("All tasks");
-                    setQuery("");
-                    setDetail(true);
-                  }}
+                  key={name}
+                  disabled={
+                    (name === "GitHub PR" && task.pr === "No PR") ||
+                    (name === "Worker progress" && task.job === "No job")
+                  }
+                  onClick={() => destination(name)}
                 >
-                  Reset fixtures
+                  {name} ↗
                 </button>
-              </div>
-              <small>
-                Scenarios change this page only. No starts, approvals, merges,
-                or status writes.
-              </small>
-            </section>
+              ))}
+            </div>
             <p className="footnote">
-              Compare the editable desktop/mobile concepts in designs/. Worker
-              progress would open the monitor explored in PR #4.
+              Only a human marks Done. Worker idle, job completed, passing
+              checks, or a merged PR do not do this.
             </p>
-          </>
-        )}
+          </aside>
+        </div>
+        <section className="simulation">
+          <b>Try fixture scenarios</b>
+          <div>
+            <button type="button" onClick={() => setStale((value) => !value)}>
+              {stale ? "Restore GitHub fixture" : "Simulate GitHub unavailable"}
+            </button>
+            <button type="button" disabled={capacity < 2} onClick={handoff}>
+              Simulate verified handoff
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTasks(initialTasks);
+                setStale(false);
+                setNotice("");
+                setSelected("export");
+                setFilter("All tasks");
+                setQuery("");
+                setDetail(true);
+              }}
+            >
+              Reset fixtures
+            </button>
+          </div>
+          <small>
+            Scenarios change this page only. No starts, approvals, merges, or
+            status writes.
+          </small>
+        </section>
+        <p className="footnote">
+          Compare the editable desktop/mobile concepts in designs/. Worker
+          progress would open the monitor explored in PR #4.
+        </p>
       </main>
       {notice && (
         <div className="notice-container">

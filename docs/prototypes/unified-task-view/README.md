@@ -6,7 +6,7 @@ This is a separate research/prototype from [coding-worker monitoring PR #4](http
 
 ## Compare the options
 
-Each `.excalidraw` contains native editable rectangles and text, not embedded screenshots. Download and open it in Excalidraw, or use the isolated local editor below. SVGs and PNGs are actual exports of those files. Mobile files show list and detail screens side by side; each screen is 390 px wide. These design exports are **wireframes, not before/after screenshot evidence**.
+Each `.excalidraw` contains native editable rectangles and text, not embedded screenshots. Download and open it directly in Excalidraw. No custom editor or generation tooling is required. SVGs and PNGs are actual exports of those files. Mobile files show list and detail screens side by side; each screen is 390 px wide. These design exports are **wireframes, not before/after screenshot evidence**.
 
 | Option | Desktop: editable / viewable | Mobile: editable / viewable |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ The prototype uses one current job and PR per task, title search, in-memory sele
 
 Baseline was captured **before implementing the unified UI**. Both pairs use light mode, UTC, device scale 1, desktop **1440×1100** and mobile **390×844** viewports. Full-page capture heights vary. Selected task is Repair export flow, blocked with unchanged fixture summary/output. The before job and Worker output disclosures are open; the after shows its task detail.
 
-**Baseline limitation:** the existing Jobs content/StyleX is extracted from the base route into ignored `.baseline.tsx`. Router, refresh, stop and server boundaries are inert, and the agent header/app shell are replaced by the same small presentation harness. These are actual browser-rendered component captures, **not an authenticated live Roost screenshot**. Baseline cannot show task/check fields the current route does not have. No unlabelled mockup substitutes for screenshot evidence.
+**Baseline limitation:** the existing Jobs content/StyleX was extracted from the base route into a temporary capture harness. Router, refresh, stop and server boundaries were inert, and the agent header/app shell were replaced by the same small presentation harness. That capture-only harness is not part of the delivered prototype. These are actual browser-rendered component captures, **not an authenticated live Roost screenshot**. Baseline cannot show task/check fields the current route does not have. No unlabelled mockup substitutes for screenshot evidence.
 
 | View | Before · actual existing Jobs content, fixture harness | After · actual unified prototype, same assignment |
 | --- | --- | --- |
@@ -103,37 +103,17 @@ Baseline was captured **before implementing the unified UI**. Both pairs use lig
 
 Additional rendered evidence: [mobile list](screenshots/list-mobile.png), [desktop review](screenshots/review-desktop.png), [mobile review](screenshots/review-mobile.png), [desktop stale GitHub](screenshots/stale-desktop.png), [mobile stale GitHub](screenshots/stale-mobile.png), [desktop handoff](screenshots/handoff-desktop.png), [mobile handoff](screenshots/handoff-mobile.png), [B desktop](screenshots/option-b-desktop.png), [B mobile](screenshots/option-b-mobile.png), [C desktop](screenshots/option-c-desktop.png), [C mobile](screenshots/option-c-mobile.png). [Editor screenshots](screenshots/editor-a-desktop.png) demonstrate native Excalidraw loading; all six are in `screenshots/editor-*.png`.
 
-## Reproduce and verify
+## Run the prototype
 
 From the repository root with its locked dependencies installed:
 
 ```sh
 node node_modules/vite/bin/vite.js --config docs/prototypes/unified-task-view/vite.config.mjs
-# http://127.0.0.1:4182/                  unified fixture prototype
-# http://127.0.0.1:4182/?view=baseline   existing Jobs component harness
+# http://127.0.0.1:4182/ — unified fixture prototype
 ```
 
-Excalidraw and Playwright are **temporary tooling**, not project dependencies. This run used Excalidraw 0.18.0 and system Chrome. For a fresh environment:
+The prototype binds loopback and uses only its fictional fixtures. Its required UI, fixtures and Vite config are committed. Open the six `.excalidraw` deliverables in Excalidraw; SVG/PNG exports can be viewed directly. The before screenshots document the temporary baseline harness, which is no longer a runnable route.
 
-```sh
-npm install --prefix /tmp/unified-task-tools --no-audit --no-fund playwright @excalidraw/excalidraw@0.18.0
-node node_modules/vite/bin/vite.js --config docs/prototypes/unified-task-view/editor.config.mjs
-# http://127.0.0.1:4283/editor.html — choose a .excalidraw file
-# RESEARCH_TOOLS overrides /tmp/unified-task-tools/node_modules if needed.
+One-off capture/generation/validation scripts, the custom validation editor, raw logs and capture metadata are excluded from the PR. Copies remain in this worktree's ignored `.roost/unified-task-view-cleanup/` for coordinator reference; they are not a dependency or a promised reproducible toolchain for reviewers.
 
-PLAYWRIGHT_MODULE=/tmp/unified-task-tools/node_modules/playwright/index.mjs \
-CHROME_PATH=/usr/bin/google-chrome CHROME_NO_SANDBOX=1 \
-node docs/prototypes/unified-task-view/capture.mjs --before
-
-PLAYWRIGHT_MODULE=/tmp/unified-task-tools/node_modules/playwright/index.mjs \
-CHROME_PATH=/usr/bin/google-chrome CHROME_NO_SANDBOX=1 \
-node docs/prototypes/unified-task-view/capture.mjs
-
-PLAYWRIGHT_MODULE=/tmp/unified-task-tools/node_modules/playwright/index.mjs \
-CHROME_PATH=/usr/bin/google-chrome CHROME_NO_SANDBOX=1 \
-node docs/prototypes/unified-task-view/verify-designs.mjs
-```
-
-`CHROME_NO_SANDBOX=1` is specific to this VM’s headless fixture capture; omit where Chrome sandboxing is available. Both servers bind loopback. No exe.dev proxy or host reconfiguration is needed. `generate-designs.mjs` regenerates the original six scenes; **do not run it over manual edits you want to preserve**. The editor uses Excalidraw’s documented [restore/import](https://docs.excalidraw.com/docs/@excalidraw/excalidraw/api/utils/restore) and [export utilities](https://docs.excalidraw.com/docs/@excalidraw/excalidraw/api/utils/export), then the verifier checks native text round-tripping and renders each exported SVG to PNG.
-
-See [verification commands, results and limitations](evidence/VERIFICATION.md). All production integration is deferred pending the experience decision.
+See [concise verification results and limitations](evidence/VERIFICATION.md). All production integration is deferred pending the experience decision.

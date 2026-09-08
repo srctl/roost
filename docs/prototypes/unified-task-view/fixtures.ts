@@ -1,7 +1,3 @@
-import type { Agent } from "../../../src/features/agents/schema";
-import type { CodingJob } from "../../../src/features/coding/schema";
-
-export const agent = { id: "fixture", name: "Roost", kind: "coding" } as Agent;
 export interface Task {
   id: string;
   title: string;
@@ -94,21 +90,3 @@ export const tasks: Task[] = [
     owner: "You",
   },
 ];
-const time = Date.parse("2026-09-08T10:42:00Z");
-export const jobs = tasks.slice(0, 3).map((task) => ({
-  id: task.id,
-  title: task.title,
-  status: task.job,
-  assignment: task.summary,
-  summary: task.summary,
-  output: `Fixture Codex: ${task.summary}`,
-  sessionName: `fixture-${task.id}`,
-  workerName: `codex-${task.id}`,
-  workerKind: "codex",
-  cwd: `/fixture/${task.id}`,
-  remoteTarget: "fixture-machine",
-  updatedAt: time,
-  sourceUrl: "",
-  error: "",
-  cancelRequested: false,
-})) as CodingJob[];
