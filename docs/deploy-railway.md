@@ -3,8 +3,10 @@
 Railway is an advanced deployment option for the Roost app. This repository does
 not yet include a Railway-ready Dockerfile or a verified Railway app deployment.
 Use [the Linux installation](install.md) for the established installation path.
-The public marketing and docs sites can be hosted independently; see
-[Public websites](public-sites.md).
+The public sites are independent of the app. For the static docs Dockerfile,
+Railway service configuration, and CDN setup, see
+[Documentation on Railway](deploy-docs-railway.md). For other public hosting
+options, see [Public websites](public-sites.md).
 
 The requirements below were checked against Railway's documentation on
 September 7, 2026. They describe what a deployment must provide, not a claim that

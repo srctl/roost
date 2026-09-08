@@ -6,8 +6,10 @@ needs the Roost server, a database, Codex credentials, or access to agent data.
 
 ## Build each site
 
-For a concrete provider walkthrough, see [Vercel](deploy-vercel.md). To run the
-private Roost app, use [Deployment](deployment.md) instead.
+For provider walkthroughs, see [Vercel](deploy-vercel.md),
+[docs on Railway](deploy-docs-railway.md), or
+[marketing on Railway](deploy-marketing-railway.md). Both Railway services support
+CDN caching. To run the private Roost app, use [Deployment](deployment.md) instead.
 
 Run commands from the repository root. Use Node.js 22.13+ and pnpm 9.15.0. In a
 fresh checkout, first run `corepack pnpm install --frozen-lockfile`.

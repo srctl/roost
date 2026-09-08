@@ -1,0 +1,15 @@
+# Build from the repository root, but send only public sites and build inputs.
+**
+!package.json
+!pnpm-lock.yaml
+!docs/
+!docs/**
+!sites/
+!sites/docs/
+!sites/docs/**
+!sites/marketing/
+!sites/marketing/**
+**/node_modules
+**/dist
+**/.env
+**/.env.*
