@@ -44,6 +44,7 @@ export const AutomationInput = Schema.Struct({
   id: Schema.UUID,
   name: Short,
   prompt: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(16000)),
+  model: Schema.optional(Schema.NullOr(Short)),
   schedule: Schedule,
   notification: Schema.Literal("always", "when-needed"),
 });

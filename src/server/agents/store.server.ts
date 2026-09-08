@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 9)
+        if (version > 10)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -213,15 +213,24 @@ export function withAgentStore<A>(
             PRAGMA user_version = 8;
             COMMIT;`);
         }
-        if (version < 9) {
-          db.exec(`BEGIN IMMEDIATE;
-            CREATE TABLE dashboard_datasets (
+        if (version < 10) {
+          // Both feature previews used schema 9. Complete either shape without
+          // replacing saved datasets or an existing automation model selection.
+          db.exec("BEGIN IMMEDIATE");
+          try {
+            db.exec(`CREATE TABLE IF NOT EXISTS dashboard_datasets (
               agentId TEXT NOT NULL, key TEXT NOT NULL, content TEXT NOT NULL,
               revision INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
               PRIMARY KEY(agentId,key)
-            );
-            PRAGMA user_version = 9;
-            COMMIT;`);
+            )`);
+            const columns = db.prepare("PRAGMA table_info(automations)").all();
+            if (!columns.some((column) => column.name === "model"))
+              db.exec("ALTER TABLE automations ADD COLUMN model TEXT");
+            db.exec("PRAGMA user_version = 10; COMMIT");
+          } catch (error) {
+            db.exec("ROLLBACK");
+            throw error;
+          }
         }
         return run(db, directory);
       } finally {
@@ -344,7 +353,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,11)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,12)",
     ).run(threadId);
   });
 

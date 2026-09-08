@@ -33,7 +33,11 @@ import {
 import type { Run } from "../runs/store.server";
 import { openAgentServer } from "./agent-runtime.server";
 import { agentTools } from "./agent-tools.server";
-import { CodexError, openHostServer } from "./app-server.server";
+import {
+  CodexError,
+  getCodexModels,
+  openHostServer,
+} from "./app-server.server";
 import { codexErrorMessage } from "./auth-errors.server";
 import { Item, messageFromItem } from "./conversation-items.server";
 import type { ThreadInjectItemsParams } from "./protocol/v2/ThreadInjectItemsParams";
@@ -213,7 +217,7 @@ export function sendConversation(
         codexHome,
         workspace,
       );
-      if (!isolated && savedThreadId && toolVersion < 11) {
+      if (!isolated && savedThreadId && toolVersion < 12) {
         const old = yield* client
           .request("thread/read", {
             threadId: savedThreadId,
@@ -232,8 +236,16 @@ export function sendConversation(
       );
       const { attachments, turnInput } = yield* conversationInput(input);
       const soul = yield* readSoul(agent.id);
+      const model = kind === "automation" ? automation?.model : undefined;
+      if (model) {
+        const { models } = yield* getCodexModels(client);
+        if (!models.some((entry) => entry.model === model))
+          return yield* new CodexError({
+            message: `Automation model "${model}" is unavailable. Edit the automation to choose an available model or use the agent default.`,
+          });
+      }
       const options = {
-        model: agent.model,
+        model: model ?? agent.model,
         cwd: workspace,
         sandbox: reflecting ? ("read-only" as const) : codexSandbox(),
         approvalPolicy: reflecting

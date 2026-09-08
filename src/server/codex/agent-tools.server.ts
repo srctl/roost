@@ -35,7 +35,7 @@ import {
 } from "../notifications/tools.server";
 import { reflectionTools } from "../reflections/store.server";
 import { runAutomationNow } from "../runs/store.server";
-import { CodexError } from "./app-server.server";
+import { CodexError, getCodexConnection } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
 import type { DynamicToolCallResponse } from "./protocol/v2/DynamicToolCallResponse";
 import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
@@ -115,6 +115,17 @@ export const agentTools: DynamicToolSpec[] = [
   },
   {
     type: "function",
+    name: "roost_list_models",
+    description:
+      "List currently available model identifiers and display names for automation model selection. Use exact identifiers from this catalog; do not guess model names.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "roost_list_automations",
     description:
       "Read the current time and server timezone, and list your saved automations, IDs, schedules, enablement, and revisions. Call this before scheduling relative times.",
@@ -128,7 +139,7 @@ export const agentTools: DynamicToolSpec[] = [
     type: "function",
     name: "roost_save_automation",
     description:
-      "Create or edit an automation for this agent when explicitly requested by the user. Use a stable UUID for a creation; for an edit use the existing id and expectedRevision from the list tool. Prefer ONE cron automation for multiple daily times: kind=cron, expression='0 8-22/2 * * *' means every two hours from 08:00 through 22:00 daily. Cron uses five fields: minute hour day-of-month month day-of-week. Timezone must be an IANA name. Recurring schedules accept optional startsOn and endsOn as inclusive YYYY-MM-DD calendar dates in that timezone. Do not invent an end date for a condition such as until delivered. Weekly days are 0=Sunday through 6=Saturday. One-time timestamps need an explicit offset. Ask if the task or intended time is unclear. Schedules do not expand your permissions.",
+      "Create or edit an automation for this agent when explicitly requested by the user. Use a stable UUID for a creation; for an edit use the existing id and expectedRevision from the list tool. Prefer ONE cron automation for multiple daily times: kind=cron, expression='0 8-22/2 * * *' means every two hours from 08:00 through 22:00 daily. Cron uses five fields: minute hour day-of-month month day-of-week. Timezone must be an IANA name. Recurring schedules accept optional startsOn and endsOn as inclusive YYYY-MM-DD calendar dates in that timezone. Do not invent an end date for a condition such as until delivered. Weekly days are 0=Sunday through 6=Saturday. One-time timestamps need an explicit offset. Ask if the task or intended time is unclear. Use an exact model identifier from roost_list_models to override the agent model for this automation. Omit model to keep the existing selection on edits (or inherit the agent model on creation); set model=null to restore the agent default. Schedules do not expand your permissions.",
     inputSchema: JSONSchema.make(SaveAutomationTool) as unknown as JsonValue,
   },
   {
@@ -231,6 +242,8 @@ export function handleAgentTool(
     if (tool === "roost_read_soul") {
       return yield* readSoul(agentId);
     }
+
+    if (tool === "roost_list_models") return yield* getCodexConnection;
 
     if (tool === "roost_list_automations") {
       return {

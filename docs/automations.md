@@ -99,3 +99,24 @@ or the server restarts; interrupted work is not replayed automatically.
 New versions of Roost tools can migrate an existing chat into a fresh native
 thread with archived visible history, because Codex cannot add dynamic tools
 to a resumed thread. The agent keeps its private memory home.
+
+## Choosing a model
+
+The automation form's **Model** selector uses the connected Codex model catalog.
+Choose Astra, Luna, or another model when it is available for your account, or
+leave **Use agent default** selected to inherit the agent's model at execution
+time. The selection applies to both scheduled runs and **Run now**. It does not
+change ordinary chat, periodic reflection, identity, memory, or permissions.
+
+In chat, agents can call `roost_list_models` for supported identifiers and pass
+`model` to `roost_save_automation`. Omitting it on creation inherits the agent
+model; omitting it on an edit preserves the saved choice for older callers.
+Set `model: null` to restore inheritance. Existing automations migrate with no
+override. Model edits use the usual revision checks and cancel queued work;
+each new run snapshots the saved selection.
+
+New or changed explicit selections must be in the current catalog. A saved
+selection that later becomes unavailable remains visible and editable. Runs
+validate it against the executing agent's catalog and fail visibly with guidance
+to choose another model or restore the default; they never silently substitute
+a potentially more expensive model. Catalog failures also surface as run errors.
