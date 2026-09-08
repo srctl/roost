@@ -42,8 +42,29 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
 
     return;
   }
+  if (method === "model/list") {
+    const unavailable = existsSync(
+      join(process.env.CODEX_HOME, "fake-no-models"),
+    );
+    send({
+      id,
+      result: {
+        data: (unavailable
+          ? ["fake"]
+          : ["fake", "gpt-6-astra", "gpt-5.6-luna"]
+        ).map((model) => ({
+          model,
+          displayName: model,
+          isDefault: model === "fake",
+          hidden: false,
+        })),
+        nextCursor: null,
+      },
+    });
+    return;
+  }
   if (method === "account/read" || method === "account/login/start") {
-    send({ id, result: {} });
+    send({ id, result: { account: null, requiresOpenaiAuth: false } });
 
     return;
   }
