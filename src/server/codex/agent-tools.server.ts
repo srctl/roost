@@ -14,9 +14,13 @@ import {
   DeleteDashboard,
   dashboardTools,
   deleteDashboard,
+  deleteDataset,
   listDashboards,
+  listDatasets,
   SaveDashboard,
+  SaveDataset,
   saveDashboard,
+  saveDataset,
 } from "../dashboards/tools.server";
 import {
   DelegateTask,
@@ -173,6 +177,17 @@ export function handleAgentTool(
         agentId,
         runId,
         yield* Schema.decodeUnknown(NotifyAgent)(arguments_),
+      );
+    if (tool === "roost_list_datasets") return yield* listDatasets(agentId);
+    if (tool === "roost_save_dataset")
+      return yield* saveDataset(
+        agentId,
+        yield* Schema.decodeUnknown(SaveDataset)(arguments_),
+      );
+    if (tool === "roost_delete_dataset")
+      return yield* deleteDataset(
+        agentId,
+        yield* Schema.decodeUnknown(DeleteDashboard)(arguments_),
       );
     if (tool === "roost_list_dashboards") return yield* listDashboards(agentId);
     if (tool === "roost_save_dashboard")

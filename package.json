@@ -35,6 +35,9 @@
   "dependencies": {
     "@base-ui/react": "1.8.0",
     "@effect/platform-node": "0.108.1",
+    "@fluentui/react-charts": "9.3.25",
+    "@fluentui/react-provider": "9.22.20",
+    "@fluentui/react-theme": "9.2.2",
     "@novnc/novnc": "1.5.0",
     "@simplewebauthn/server": "13.3.2",
     "@stylexjs/stylex": "0.19.0",
@@ -69,5 +72,15 @@
   "bin": {
     "roost": "bin/roost"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "packageExtensions": {
+      "@fluentui/react-charts@9.3.25": {
+        "dependencies": {
+          "@fluentui/react-menu": "9.25.4",
+          "@fluentui/tokens": "1.0.0-alpha.24"
+        }
+      }
+    }
+  }
 }

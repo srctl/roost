@@ -16,7 +16,95 @@ const url = Schema.String.pipe(
   ),
 );
 
+export const DashboardKey = Schema.String.pipe(
+  Schema.pattern(/^[a-z0-9][a-z0-9-]{0,63}$/),
+);
+const revision = Schema.NonNegativeInt.pipe(Schema.greaterThan(0));
+const cell = Schema.Union(
+  text,
+  Schema.Finite.pipe(Schema.between(-1e15, 1e15)),
+  Schema.Boolean,
+  Schema.Null,
+);
+const datasetFields = {
+  key: DashboardKey,
+  title: label,
+  description: Schema.optional(text),
+  sourceUrl: Schema.optional(url),
+  columns: Schema.Array(
+    Schema.Struct({
+      key: DashboardKey,
+      label,
+      type: Schema.Literal("string", "number", "boolean"),
+    }),
+  ).pipe(Schema.minItems(1), Schema.maxItems(8)),
+  rows: Schema.Array(Schema.Array(cell).pipe(Schema.maxItems(8))).pipe(
+    Schema.maxItems(200),
+  ),
+};
+export const SaveDataset = Schema.Struct({
+  ...datasetFields,
+  expectedRevision: Schema.optional(revision),
+}).pipe(
+  Schema.filter(
+    (data) =>
+      new Set(data.columns.map((c) => c.key)).size === data.columns.length &&
+      data.rows.every(
+        (row) =>
+          row.length === data.columns.length &&
+          row.every(
+            (value, i) =>
+              value === null || typeof value === data.columns[i]?.type,
+          ),
+      ) &&
+      new TextEncoder().encode(JSON.stringify(data)).byteLength <= 64000,
+    {
+      message: () =>
+        "Dataset requires unique column keys, matching typed cells, and at most 64 KB.",
+    },
+  ),
+);
+export const DashboardDataset = Schema.Struct({
+  ...datasetFields,
+  agentId: Schema.UUID,
+  revision,
+  updatedAt: Schema.Number,
+});
+export const DatasetChart = Schema.Struct({
+  type: Schema.Literal("dataset-chart"),
+  title: label,
+  datasetKey: DashboardKey,
+  style: Schema.Literal(
+    "line",
+    "bar",
+    "stacked-bar",
+    "area",
+    "donut",
+    "scatter",
+  ),
+  x: DashboardKey,
+  series: Schema.Array(Schema.Struct({ column: DashboardKey, label })).pipe(
+    Schema.minItems(1),
+    Schema.maxItems(4),
+  ),
+}).pipe(
+  Schema.filter(
+    (chart) =>
+      new Set(chart.series.map((s) => s.column)).size === chart.series.length &&
+      new Set(chart.series.map((s) => s.label)).size === chart.series.length &&
+      (chart.style !== "donut" || chart.series.length === 1),
+    {
+      message: () =>
+        "Use unique series columns and labels, and exactly one series for a donut.",
+    },
+  ),
+);
+export type DashboardDataset = typeof DashboardDataset.Type;
+export type SaveDataset = typeof SaveDataset.Type;
+export type DatasetChart = typeof DatasetChart.Type;
+
 export const DashboardBlock = Schema.Union(
+  DatasetChart,
   Schema.Struct({
     type: Schema.Literal("markdown"),
     text: Schema.String.pipe(Schema.maxLength(12000)),
@@ -68,9 +156,6 @@ export const DashboardBlock = Schema.Union(
   }),
 );
 
-export const DashboardKey = Schema.String.pipe(
-  Schema.pattern(/^[a-z0-9][a-z0-9-]{0,63}$/),
-);
 export const SaveDashboard = Schema.Struct({
   key: DashboardKey,
   title: label,

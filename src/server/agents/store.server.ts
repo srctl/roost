@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 8)
+        if (version > 9)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -213,6 +213,16 @@ export function withAgentStore<A>(
             PRAGMA user_version = 8;
             COMMIT;`);
         }
+        if (version < 9) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE dashboard_datasets (
+              agentId TEXT NOT NULL, key TEXT NOT NULL, content TEXT NOT NULL,
+              revision INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+              PRIMARY KEY(agentId,key)
+            );
+            PRAGMA user_version = 9;
+            COMMIT;`);
+        }
         return run(db, directory);
       } finally {
         db.close();
@@ -334,7 +344,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,10)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,11)",
     ).run(threadId);
   });
 
