@@ -14,15 +14,16 @@ They can live on different providers. Publishing the websites does not run agent
 | Platform | Running the app | Shared computer |
 | --- | --- | --- |
 | [exe.dev](deploy-exe-dev.md) | Recommended VM with private HTTPS access | Add the Linux X11 desktop |
+| [Railway Cloud Agent VM](deploy-railway.md) | Dedicated VM; enable native passkey login | Tested XFCE/Chrome; VM isolation required |
 | [Linux](deploy-linux.md) | Your own x64 VPS or home server with systemd | Add an X11 desktop |
 
 The VM recommendation is based on Roost's architecture and the provider's
 [persistent filesystem](https://exe.dev/docs/serverful) and
 [private proxy](https://exe.dev/docs/proxy).
 
-Railway is still unverified for Roost's Codex sandbox and shared computer. It
-needs a custom runtime before it can join these installation options; see
-[Railway requirements](deploy-railway.md) if you want to evaluate it.
+The Railway VM path requires an explicit choice to use the dedicated VM as the
+sandbox boundary. Ordinary Railway containers did not pass the Codex sandbox
+test. See the [Railway setup guide](deploy-railway.md) for the tested path.
 
 ## Requirements the app cannot skip
 
@@ -39,9 +40,9 @@ needs a custom runtime before it can join these installation options; see
 4. **One active app instance per data directory.** Do not scale this SQLite
    installation into independent replicas or attach a copied database to a
    second worker. Separate installations need separate data and schedules.
-5. **Private HTTP and WebSocket access.** Roost has no application-level
-   authentication. An internet-facing hostname alone is not an access boundary.
-   Use an SSH tunnel or an authenticating proxy, with no public route around it.
+5. **Authenticated HTTP and WebSocket access.** Enable [native passkeys](authentication.md)
+   before exposing a public address, or use an SSH tunnel/authenticating proxy
+   such as exe.dev. Native login is opt-in; existing private-proxy setups stay unchanged.
 6. **An optional Linux X11 desktop.** Browser/computer use additionally needs
    the desktop packages, persistent browser profile, and loopback VNC listener
    described in [Shared computer](computer.md).

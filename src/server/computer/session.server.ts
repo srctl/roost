@@ -9,7 +9,12 @@ export function checkComputerOrigin(origin: string | null) {
   return computerEnabled() && origin === process.env.ROOST_DESKTOP_ORIGIN;
 }
 
-type Viewer = { expires: number; connected: boolean; close?: () => void };
+type Viewer = {
+  session: string | null;
+  expires: number;
+  connected: boolean;
+  close?: () => void;
+};
 
 const globals = globalThis as typeof globalThis & {
   roostComputer?: {
@@ -42,23 +47,32 @@ export function computerStatus() {
   };
 }
 
-export function createViewer() {
+export function createViewer(session: string | null = null) {
   if (!computerEnabled())
     throw new Error("No desktop is configured on this machine.");
   for (const [id, viewer] of state.viewers)
     if (!viewer.connected && viewer.expires < Date.now())
       state.viewers.delete(id);
   const id = randomBytes(32).toString("base64url");
-  state.viewers.set(id, { expires: Date.now() + 60_000, connected: false });
+  state.viewers.set(id, {
+    session,
+    expires: Date.now() + 60_000,
+    connected: false,
+  });
 
   return { id };
 }
 
-export function connectViewer(id: string, origin: string | null) {
+export function connectViewer(
+  id: string,
+  origin: string | null,
+  session: string | null = null,
+) {
   const viewer = state.viewers.get(id);
   if (
     !checkComputerOrigin(origin) ||
     !viewer ||
+    viewer.session !== session ||
     viewer.connected ||
     viewer.expires < Date.now()
   )
@@ -81,9 +95,16 @@ export function attachViewer(id: string, close: () => void) {
 export const viewerConnected = (id: string) =>
   state.viewers.get(id)?.connected === true;
 
-export function viewerControl(id: string, control: boolean) {
+export function viewerControl(
+  id: string,
+  control: boolean,
+  session: string | null = null,
+) {
   human();
-  if (!state.viewers.get(id)?.connected)
+  if (
+    !state.viewers.get(id)?.connected ||
+    state.viewers.get(id)?.session !== session
+  )
     throw new Error("Reconnect to the desktop first.");
   if (!control) {
     if (human()?.id === id) state.human = undefined;

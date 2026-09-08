@@ -16,8 +16,8 @@ setup, or connect through the SSH tunnel in that guide.
 For a source checkout, follow [Development](development.md). Source builds need
 Node.js 22.13 or later, pnpm 9.15.0, and a separately installed Codex CLI.
 
-Keep your app private. Roost has no application-level authentication; use
-loopback, an SSH tunnel, or an authenticated reverse proxy for remote access.
+Protect your app with [native passkey login](authentication.md), an SSH tunnel,
+or an authenticated reverse proxy. exe.dev continues to handle sign-in itself.
 
 ## 2. Connect Codex
 

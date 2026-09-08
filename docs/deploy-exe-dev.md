@@ -46,8 +46,9 @@ ssh exe.dev share set-private roost-home
 ssh exe.dev share port roost-home 3000
 ```
 
-Keep this address private: Roost has no app login of its own. exe.dev protects
-it with your account sign-in. On a reused VM, review existing access with
+Keep this address private: exe.dev protects it with your account sign-in.
+Roost’s optional [native passkey login](authentication.md) stays disabled unless
+you explicitly set it up, so this flow needs no extra login. On a reused VM, review existing access with
 `ssh exe.dev share show roost-home` because making it private retains previous
 grants. [exe.dev proxy settings](https://exe.dev/docs/proxy),
 [sharing](https://exe.dev/docs/sharing).
