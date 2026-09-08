@@ -14,6 +14,11 @@ export const settingsGroups = [
     label: "Account & security",
     description: "Codex sign-in and access to Roost.",
   },
+  {
+    id: "updates",
+    label: "Updates",
+    description: "Software version, release checks, and update availability.",
+  },
 ] as const;
 
 export type SettingsGroup = (typeof settingsGroups)[number]["id"];
@@ -25,6 +30,12 @@ export function readSettingsGroup(value: unknown): SettingsGroup {
 // Index the controls and their vocabulary, including options revealed by another
 // setting. Keep related controls together so their dependencies remain clear.
 export const settingsEntries = [
+  {
+    id: "updates",
+    group: "updates",
+    terms:
+      "Software update upgrade release version restart recovery installation systemd setup externally managed",
+  },
   {
     id: "theme",
     group: "appearance",

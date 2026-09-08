@@ -15,6 +15,7 @@ test("unknown settings groups fall back to appearance", () => {
 
 test("search finds existing controls, conditional options, and vocabulary across groups", () => {
   const cases = [
+    ["software update", "updates"],
     ["  THINKING  summaries ", "conversation"],
     ["tool inputs", "conversation"],
     ["messages", "conversation"],
@@ -51,7 +52,7 @@ test("search finds existing controls, conditional options, and vocabulary across
     findSettings("codex").map((entry) => entry.id),
     ["conversation", "account"],
   );
-  assert.equal(findSettings(" \n ").length, 5);
+  assert.equal(findSettings(" \n ").length, 6);
   assert.equal(findSettings("nothing-matches-this").length, 0);
   assert.equal(findSettings("passkeys trackers").length, 0);
 });

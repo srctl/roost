@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { withKernelLock } from "../updater/lock";
 
 export function maintenance(root: string, enabled: boolean) {
   const path = join(root, "data/roost.sqlite");
@@ -26,11 +27,13 @@ export function activeRuns(root: string): number {
 
     const runs = Number(
       db
-        .prepare("SELECT count(*) AS count FROM runs WHERE status='running'")
+        .prepare(
+          "SELECT count(*) AS count FROM runs WHERE status IN ('running','steering')",
+        )
         .get()?.count ?? 0,
     );
-    // Older installations predate coding jobs. A detached Herdr server still
-    // belongs to Roost's systemd cgroup and will be killed when Roost stops.
+    // Older installations predate coding jobs. Missing and unknown workers are
+    // not evidence of quiescence; preserve them for operator inspection.
     const hasCodingJobs = db
       .prepare(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='coding_jobs'",
@@ -40,7 +43,7 @@ export function activeRuns(root: string): number {
       ? Number(
           db
             .prepare(
-              "SELECT count(*) AS count FROM coding_jobs WHERE status IN ('starting','running') OR (status IN ('blocked','review') AND lastWorkerState NOT IN ('not_started','missing'))",
+              "SELECT count(*) AS count FROM coding_jobs WHERE status IN ('starting','running') OR (status IN ('blocked','review') AND (lastWorkerState IS NULL OR lastWorkerState != 'not_started'))",
             )
             .get()?.count ?? 0,
         )
@@ -51,7 +54,7 @@ export function activeRuns(root: string): number {
   }
 }
 
-export async function withLock<T>(
+async function withLegacyLock<T>(
   root: string,
   action: () => Promise<T>,
 ): Promise<T> {
@@ -78,4 +81,13 @@ export async function withLock<T>(
 
 export async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
+// Keep the legacy exclusion file as well: older binaries know nothing about flock.
+// Enrollment must retain a permanent sentinel before routing clients to a helper.
+export async function withLock<T>(
+  root: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  return withKernelLock(root, () => withLegacyLock(root, action));
 }

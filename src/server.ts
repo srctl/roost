@@ -9,12 +9,20 @@ import { nativeAuthEnabled } from "./server/auth/store.server";
 import { compressHtml } from "./server/html-compression.server";
 import { followStartupRedirect } from "./server/startup-response.server";
 
+import { updatesRequest } from "./server/updates.server";
+
 const handler = createStartHandler(defaultStreamHandler);
 
 export default createServerEntry({
   async fetch(request, options) {
     const auth = await authGate(request, authPage);
     if (auth) return auth;
+    if (
+      ["/api/updates", "/api/updates/check"].includes(
+        new URL(request.url).pathname,
+      )
+    )
+      return updatesRequest(request);
     const response = await followStartupRedirect(
       request,
       await handler(request, options),
