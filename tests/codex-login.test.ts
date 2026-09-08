@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -25,7 +25,11 @@ test("device login survives requests, shares pending flow, and clears codes on c
     new URL("./fixtures/login-server.mjs", import.meta.url),
   );
 
-  const mode = (value: string) => writeFile(join(home, "mode"), value);
+  const mode = async (value: string) => {
+    // The mock server polls this file; never expose a truncated mode to it.
+    await writeFile(join(home, "mode.next"), value);
+    await rename(join(home, "mode.next"), join(home, "mode"));
+  };
 
   const settle = async () => {
     for (let i = 0; i < 100 && getLogin().status === "pending"; i++)
