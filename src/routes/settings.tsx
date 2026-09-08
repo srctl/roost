@@ -7,6 +7,7 @@ import { CodexConnection } from "../components/codex-connection";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
+import { PasskeySetting } from "../components/passkey-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { getCodexAccount, getCodexLogin } from "../features/auth/functions";
 import { getPushSettings } from "../features/notifications/functions";
@@ -45,6 +46,7 @@ function SettingsPage() {
     <section {...stylex.props(styles.page)}>
       <h1 {...stylex.props(styles.title)}>Settings</h1>
       <p {...stylex.props(styles.muted)}>Make Roost feel right for you.</p>
+      <PasskeySetting />
       <CodexConnection initial={connection} />
       <PushNotifications initial={notifications} />
       <DashboardSetting />

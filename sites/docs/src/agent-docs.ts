@@ -15,7 +15,13 @@ const sections = [
   },
   {
     title: "Deployment",
-    slugs: ["deployment", "deploy-exe-dev", "deploy-linux"],
+    slugs: [
+      "deployment",
+      "deploy-exe-dev",
+      "deploy-railway",
+      "authentication",
+      "deploy-linux",
+    ],
   },
   {
     title: "Use Roost",

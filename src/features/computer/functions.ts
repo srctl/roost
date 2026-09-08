@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Schema } from "effect";
+import { authenticatedSocket } from "../../server/auth/session.server";
 import { available } from "../../server/available";
 import {
   checkComputerOrigin,
@@ -31,7 +32,9 @@ export const getComputerStatus = createServerFn({ method: "GET" })
 
 export const openComputer = createServerFn({ method: "POST" })
   .middleware([available])
-  .handler(() => mutation(createViewer));
+  .handler(() =>
+    mutation(() => createViewer(authenticatedSocket(getRequest()))),
+  );
 
 export const controlComputer = createServerFn({ method: "POST" })
   .middleware([available])
@@ -40,4 +43,8 @@ export const controlComputer = createServerFn({ method: "POST" })
       Schema.Struct({ id: Schema.String, control: Schema.Boolean }),
     ),
   )
-  .handler(({ data }) => mutation(() => viewerControl(data.id, data.control)));
+  .handler(({ data }) =>
+    mutation(() =>
+      viewerControl(data.id, data.control, authenticatedSocket(getRequest())),
+    ),
+  );

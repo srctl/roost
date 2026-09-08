@@ -85,7 +85,7 @@ Start waits for the HTTP and database health check, and is safe to repeat.
 Stop interrupts active work; saved conversations and queued work remain.
 Logs shows the last 100 journal entries; `--follow` streams new entries.
 
-Roost binds to `127.0.0.1` only. It currently has no application authentication.
+Roost binds to `127.0.0.1` only. Native passkey login is optional.
 From your computer, forward an available local port:
 
 ```sh
@@ -95,7 +95,8 @@ ssh -N -L 3003:127.0.0.1:3000 user@your-server
 Replace `user@your-server` with your SSH destination, then open
 `http://127.0.0.1:3003`. A browser on the Roost host can open
 `http://127.0.0.1:3000` directly. If you use a reverse proxy instead of SSH, it
-must authenticate both HTTP and WebSocket traffic. The public marketing and
+must authenticate both HTTP and WebSocket traffic, or you must enable
+[native passkey login](authentication.md) before exposing the app. The public marketing and
 docs sites do not require access to this private server.
 
 ## Update

@@ -24,6 +24,8 @@ const groups = [
     pages: [
       ["deployment", "Choose a host"],
       ["deploy-exe-dev", "exe.dev"],
+      ["deploy-railway", "Railway"],
+      ["authentication", "Passkey login"],
       ["deploy-linux", "Linux"],
     ],
   },

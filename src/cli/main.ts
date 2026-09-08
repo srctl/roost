@@ -14,6 +14,7 @@ import { homedir, userInfo } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Effect } from "effect";
+import { AuthStore } from "../server/auth/store.server";
 import {
   activate,
   downloadRelease,
@@ -30,7 +31,6 @@ import {
   waitForServer,
 } from "./service";
 import { readJson, withLock } from "./state";
-
 import { applyUpdate } from "./update";
 
 const root = resolve(
@@ -45,6 +45,8 @@ const help = `Roost
   roost setup [--repository owner/repo] [--port 3000] [--skip-login]
   roost setup --login                 Sign in with the bundled Codex
   roost update [--version 0.1.0]
+  roost auth setup --origin https://roost.example.com
+  roost auth recover [--origin https://roost.example.com]
   roost server start
   roost server stop
   roost server logs [--follow]
@@ -252,6 +254,29 @@ async function main() {
   if (action === "--version") {
     console.log((await readRelease(bundle)).version);
 
+    return;
+  }
+  if (action === "auth") {
+    const [operation, ...rest] = args;
+    if (operation !== "setup" && operation !== "recover")
+      throw new Error("Use roost auth setup or recover.");
+    const options = flags(rest, { "--origin": "value" });
+    if (operation === "setup" && !options["--origin"])
+      throw new Error("Specify --origin https://your-host.");
+    const store = new AuthStore(
+      resolve(process.env.ROOST_DATA_DIR ?? join(root, "data")),
+    );
+    try {
+      const link = store.setup(options["--origin"], operation === "recover");
+      console.log(
+        "Open this private, single-use link within 15 minutes to register your passkey:",
+      );
+      console.log(link);
+      if (operation === "recover")
+        console.log("Previous passkeys and sessions were revoked.");
+    } finally {
+      store.close();
+    }
     return;
   }
   if (process.platform !== "linux" || process.arch !== "x64")

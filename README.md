@@ -75,8 +75,9 @@ Linux servers, macOS, Railway, and Vercel for the public websites. Working with
 an agent? Start with [agent-readable docs](docs/for-agents.md); the published
 docs site provides `/llms.txt`, `/llms-full.txt`, and a Markdown URL for every guide.
 
-Roost currently has no application-level authentication. Keep the app on loopback
-with SSH access, or behind a proxy that authenticates HTTP and WebSocket traffic.
+Enable [native passkey login](docs/authentication.md) for a public HTTPS address,
+or keep using SSH or an authenticating proxy such as exe.dev. Passkeys are opt-in;
+existing private-proxy installations work unchanged.
 Agent memory is kept separately, but agents share the host and connected
 accounts; they are not isolated operating-system users.
 

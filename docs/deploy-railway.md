@@ -1,151 +1,113 @@
-# Roost on Railway
+# Run Roost on Railway
 
-Railway is an advanced deployment option for the Roost app. This repository does
-not yet include a Railway-ready Dockerfile or a verified Railway app deployment.
-Use [the Linux installation](install.md) for the established installation path.
-The public sites are independent of the app. For the static docs Dockerfile,
-Railway service configuration, and CDN setup, see
-[Documentation on Railway](deploy-docs-railway.md). For other public hosting
-options, see [Public websites](public-sites.md).
+Use a **dedicated Railway Cloud Agent VM** for Roost. We tested chat, shell tools,
+scheduled work, persistent files, and a shared XFCE/Chrome desktop on this VM
+path. Cloud Agents are experimental; [exe.dev](deploy-exe-dev.md) remains the
+simpler managed installation with private sign-in already included.
 
-The requirements below were checked against Railway's documentation on
-September 7, 2026. They describe what a deployment must provide, not a claim that
-Roost has passed those checks on Railway.
+This is a persistent VM setup, not `railway up` for an ordinary container.
+Our normal-container test could serve the web app but could not run Codex's
+nested Linux sandbox. The working VM test explicitly used the VM as the
+isolation boundary. Only use that option on a VM dedicated to your Roost agents.
 
-## Check the Codex sandbox first
+## 1. Create a VM
 
-Roost starts Codex as a child process and requests its `workspace-write` sandbox.
-Current Codex uses `bwrap` and `seccomp` on Linux. Container restrictions on
-namespaces, setuid execution, or system calls can prevent sandboxed commands
-from running even when the web app starts successfully. See
-[OpenAI's sandbox documentation](https://learn.chatgpt.com/docs/agent-approvals-security#os-level-sandbox).
-
-Railway's Dockerfile support establishes how to build an image; it does not
-establish that the image can perform every Linux sandbox operation. Verify the
-chosen Railway runtime with the exact Codex version you intend to ship before
-putting agent data there. Do not change Roost to full filesystem access or bypass
-approvals to turn a failed compatibility check into a successful deployment.
-
-If sandboxed commands fail, keep this deployment experimental and use a Linux
-VM whose sandbox requirements you can satisfy. Installing a `bubblewrap` package
-alone cannot change restrictions imposed by the host.
-
-## Persistent service requirements
-
-Use one continuously running service with one persistent volume. Roost's HTTP
-server and background worker run in the same Node process; there is no separate
-Railway cron service to configure.
-
-| Setting | Required configuration |
-| --- | --- |
-| Source directory | Repository root |
-| Runtime | Linux with Node.js 22.13+ and a compatible Codex executable |
-| Build | `corepack pnpm install --frozen-lockfile`, then `corepack pnpm build` |
-| Start | `node .output/server/index.mjs` |
-| Process count | One instance; no replicas |
-| Volume mount | `/data` |
-| App data | `ROOST_DATA_DIR=/data/roost` |
-| Host Codex login and configuration | `CODEX_HOME=/data/codex-host` |
-| Codex executable | `ROOST_CODEX_BINARY` pointing to the executable installed in the image |
-| Listener | `HOST=0.0.0.0`, using Railway's `PORT` |
-| Health check | `/api/health` |
-| Serverless | Disabled |
-
-Railway supplies ephemeral service filesystems by default. A volume preserves
-the directories beneath its mount point; it is available at runtime, including
-startup, but not during builds or pre-deploy commands. Create the two data
-directories during startup and make them writable by the process user. Keep the
-host Codex directory private to that user. See
-[using volumes](https://docs.railway.com/volumes).
-
-Railway currently permits one volume per service and does not support replicas
-for services with volumes. Deploying a new version causes a short interruption
-while the volume moves to the replacement deployment. This matches Roost's
-single-instance storage model, but it is not a zero-downtime setup. See
-[volume constraints](https://docs.railway.com/volumes/reference#caveats).
-
-Keep Serverless disabled: Railway can sleep inactive services, and Roost's
-internal timer cannot run while its process is asleep. See
-[Railway Serverless](https://docs.railway.com/deployments/serverless).
-For proxy routing, Railway expects the server to bind to `0.0.0.0` and its
-provided port. See [listener configuration](https://docs.railway.com/networking/troubleshooting/application-failed-to-respond).
-
-## Supply the runtime and protect access
-
-Before deploying, provide a reproducible image that installs Node, pnpm, Codex,
-and the command-line tools your agents need. Use the release pins in
-[`scripts/runtime-versions.json`](../scripts/runtime-versions.json) as the
-repository's reference. A source build does not install Codex automatically.
-Railway can build a Dockerfile at the source root or a configured custom path;
-see [Railway Dockerfiles](https://docs.railway.com/builds/dockerfiles).
-
-Do not run `roost setup`, `roost update`, or the systemd server commands inside a
-normal Railway service. Those commands manage a Linux machine installation.
-Railway manages the container process and replaces its image for updates.
-
-Roost has no built-in application authentication. Configure an authenticated
-HTTPS proxy that protects both HTTP and WebSocket requests before providing
-remote access. The Roost service should be reachable only through that proxy or
-private access. A generated Railway domain supplies routing and TLS, not a
-Roost login; do not leave a direct public route that bypasses the authentication
-layer. Desktop origin checks do not replace that layer.
-
-Connect Codex from **Settings → Connect Codex** through the protected app. The
-host login must be file-based and stored under the persistent `CODEX_HOME` above.
-Roost creates the individual agents' Codex homes under `ROOST_DATA_DIR`; do not
-point every agent at the host login directory. Never bake login files into an
-image or copy them into the repository. Back up the whole `/data` volume so that
-both agent data and the host login/configuration are retained.
-
-Computer use requires additional X11, capture/input, and loopback VNC setup in
-the same environment as Roost. A plain Node image does not provide a desktop.
-Leave it disabled unless you have separately completed and tested
-[shared computer setup](computer.md).
-
-## Railway Cloud Agents as an evaluation host
-
-Railway also offers persistent Cloud Agent VMs through Priority Boarding. These
-include Codex and a development toolchain. They are a different product from
-ordinary Railway services and may be useful for evaluating Roost on a VM.
-Railway currently describes their public URL as a preview facility and directs
-production traffic to services. This guide does not treat a Cloud Agent VM as a
-verified production installation. See [Cloud Agents](https://docs.railway.com/cloud-agents).
-
-With a current Railway CLI, enable Cloud Agents, sign in, and inspect the target
-project before launching. Replace `YOUR_PROJECT_ID` and `YOUR_ENVIRONMENT`:
+Enable **Cloud Agents** in Railway's [Priority Boarding](https://railway.com/account/feature-flags).
+Create a project in Railway, then use its project ID and environment name:
 
 ```sh
-railway login
-railway ca setup
-railway code --codex --keep-awake --project YOUR_PROJECT_ID --environment YOUR_ENVIRONMENT
+railway ca create roost --project YOUR_PROJECT_ID --environment production --json
+railway ca ssh roost --project YOUR_PROJECT_ID --environment production
 ```
 
-This launch uses your local Codex file-based sign-in and transfers it to the VM.
-`--keep-awake` keeps the VM running after disconnect; without it, disconnecting
-can put the machine to sleep. Running compute is billed while disconnected.
-The CLI reuses an existing agent in the chosen environment when possible. See
-[the `railway code` reference](https://docs.railway.com/cli/code).
+Keep the VM's preview HTTPS URL from Railway handy. It routes to port **8080**.
+Use that exact origin for auth; don't change hostnames after creating passkeys.
+See [Railway Cloud Agents](https://docs.railway.com/cli/ca) for CLI access and lifecycle.
 
-Inside the VM, inspect its architecture, runtime versions, user, persistent
-paths, and service manager. Follow [source setup](development.md#run-from-source)
-or the Linux installer only when its prerequisites are present. Keep Roost on
-loopback while configuring private access. A Cloud Agent's public port 8080 is
-not a substitute for authentication, and its bundled browser is not evidence
-that Roost's X11/VNC integration is configured.
+## 2. Build Roost on the VM
 
-## Verify before relying on it
+Use a non-root account with Node.js 22.13+, pnpm 9.15.0, Git, and a compatible
+Codex CLI. See [source prerequisites](development.md) if these aren't installed.
+Keep the checkout and data on the VM's persistent disk:
 
-Ask your deployment agent to report these results from the actual environment:
+```sh
+git clone https://github.com/srctl/roost.git
+cd roost
+pnpm install --frozen-lockfile
+pnpm build
+export ROOST_DATA_DIR="$HOME/roost-data"
+node .output/cli/roost.mjs auth setup --origin https://YOUR_VM_HOSTNAME
+```
 
-1. The deployed version starts, `/api/health` passes, and unauthorized HTTP and
-   WebSocket access is rejected by the private access layer.
-2. A disposable Roost agent can run a harmless command and write/read a file in
-   its workspace with the normal sandbox and approvals enabled.
-3. The same conversation, file, agent settings, and Codex login survive a service
-   restart. Treat interrupted work as interrupted; do not replay it automatically.
-4. A scheduled test finishes with the browser closed and appears in history.
-5. Backups include the app data and host Codex configuration, and their restore
-   procedure is recorded.
+Save the private setup link. If it expires before you start the app, run the last
+command again. Do not use `roost setup` here: that installer expects systemd,
+which the tested Cloud Agent VM did not run.
 
-A green deployment or a successful model response alone does not verify command
-execution, persistent login, background work, or desktop access.
+## 3. Start it, then create your passkey
+
+In the same shell:
+
+```sh
+export ROOST_CODEX_BINARY="$(command -v codex)"
+export CODEX_HOME="$HOME/.codex"
+export ROOST_CODEX_SANDBOX=danger-full-access
+sh scripts/start-railway-vm.sh
+```
+
+The explicit sandbox setting grants agent tools the service user's filesystem
+and network access inside this dedicated VM. It is **off by default** on all
+other installations; exe.dev keeps its existing `workspace-write` sandbox.
+Don't place unrelated accounts or secrets in this VM.
+
+Open your saved setup link, choose **Create passkey**, then use
+**Settings → Connect Codex**. Ask an agent to create a small file and reload to
+check persistence. A signed-out browser should see Roost's passkey login.
+[Auth setup and recovery](authentication.md) covers backup passkeys and sign-out.
+
+The start script refuses to expose a fresh installation before auth setup.
+Railway supplies HTTPS; keep CDN caching disabled for the private app.
+
+## 4. Keep it running
+
+The foreground command above is useful for the first check. For ongoing use,
+run that same command under a process supervisor such as Supervisor, with the
+same working directory, non-root account, and environment variables from steps
+2–3. Configure automatic restart and rotated logs. Run only one Roost process
+against the data directory.
+
+**A sleeping VM does not run schedules.** Keep it awake while you want agents
+working. After `railway ca wake roost`, reconnect and restart your supervisor;
+a browser visit alone did not recover services in our test. Preserve
+`ROOST_DATA_DIR` and `CODEX_HOME`, and back them up separately from the VM.
+
+For updates, stop the supervised app, pull the desired version, rebuild, and
+start it with the same data directory. The packaged `roost update` command is
+for the systemd release installer, not this source deployment.
+
+## Optional: shared desktop
+
+Follow [Desktop setup](remote-desktop-setup.md) for XFCE, TigerVNC, and Chrome.
+Run them as the same non-root user, supervise them alongside Roost, and set:
+
+```sh
+export ROOST_DESKTOP_DISPLAY=:1
+export ROOST_DESKTOP_ORIGIN=https://YOUR_VM_HOSTNAME
+export ROOST_DESKTOP_VNC_PORT=5901
+```
+
+Restart Roost with these variables. Keep VNC on `127.0.0.1:5901`; the Roost
+computer button carries the desktop over authenticated HTTPS/WebSockets.
+There is no need to publish a second noVNC port.
+
+The tested VM also required Chrome's `--no-sandbox` flag. This is a separate,
+explicit choice to rely on the dedicated VM for browser isolation. Keep Chrome's
+sandbox enabled on hosts where it works. After VM sleep, desktop/browser startup
+may need to clean up stale locks after confirming the old processes are gone;
+never delete the browser profile to fix a lock.
+
+## Public websites
+
+The marketing and documentation sites are separate static services. See
+[docs on Railway](deploy-docs-railway.md) and
+[marketing on Railway](deploy-marketing-railway.md). They can use Railway's CDN
+and do not need passkey login or a running agent VM.

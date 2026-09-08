@@ -54,8 +54,9 @@ Open `http://127.0.0.1:3003`. Choose another local port if `3003` is already in
 use. Keep the service's remote port on loopback; opening it in a public firewall
 does not add authentication.
 
-For access without an SSH tunnel, use a TLS reverse proxy that authenticates
-every HTTP and WebSocket request. Prevent direct access around that proxy.
+For access without an SSH tunnel, enable [native passkey login](authentication.md)
+and use a TLS reverse proxy, or let that proxy authenticate every HTTP and
+WebSocket request. Prevent direct access around the proxy.
 Do not publish a plain reverse-proxy route to Roost before adding authentication.
 
 ## 4. Connect and verify

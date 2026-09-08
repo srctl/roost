@@ -66,6 +66,23 @@ test("desktop tickets require the configured origin, expire, and can only connec
     assert.equal(connectViewer(ticket.id, "https://roost.test"), true);
     assert.equal(connectViewer(ticket.id, "https://roost.test"), false);
     disconnectViewer(ticket.id);
+    const bound = createViewer("session-a");
+    assert.equal(
+      connectViewer(bound.id, "https://roost.test", "session-b"),
+      false,
+    );
+    assert.equal(
+      connectViewer(bound.id, "https://roost.test", "session-a"),
+      true,
+    );
+    assert.throws(
+      () => viewerControl(bound.id, true, "session-b"),
+      /Reconnect/,
+    );
+    assert.deepEqual(viewerControl(bound.id, true, "session-a"), {
+      controlling: true,
+    });
+    disconnectViewer(bound.id);
     const expired = createViewer();
     Date.now = () => now() + 61_000;
     assert.equal(connectViewer(expired.id, "https://roost.test"), false);
