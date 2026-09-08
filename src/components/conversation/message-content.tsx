@@ -1,7 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { memo } from "react";
 import Markdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { colors } from "../../styles/tokens.stylex";
+
+const remarkPlugins = [remarkGfm];
 
 const components: Components = {
   p: ({ children }) => <p {...stylex.props(styles.paragraph)}>{children}</p>,
@@ -33,6 +36,41 @@ const components: Components = {
   blockquote: ({ children }) => (
     <blockquote {...stylex.props(styles.quote)}>{children}</blockquote>
   ),
+  table: ({ children }) => (
+    <section
+      aria-label="Table"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to focus the region to scroll wide tables.
+      tabIndex={0}
+      {...stylex.props(styles.tableScroll)}
+    >
+      <table {...stylex.props(styles.table)}>{children}</table>
+    </section>
+  ),
+  th: ({ children, style }) => (
+    <th
+      scope="col"
+      {...stylex.props(
+        styles.cell,
+        styles.tableHeader,
+        style?.textAlign === "center" && styles.alignCenter,
+        style?.textAlign === "right" && styles.alignRight,
+      )}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children, style }) => (
+    <td
+      {...stylex.props(
+        styles.cell,
+        styles.tableCell,
+        style?.textAlign === "center" && styles.alignCenter,
+        style?.textAlign === "right" && styles.alignRight,
+      )}
+    >
+      {children}
+    </td>
+  ),
   img: ({ alt }) => <span>{alt}</span>,
 };
 
@@ -41,7 +79,11 @@ export const MessageContent = memo(function MessageContent({
 }: {
   children: string;
 }) {
-  return <Markdown components={components}>{children}</Markdown>;
+  return (
+    <Markdown remarkPlugins={remarkPlugins} components={components}>
+      {children}
+    </Markdown>
+  );
 });
 
 const styles = stylex.create({
@@ -84,4 +126,42 @@ const styles = stylex.create({
     borderLeftColor: colors.border,
     color: colors.muted,
   },
+  tableScroll: {
+    maxWidth: "100%",
+    overflowX: "auto",
+    marginTop: { default: 16, ":first-child": 0 },
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    borderRadius: 8,
+    outlineColor: colors.accent,
+    outlineOffset: 2,
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "inherit",
+    lineHeight: 1.5,
+  },
+  cell: {
+    minWidth: 120,
+    maxWidth: 480,
+    paddingBlock: 10,
+    paddingInline: 12,
+    textAlign: "left",
+    verticalAlign: "top",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+  },
+  tableHeader: {
+    backgroundColor: colors.surface,
+    fontWeight: 600,
+  },
+  tableCell: {
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: colors.border,
+  },
+  alignCenter: { textAlign: "center" },
+  alignRight: { textAlign: "right" },
 });

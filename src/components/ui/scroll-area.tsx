@@ -28,7 +28,12 @@ export function ScrollArea({
         aria-label={label}
         {...stylex.props(styles.viewport)}
       >
-        <Primitive.Content {...stylex.props(styles.content)}>
+        {/* Override Base UI's inline min-width: fit-content so wide tables
+            and code blocks scroll inside the vertically scrolling content. */}
+        <Primitive.Content
+          style={{ minWidth: 0 }}
+          {...stylex.props(styles.content)}
+        >
           {children}
         </Primitive.Content>
       </Primitive.Viewport>
