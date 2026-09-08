@@ -2,55 +2,55 @@ import * as stylex from "@stylexjs/stylex";
 
 export const colors = stylex.defineVars({
   background: {
-    default: "#FFFFFF",
-    "@media (prefers-color-scheme: dark)": "#20221E",
+    default: "var(--roost-background, #FFFFFF)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-background, #20221E)",
   },
   sidebar: {
-    default: "#F2F2E9",
-    "@media (prefers-color-scheme: dark)": "#25281F",
+    default: "var(--roost-sidebar, #F2F2E9)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-sidebar, #25281F)",
   },
   surface: {
-    default: "#FCFCFA",
-    "@media (prefers-color-scheme: dark)": "#23251F",
+    default: "var(--roost-surface, #FCFCFA)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-surface, #23251F)",
   },
   selected: {
-    default: "#E8EBDD",
-    "@media (prefers-color-scheme: dark)": "#363D2D",
+    default: "var(--roost-selected, #E8EBDD)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-selected, #363D2D)",
   },
   bubble: {
-    default: "#F3F3EF",
-    "@media (prefers-color-scheme: dark)": "#303329",
+    default: "var(--roost-bubble, #F3F3EF)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-bubble, #303329)",
   },
   foreground: {
-    default: "#292A28",
-    "@media (prefers-color-scheme: dark)": "#ECEEE8",
+    default: "var(--roost-foreground, #292A28)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-foreground, #ECEEE8)",
   },
   muted: {
-    default: "#80817D",
-    "@media (prefers-color-scheme: dark)": "#A3A79B",
+    default: "var(--roost-muted, #80817D)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-muted, #A3A79B)",
   },
   faint: {
-    default: "#B4B6AB",
-    "@media (prefers-color-scheme: dark)": "#737A68",
+    default: "var(--roost-faint, #B4B6AB)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-faint, #737A68)",
   },
   border: {
-    default: "#E8E8E2",
-    "@media (prefers-color-scheme: dark)": "#35392E",
+    default: "var(--roost-border, #E8E8E2)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-border, #35392E)",
   },
   accent: {
-    default: "#657553",
-    "@media (prefers-color-scheme: dark)": "#C6D4B4",
+    default: "var(--roost-accent, #657553)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-accent, #C6D4B4)",
   },
   onAccent: {
-    default: "#FCFBF7",
-    "@media (prefers-color-scheme: dark)": "#20221E",
+    default: "var(--roost-onAccent, #FCFBF7)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-onAccent, #20221E)",
   },
   action: {
-    default: "#30322D",
-    "@media (prefers-color-scheme: dark)": "#DCE4CF",
+    default: "var(--roost-action, #30322D)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-action, #DCE4CF)",
   },
   review: {
-    default: "#9C8053",
-    "@media (prefers-color-scheme: dark)": "#C8B080",
+    default: "var(--roost-review, #9C8053)",
+    "@media (prefers-color-scheme: dark)": "var(--roost-review, #C8B080)",
   },
 });

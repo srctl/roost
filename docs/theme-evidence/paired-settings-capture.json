@@ -1,0 +1,51 @@
+{
+  "baseline": "3f7bae287253e1c4c5449ea78521b2fcc072152d",
+  "after": "f5ee1107c5047d42c16719a23216897a782a8086",
+  "route": "/settings",
+  "appearance": "Default/System; device light",
+  "state": "Fresh isolated data; no agents; Codex disconnected; navigation closed; top of Settings; response style Codex; activity details off; notification delivery unconfigured",
+  "captures": [
+    {
+      "label": "before",
+      "size": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "file": "docs/theme-evidence/before-settings-desktop.png",
+      "errors": []
+    },
+    {
+      "label": "before",
+      "size": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "file": "docs/theme-evidence/before-settings-mobile.png",
+      "errors": []
+    },
+    {
+      "label": "after",
+      "size": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "file": "docs/theme-evidence/after-settings-desktop.png",
+      "errors": []
+    },
+    {
+      "label": "after",
+      "size": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "file": "docs/theme-evidence/after-settings-mobile.png",
+      "errors": []
+    }
+  ],
+  "deviceScaleFactor": 1,
+  "browser": "Chromium via Playwright; desktop/mobile viewport emulation"
+}
