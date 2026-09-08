@@ -1,9 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Schema } from "effect";
+import { chartDataError } from "../../features/dashboards/chart-data";
 import {
+  DashboardBlock,
+  DashboardDataset,
   DashboardWidget,
   DeleteDashboard,
   SaveDashboard,
+  SaveDataset,
 } from "../../features/dashboards/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
@@ -60,6 +64,7 @@ export const saveDashboard = (agentId: string, input: SaveDashboard) =>
       requireEnabled(db);
       requireAgent(db, agentId);
       const data = Schema.decodeUnknownSync(SaveDashboard)(input);
+      validateReferences(data.blocks, readDatasets(db, agentId));
       const existing = db
         .prepare("SELECT revision FROM dashboards WHERE agentId=? AND key=?")
         .get(agentId, data.key);
@@ -121,3 +126,136 @@ export const deleteDashboard = (agentId: string, input: DeleteDashboard) =>
       });
     return { removed: true };
   });
+
+function readDatasets(db: DatabaseSync, agentId: string) {
+  return db
+    .prepare("SELECT * FROM dashboard_datasets WHERE agentId=? ORDER BY key")
+    .all(agentId)
+    .map((row) =>
+      Schema.decodeUnknownSync(DashboardDataset)({
+        ...JSON.parse(String(row.content)),
+        agentId,
+        key: row.key,
+        revision: row.revision,
+        updatedAt: row.updatedAt,
+      }),
+    );
+}
+
+export const listDatasets = (agentId: string) =>
+  withAgentStore((db) => {
+    requireEnabled(db);
+    requireAgent(db, agentId);
+    return readDatasets(db, agentId);
+  });
+
+function validateReferences(
+  blocks: DashboardWidget["blocks"],
+  datasets: readonly DashboardDataset[],
+) {
+  for (const block of blocks) {
+    if (block.type !== "dataset-chart") continue;
+    const error = chartDataError(
+      block,
+      datasets.find((dataset) => dataset.key === block.datasetKey),
+    );
+    if (error) throw new AgentStoreError({ message: error });
+  }
+}
+
+export const saveDataset = (agentId: string, input: SaveDataset) =>
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      requireEnabled(db);
+      requireAgent(db, agentId);
+      const data = Schema.decodeUnknownSync(SaveDataset)(input);
+      const datasets = readDatasets(db, agentId);
+      const existing = datasets.find((dataset) => dataset.key === data.key);
+      if (
+        existing
+          ? existing.revision !== data.expectedRevision
+          : data.expectedRevision !== undefined
+      )
+        throw new AgentStoreError({
+          message: "This data source changed. Read it again before saving.",
+        });
+      if (!existing && datasets.length >= 30)
+        throw new AgentStoreError({
+          message: "Each agent can keep up to 30 data sources.",
+        });
+      const { expectedRevision: _, ...content } = data;
+      const saved: DashboardDataset = {
+        ...content,
+        agentId,
+        revision: (existing?.revision ?? 0) + 1,
+        updatedAt: Date.now(),
+      };
+      // Reject structural or value changes that would break any referencing widget.
+      const next = [
+        ...datasets.filter((dataset) => dataset.key !== data.key),
+        saved,
+      ];
+      for (const row of db
+        .prepare("SELECT blocks FROM dashboards WHERE agentId=?")
+        .all(agentId))
+        validateReferences(
+          Schema.decodeUnknownSync(Schema.Array(DashboardBlock))(
+            JSON.parse(String(row.blocks)),
+          ).filter(
+            (block) =>
+              block.type === "dataset-chart" && block.datasetKey === data.key,
+          ),
+          next,
+        );
+      db.prepare(
+        "INSERT INTO dashboard_datasets(agentId,key,content,revision,updatedAt) VALUES(?,?,?,?,?) ON CONFLICT(agentId,key) DO UPDATE SET content=excluded.content,revision=excluded.revision,updatedAt=excluded.updatedAt",
+      ).run(
+        agentId,
+        data.key,
+        JSON.stringify(content),
+        saved.revision,
+        saved.updatedAt,
+      );
+      return saved;
+    }),
+  );
+
+export const deleteDataset = (agentId: string, input: DeleteDashboard) =>
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      requireEnabled(db);
+      requireAgent(db, agentId);
+      const data = Schema.decodeUnknownSync(DeleteDashboard)(input);
+      const existing = db
+        .prepare(
+          "SELECT revision FROM dashboard_datasets WHERE agentId=? AND key=?",
+        )
+        .get(agentId, data.key);
+      if (!existing || existing.revision !== data.expectedRevision)
+        throw new AgentStoreError({
+          message:
+            "This data source changed. Read it again before removing it.",
+        });
+      for (const row of db
+        .prepare("SELECT blocks FROM dashboards WHERE agentId=?")
+        .all(agentId)) {
+        const blocks = Schema.decodeUnknownSync(Schema.Array(DashboardBlock))(
+          JSON.parse(String(row.blocks)),
+        );
+        if (
+          blocks.some(
+            (block) =>
+              block.type === "dataset-chart" && block.datasetKey === data.key,
+          )
+        )
+          throw new AgentStoreError({
+            message:
+              "This data source is used by a chart. Remove its chart references first.",
+          });
+      }
+      db.prepare(
+        "DELETE FROM dashboard_datasets WHERE agentId=? AND key=?",
+      ).run(agentId, data.key);
+      return { removed: true };
+    }),
+  );

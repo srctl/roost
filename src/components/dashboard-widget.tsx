@@ -2,10 +2,12 @@
 import * as stylex from "@stylexjs/stylex";
 import type {
   DashboardBlock,
+  DashboardDataset,
   DashboardWidget as Widget,
 } from "../features/dashboards/schema";
 import { colors } from "../styles/tokens.stylex";
 import { MessageContent } from "./conversation/message-content";
+import { DashboardChart } from "./dashboard-chart";
 import { Button } from "./ui/button";
 
 function Chart({
@@ -124,7 +126,13 @@ function Chart({
   );
 }
 
-function Block({ block }: { block: DashboardBlock }) {
+function Block({
+  block,
+  datasets,
+}: {
+  block: DashboardBlock;
+  datasets: readonly DashboardDataset[];
+}) {
   switch (block.type) {
     case "markdown":
       return <MessageContent>{block.text}</MessageContent>;
@@ -168,6 +176,13 @@ function Block({ block }: { block: DashboardBlock }) {
             </tbody>
           </table>
         </div>
+      );
+    case "dataset-chart":
+      return (
+        <DashboardChart
+          chart={block}
+          dataset={datasets.find((dataset) => dataset.key === block.datasetKey)}
+        />
       );
     case "chart":
       return <Chart block={block} />;
@@ -223,8 +238,10 @@ export function DashboardWidget({
   widget,
   agentName,
   onDiscuss,
+  datasets = [],
 }: {
   widget: Widget;
+  datasets?: readonly DashboardDataset[];
   agentName: string;
   onDiscuss: () => void;
 }) {
@@ -235,7 +252,7 @@ export function DashboardWidget({
       </header>
       <div {...stylex.props(styles.blocks)}>
         {widget.blocks.map((block, index) => (
-          <Block key={index} block={block} />
+          <Block key={index} block={block} datasets={datasets} />
         ))}
       </div>
       <footer {...stylex.props(styles.footer)}>

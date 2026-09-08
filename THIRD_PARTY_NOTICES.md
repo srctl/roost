@@ -34,3 +34,10 @@ SOFTWARE.
 The live desktop viewer bundles unmodified noVNC 1.5.0, licensed under MPL-2.0.
 Its source is available at https://github.com/novnc/noVNC/tree/v1.5.0 and in the
 `@novnc/novnc` npm package. Release archives include its license in `licenses/`.
+
+## Fluent UI Charts
+
+Dashboard dataset charts bundle Microsoft Fluent UI v9 (`@fluentui/react-charts`
+9.3.25 and its provider/theme dependencies), licensed under MIT. Source and
+license: https://github.com/microsoft/fluentui. Charts are adapted through Roost's
+bounded data schema; the upstream chart implementations are unmodified.
