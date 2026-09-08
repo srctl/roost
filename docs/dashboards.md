@@ -147,7 +147,8 @@ Fluent is loaded in a separate lazy chunk only after the client has measured the
 chart container. Server HTML and the first hydration render share the same
 placeholder and semantic data table, avoiding chart DOM measurement during SSR.
 `ResizeObserver` tracks the widget width (including the chat divider), and the
-Fluent provider follows the system light/dark preference. A chart error boundary
+Fluent provider follows the current Roost palette and appearance, including
+unsaved previews. Explicit Light/Dark overrides the device; System tracks it. A chart error boundary
 keeps its saved table available if rendering fails. Missing source/column or
 invalid selected values produce a recoverable message rather than a misleading
 plot. The library adds roughly 160 KB gzip in its lazy client chunk; the build
@@ -162,10 +163,10 @@ mechanism.
 
 `pnpm test` covers dataset validation, caps, ownership, revisions, reference
 integrity, maintenance/disabled gates, agent dispatch, migration, and legacy
-boards. `pnpm build && pnpm test:charts` runs a real production browser test using
-isolated temporary storage. Install Chromium with `pnpm exec playwright install
-chromium`, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to a local Chrome binary.
-Set `CHART_SCREENSHOT_DIR` to save screenshots. The test verifies all six charts,
-legacy blocks, empty/missing source recovery, keyboard tables, source inspection,
-legend interaction, light/dark layouts, resizing, and refreshed source values.
+boards. The original disposable production browser helper is available in the
+[review revision](https://github.com/srctl/roost/blob/9cd53a42ce507e0f2d24bf276ce2986e3716e654/scripts/test-dashboard-charts.ts),
+with its dedicated tooling removed from the release. Browser verification uses
+isolated temporary storage and checks all six charts, legacy blocks, empty/missing
+source recovery, keyboard tables, source inspection, legends, appearance,
+resizing, and refreshed values.
 See [screenshot evidence](chart-evidence/README.md) for the paired review captures.

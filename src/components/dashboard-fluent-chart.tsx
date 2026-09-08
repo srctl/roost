@@ -14,6 +14,9 @@ import type {
   DatasetChart,
 } from "../features/dashboards/schema";
 
+import { useTheme } from "../features/settings/theme-provider";
+import { themePalettes } from "../features/settings/themes";
+
 const palette = [
   "#477F70",
   "#596FB5",
@@ -40,14 +43,19 @@ export default function FluentChart({
   dataset: DashboardDataset;
   width: number;
 }) {
-  const [dark, setDark] = useState(false);
+  const { current } = useTheme();
+  const [deviceDark, setDeviceDark] = useState(
+    () => matchMedia("(prefers-color-scheme: dark)").matches,
+  );
   useEffect(() => {
     const query = matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setDark(query.matches);
+    const update = () => setDeviceDark(query.matches);
     update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+  const dark = current.mode === "system" ? deviceDark : current.mode === "dark";
+  const activePalette = themePalettes[current.preset][dark ? "dark" : "light"];
   const colors = dark ? darkPalette : palette;
   const xIndex = dataset.columns.findIndex((column) => column.key === chart.x);
   const numericX = dataset.columns[xIndex]?.type === "number";
@@ -166,7 +174,13 @@ export default function FluentChart({
   }
   return (
     <FluentProvider
-      theme={dark ? webDarkTheme : webLightTheme}
+      theme={{
+        ...(dark ? webDarkTheme : webLightTheme),
+        colorNeutralForeground1: activePalette.foreground,
+        colorNeutralForeground2: activePalette.muted,
+        colorNeutralBackground1: activePalette.surface,
+        colorNeutralStroke1: activePalette.border,
+      }}
       style={{ background: "transparent" }}
     >
       {rendered}
