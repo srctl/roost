@@ -30,7 +30,11 @@ export function ConversationNotice({
         )}
       </div>
       {message.text === CODEX_SIGN_IN_REQUIRED && (
-        <Link to="/settings" {...stylex.props(styles.link)}>
+        <Link
+          to="/settings"
+          search={{ group: "account" }}
+          {...stylex.props(styles.link)}
+        >
           Connect Codex
         </Link>
       )}
