@@ -1,7 +1,12 @@
 import { Tabs } from "@base-ui/react/tabs";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
-import { getAgentIdentity, saveAgentSoul } from "../features/agents/functions";
+import {
+  getAgentIdentity,
+  reflectAgentNow,
+  saveAgentReflection,
+  saveAgentSoul,
+} from "../features/agents/functions";
 import { colors } from "../styles/tokens.stylex";
 import { AgentAutomationSettings } from "./agent-automation-settings";
 import { MessageContent } from "./conversation/message-content";
@@ -85,6 +90,47 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
     }
   }
 
+  async function configureReflection(intervalMinutes: 0 | 60 | 360 | 1440) {
+    setSaving(true);
+    setError("");
+    try {
+      const result = await saveAgentReflection({
+        data: { agentId, intervalMinutes },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setReload((value) => value + 1);
+    } catch {
+      setError("Could not save reflection settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reflectNow() {
+    setSaving(true);
+    setError("");
+    try {
+      const result = await reflectAgentNow({
+        data: { agentId, requestId: crypto.randomUUID() },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setNotice(
+        "Reflection queued. Changes will appear in this conversation and soul history.",
+      );
+      setReload((value) => value + 1);
+    } catch {
+      setError("Could not start reflection.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function refreshMemories() {
     setLoading(true);
     setError("");
@@ -126,7 +172,7 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
       <Tabs.Panel value="soul" {...stylex.props(styles.panel)}>
         <p {...stylex.props(styles.help)}>
           Your agent’s purpose, personality, and boundaries. You can edit these
-          or ask your agent to propose a change.
+          or let your agent refine them through reflection.
         </p>
         {identity && (
           <>
@@ -205,6 +251,62 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
             </p>
           </>
         )}
+        {identity && (
+          <section {...stylex.props(styles.history)}>
+            <h3 {...stylex.props(styles.documentLabel)}>Reflection</h3>
+            <p {...stylex.props(styles.help)}>
+              Review recent conversations and memory, then make small, grounded
+              soul improvements. Runs only after new activity and stays quiet
+              when nothing needs changing. Every edit has a reason and Undo.
+            </p>
+            <div {...stylex.props(styles.reflectionControls)}>
+              <label htmlFor={`reflection-${agentId}`}>Reflect</label>
+              <select
+                id={`reflection-${agentId}`}
+                value={identity.reflection.intervalMinutes}
+                disabled={saving || loading || editing}
+                onChange={(event) =>
+                  void configureReflection(
+                    Number(event.target.value) as 0 | 60 | 360 | 1440,
+                  )
+                }
+                {...stylex.props(styles.interval)}
+              >
+                <option value={0}>Off</option>
+                <option value={60}>Every hour</option>
+                <option value={360}>Every 6 hours</option>
+                <option value={1440}>Every day</option>
+              </select>
+              <Button
+                disabled={
+                  saving ||
+                  loading ||
+                  editing ||
+                  ["queued", "running"].includes(
+                    identity.reflection.latest?.status ?? "",
+                  )
+                }
+                onClick={() => void reflectNow()}
+              >
+                Reflect now
+              </Button>
+              <Button
+                disabled={saving || loading || editing}
+                onClick={() => setReload((value) => value + 1)}
+              >
+                Refresh
+              </Button>
+            </div>
+            <p {...stylex.props(styles.help)}>
+              {identity.reflection.latest
+                ? `Last reflection: ${identity.reflection.latest.status} · ${new Date(identity.reflection.latest.finishedAt ?? identity.reflection.latest.createdAt).toLocaleString()}.`
+                : "No reflections yet."}
+              {identity.reflection.nextRunAt
+                ? ` Next check: ${new Date(identity.reflection.nextRunAt).toLocaleString()}.`
+                : " Periodic reflection is off."}
+            </p>
+          </section>
+        )}
         <Collapsible {...stylex.props(styles.history)}>
           <CollapsibleTrigger {...stylex.props(styles.historyTrigger)}>
             <Icon name="chevron-right" />
@@ -223,8 +325,12 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
                   {change.reason}
                 </Button>
                 <p {...stylex.props(styles.help)}>
-                  {change.source === "agent" ? "Agent" : "You"} ·{" "}
-                  {new Date(change.createdAt).toLocaleString()}
+                  {change.source === "reflection"
+                    ? "Reflection"
+                    : change.source === "agent"
+                      ? "Agent"
+                      : "You"}{" "}
+                  · {new Date(change.createdAt).toLocaleString()}
                 </p>
               </div>
             ))}
@@ -411,6 +517,23 @@ const styles = stylex.create({
     opacity: { default: 1, ":disabled": 0.5 },
   },
   actions: { display: "flex", gap: 8 },
+  reflectionControls: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 12,
+    fontSize: 12,
+  },
+  interval: {
+    backgroundColor: colors.background,
+    color: colors.foreground,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    borderRadius: 6,
+    padding: 8,
+    font: "inherit",
+  },
   memory: {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",

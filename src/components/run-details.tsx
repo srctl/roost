@@ -81,7 +81,8 @@ export function RunInspector({
         if (result.ok) {
           setRun(result.value);
           setError("");
-          if (!["queued", "running"].includes(result.value.status)) return;
+          if (!["queued", "running", "steering"].includes(result.value.status))
+            return;
         } else {
           setError(result.error);
         }

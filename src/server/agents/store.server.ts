@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 6)
+        if (version > 7)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -155,6 +155,16 @@ export function withAgentStore<A>(
             );
             ALTER TABLE runs ADD COLUMN hasAgentUpdate INTEGER NOT NULL DEFAULT 0;
             PRAGMA user_version = 6;
+            COMMIT;`);
+        }
+        if (version < 7) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE agent_reflections (
+              agentId TEXT PRIMARY KEY, intervalMinutes INTEGER NOT NULL DEFAULT 360,
+              nextRunAt INTEGER, lastActivityAt INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX runs_agent_kind_finished ON runs(agentId,kind,finishedAt);
+            PRAGMA user_version = 7;
             COMMIT;`);
         }
         return run(db, directory);

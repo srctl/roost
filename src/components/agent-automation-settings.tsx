@@ -21,6 +21,7 @@ function runLabel(run: RunSummary): string {
     chat: "Chat",
     delegation: "Delegated task",
     handoff: "Specialist update",
+    reflection: "Reflection",
   }[run.kind];
 }
 
@@ -176,7 +177,7 @@ export function AgentAutomationSettings({
               {new Date(run.createdAt).toLocaleString()} · {run.status}
             </span>
           </Button>
-          {["queued", "running"].includes(run.status) && (
+          {["queued", "running", "steering"].includes(run.status) && (
             <Button
               disabled={busy}
               onClick={() =>

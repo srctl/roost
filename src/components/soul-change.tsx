@@ -95,7 +95,11 @@ export function SoulChangeDetails({
         <>
           <p>{change.reason}</p>
           <p {...stylex.props(styles.meta)}>
-            {change.source === "agent" ? "Updated by agent" : "Updated by you"}{" "}
+            {change.source === "reflection"
+              ? "Updated during reflection"
+              : change.source === "agent"
+                ? "Updated by agent"
+                : "Updated by you"}{" "}
             · {new Date(change.createdAt).toLocaleString()}
           </p>
           <h3 {...stylex.props(styles.label)}>Before</h3>

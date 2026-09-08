@@ -129,19 +129,14 @@ export function useConversation(
   }
 
   async function send(text: string, files: readonly FileAttachment[] = []) {
-    if (
-      submitting.current ||
-      loading ||
-      busy ||
-      (!text.trim() && !files.length)
-    )
+    if (submitting.current || loading || (!text.trim() && !files.length))
       return false;
     generation.current++;
     submitting.current = true;
     setBusy(true);
     setError(undefined);
     const messageId = crypto.randomUUID();
-    setRunId(messageId);
+    if (!busy) setRunId(messageId);
     setEntries((entries) => [
       ...entries,
       {

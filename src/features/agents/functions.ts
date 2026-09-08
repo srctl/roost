@@ -15,6 +15,12 @@ import {
   CodexError,
   getCodexConnection,
 } from "../../server/codex/app-server.server";
+import {
+  ReflectionSettings,
+  readReflection,
+  runReflectionNow,
+  saveReflection,
+} from "../../server/reflections/store.server";
 import { CreateAgentInput } from "./schema";
 
 // Return expected failures as data so Start never exposes server error details.
@@ -69,7 +75,8 @@ export const getAgentIdentity = createServerFn({ method: "GET" })
         const memories = yield* readAgentMemory(data.agentId);
         const changes = yield* listSoulChanges(data.agentId);
 
-        return { soul, memories, changes };
+        const reflection = yield* readReflection(data.agentId);
+        return { soul, memories, changes, reflection };
       }),
     ),
   );
@@ -96,3 +103,19 @@ export const undoAgentSoul = createServerFn({ method: "POST" })
 export const getAgentActivity = createServerFn({ method: "GET" })
   .middleware([available])
   .handler(() => result(readAgentActivity()));
+
+export const saveAgentReflection = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(ReflectionSettings))
+  .handler(({ data }) => result(saveReflection(data)));
+
+export const reflectAgentNow = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(
+      Schema.Struct({ agentId: Schema.UUID, requestId: Schema.UUID }),
+    ),
+  )
+  .handler(({ data }) =>
+    result(runReflectionNow(data.agentId, data.requestId)),
+  );

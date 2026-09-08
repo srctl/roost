@@ -25,7 +25,8 @@ Open an agent's settings from the conversation header:
   The agent is instructed
   to make targeted edits for explicit lasting requests, and propose inferred
   changes before applying them. These authorization rules are prompt instructions;
-  scheduled runs are additionally blocked from mutation tools by the server.
+  ordinary scheduled runs are additionally blocked from soul mutation tools by the server.
+  Periodic reflection has its own limited authorization, described below.
   Roost creates its own notice for every saved change, visible in both response
   styles. The Soul tab shows before/after history, source, reason, and Undo.
   Revision checks reject stale saves and undo attempts that would overwrite a
@@ -35,6 +36,40 @@ Open an agent's settings from the conversation header:
   asynchronous and depend on Codex eligibility/idle-time rules; this is not
   instant recall after every reply. Roost's automation worker is separate from
   native memory generation.
+
+## Periodic reflection
+
+Each agent reflects every six hours by default while Roost is running. In
+**Agent settings → Soul → Reflection**, choose hourly, every six hours, daily,
+or Off. **Reflect now** queues one review immediately, including when periodic
+reflection is off. Existing agents receive the default on upgrade; the first
+check is six hours after their reflection settings are initialized.
+
+Inspired by [OpenClaw heartbeats](https://docs.openclaw.ai/gateway/heartbeat),
+reflection runs through the durable worker, waits for busy agents, and stays
+quiet when nothing needs changing. It only runs after new non-reflection
+activity; downtime produces one catch-up rather than a backlog. User chats take
+priority over queued reflections. Changing the interval or switching Off cancels
+queued periodic reflections; an active reflection may finish. Each reflection
+has a two-minute timeout and a record in **Automations → Run history**. Failures
+are visible, and interrupted work is not replayed immediately.
+
+Reflection reviews a bounded copy of the agent's recent visible conversation
+and its own native memory in a fresh thread. It can make small, evidence-backed
+improvements to voice, judgment, and working style without asking again. It must
+preserve purpose, boundaries, explicit instructions, and changes the user undid;
+personal facts and task history belong in memory. The Soul tab identifies edits
+as **Reflection**, with the reason, before/after text, and Undo. Actual soul
+writes always create a conversation notice, even if the final reply is quiet.
+
+Reflection exposes only soul read/update tools. Its native sandbox is read-only,
+with approvals, connected apps, web search, and network access disabled. It cannot
+use Roost's computer, delegation, scheduling, notification, or dashboard tools.
+This does not change the host-level isolation limits described below.
+
+Native Codex memory consolidation remains separate: reflection reads memory
+but does not rewrite generated memory files or force a consolidation. OpenClaw
+also distinguishes [heartbeats from memory consolidation](https://docs.openclaw.ai/concepts/memory).
 
 ## What stays separate
 

@@ -43,6 +43,8 @@ export function Composer({
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const submitting = useRef(false);
   const [uploadError, setUploadError] = useState<string>();
   const fileInput = useRef<HTMLInputElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -82,11 +84,11 @@ export function Composer({
 
   async function attach(selected: FileList | readonly File[] | null) {
     if (!selected?.length) return;
-    if (loading || busy || uploading) {
+    if (loading || submitting.current || uploading) {
       setUploadError(
         uploading
           ? "Wait for the current upload to finish, then paste or attach again."
-          : "Wait for the current response to finish before attaching files.",
+          : "Wait for the message to send before attaching files.",
       );
       return;
     }
@@ -137,7 +139,21 @@ export function Composer({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (loading || busy || uploading || (!text.trim() && !files.length)) return;
+    if (
+      loading ||
+      submitting.current ||
+      uploading ||
+      (!text.trim() && !files.length)
+    )
+      return;
+    submitting.current = true;
+    setSending(true);
+    // A short pulse feels light; unsupported devices simply skip feedback.
+    try {
+      navigator.vibrate?.(10);
+    } catch {
+      // Haptic feedback must never prevent a send.
+    }
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone;
@@ -146,12 +162,17 @@ export function Composer({
       input.current?.blur();
     const submittedText = text;
     const submittedIds = new Set(files.map((file) => file.id));
-    if (await onSend(text.trim(), files)) {
-      setText((current) => (current === submittedText ? "" : current));
-      setFiles((current) =>
-        current.filter((file) => !submittedIds.has(file.id)),
-      );
-      setUploadError(undefined);
+    try {
+      if (await onSend(text.trim(), files)) {
+        setText((current) => (current === submittedText ? "" : current));
+        setFiles((current) =>
+          current.filter((file) => !submittedIds.has(file.id)),
+        );
+        setUploadError(undefined);
+      }
+    } finally {
+      submitting.current = false;
+      setSending(false);
     }
   }
 
@@ -171,7 +192,7 @@ export function Composer({
               <span>{formatFileSize(file.size)}</span>
               <Button
                 type="button"
-                disabled={busy || !hydrated}
+                disabled={sending || !hydrated}
                 aria-label={`Remove ${file.name}`}
                 onClick={() =>
                   setFiles((current) =>
@@ -210,7 +231,7 @@ export function Composer({
           disabled={
             !hydrated ||
             loading ||
-            busy ||
+            sending ||
             uploading ||
             files.length >= MAX_ATTACHMENTS
           }
@@ -232,7 +253,7 @@ export function Composer({
         <textarea
           ref={input}
           aria-label={`Message ${agentName}`}
-          placeholder={`Message ${agentName}…`}
+          placeholder={busy ? "Add a follow-up…" : `Message ${agentName}…`}
           value={text}
           disabled={!hydrated}
           onChange={(event) => setText(event.target.value)}
@@ -251,7 +272,7 @@ export function Composer({
           }}
           {...stylex.props(styles.input)}
         />
-        {busy ? (
+        {busy && (
           <Button
             key="stop"
             type="button"
@@ -263,7 +284,8 @@ export function Composer({
           >
             <Appear pop aria-hidden="true" xstyle={styles.stopIcon} />
           </Button>
-        ) : (
+        )}
+        {(!busy || text.trim() || files.length > 0) && (
           <Button
             key="send"
             type="submit"
@@ -271,6 +293,7 @@ export function Composer({
             disabled={
               !hydrated ||
               loading ||
+              sending ||
               uploading ||
               (!text.trim() && !files.length)
             }
@@ -354,12 +377,12 @@ const styles = stylex.create({
   composerArea: {
     marginTop: "auto",
     flexShrink: 0,
-    paddingTop: { default: 20, "@media (max-width: 700px)": 8 },
-    paddingInline: { default: 0, "@media (max-width: 700px)": 12 },
+    paddingTop: { default: 20, "@media (max-width: 700px)": 4 },
+    paddingInline: { default: 0, "@media (max-width: 700px)": 8 },
     paddingBottom: {
       default: 0,
       "@media (max-width: 700px)":
-        "max(12px, var(--roost-bottom-inset, env(safe-area-inset-bottom)))",
+        "max(8px, var(--roost-bottom-inset, env(safe-area-inset-bottom)))",
     },
   },
   progress: {
@@ -394,12 +417,12 @@ const styles = stylex.create({
   composer: {
     display: "flex",
     alignItems: "flex-end",
-    gap: 10,
+    gap: { default: 10, "@media (max-width: 700px)": 6 },
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: { default: colors.border, ":focus-within": colors.accent },
     borderRadius: 14,
-    padding: 10,
+    padding: { default: 10, "@media (max-width: 700px)": 4 },
     boxShadow: {
       default: "0 2px 8px #00000003",
       ":focus-within": `0 2px 12px #00000006, 0 0 0 3px color-mix(in srgb, ${colors.accent} 14%, transparent)`,

@@ -322,6 +322,13 @@ export function runNotificationKind(run: {
   if (run.status === "failed" || run.status === "interrupted")
     return "failed" as const;
   if (run.status !== "completed") return null;
+  if (run.kind === "reflection") {
+    const answer = (JSON.parse(run.messages) as Message[])
+      .reverse()
+      .find((message) => message.role === "assistant")
+      ?.text?.trim();
+    if (answer === "ROOST_NO_UPDATE") return null;
+  }
   if (run.kind === "automation") {
     const automation = JSON.parse(run.automationSnapshot ?? "null");
     const answer = (JSON.parse(run.messages) as Message[])

@@ -11,6 +11,7 @@ import {
 import { notifyRunFinished } from "../notifications/push.server";
 import {
   claimRun,
+  claimSteeringRun,
   finishRun,
   persistRun,
   type Run,
@@ -120,6 +121,16 @@ async function execute(run: Run, signal: AbortSignal) {
         emit,
         run.automationSnapshot ? JSON.parse(run.automationSnapshot) : undefined,
         run.kind,
+        Effect.gen(function* () {
+          const next = yield* claimSteeringRun(run);
+          if (!next) return;
+          oldIds.delete(next.id);
+          return {
+            agentId: next.agentId,
+            messageId: next.id,
+            text: next.prompt,
+          };
+        }),
       ).pipe(
         Effect.catchAll((cause) =>
           Effect.sync(() => {

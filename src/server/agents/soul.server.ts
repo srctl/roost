@@ -83,7 +83,7 @@ export const readSoul = (agentId: string) =>
 
 export const updateSoul = (
   input: typeof SoulUpdate.Type,
-  source: "user" | "agent" = "user",
+  source: "user" | "agent" | "reflection" = "user",
 ) =>
   Effect.gen(function* () {
     const data = yield* Schema.decodeUnknown(SoulUpdate)(input).pipe(
@@ -159,7 +159,11 @@ export const SoulPatch = Schema.Struct({
   ).pipe(Schema.minItems(1), Schema.maxItems(20)),
 });
 
-export const patchSoul = (agentId: string, input: typeof SoulPatch.Type) =>
+export const patchSoul = (
+  agentId: string,
+  input: typeof SoulPatch.Type,
+  source: "agent" | "reflection" = "agent",
+) =>
   Effect.gen(function* () {
     const data = yield* Schema.decodeUnknown(SoulPatch)(input);
     const current = yield* readSoul(agentId);
@@ -175,7 +179,7 @@ export const patchSoul = (agentId: string, input: typeof SoulPatch.Type) =>
 
     return yield* updateSoul(
       { agentId, content, revision: data.revision, reason: data.reason },
-      "agent",
+      source,
     );
   });
 

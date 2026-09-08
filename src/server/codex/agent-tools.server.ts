@@ -28,6 +28,7 @@ import {
   notificationTools,
   notifyAgent,
 } from "../notifications/tools.server";
+import { reflectionTools } from "../reflections/store.server";
 import { runAutomationNow } from "../runs/store.server";
 import { CodexError } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
@@ -104,7 +105,7 @@ export const agentTools: DynamicToolSpec[] = [
     type: "function",
     name: "roost_update_soul",
     description:
-      "Apply exact targeted edits to your soul after the user explicitly requests a lasting change or agrees to your proposed change. Read the soul first, preserve unrelated text, and supply a short reason. Do not store schedules or personal facts here.",
+      "Apply exact targeted edits to your soul during an authorized reflection, or after the user explicitly requests a lasting change or agrees to your proposed change. Read the soul first, preserve unrelated text, and supply a short reason. Do not store schedules or personal facts here.",
     inputSchema: JSONSchema.make(SoulPatch) as unknown as JsonValue,
   },
   {
@@ -151,7 +152,7 @@ export const agentTools: DynamicToolSpec[] = [
 type AgentToolContext = {
   agentId: string;
   runId?: string;
-  allowMutations: boolean;
+  allowMutations: boolean | "reflection";
 };
 
 export function handleAgentTool(
@@ -160,6 +161,10 @@ export function handleAgentTool(
   arguments_: unknown,
 ) {
   const action = Effect.gen(function* () {
+    if (allowMutations === "reflection" && !reflectionTools.has(tool))
+      return yield* new CodexError({
+        message: "Reflection can only read and update its own soul.",
+      });
     if (tool === "roost_notify")
       return yield* notifyAgent(
         agentId,
@@ -227,6 +232,7 @@ export function handleAgentTool(
       return yield* patchSoul(
         agentId,
         yield* Schema.decodeUnknown(SoulPatch)(arguments_),
+        allowMutations === "reflection" ? "reflection" : "agent",
       );
     }
 

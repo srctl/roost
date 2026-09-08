@@ -71,7 +71,9 @@ This is not an exactly-once guarantee for external tool side effects.
 
 Scheduled runs use a fresh Codex thread with the saved task, current soul, and
 same private agent memory. They do not receive the main chat history, and the
-server rejects soul or automation mutations from them. Final results are posted
+server rejects soul or automation mutations from them.
+[Periodic reflection](agents-and-memory.md#periodic-reflection) is a separate
+run kind with limited permission to update its own soul. Final results are posted
 into the ongoing Roost conversation and supplied as quoted context on the next
 chat turn. “Only when something needs attention” asks the agent for an exact
 `ROOST_NO_UPDATE` final response when there is nothing to report; these successful

@@ -96,6 +96,48 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     return;
   }
   if (method === "turn/start") {
+    const active = thread.turns.find((turn) => turn.status === "inProgress");
+    if (params.input[0].text === "steer-wait" || active) {
+      const turn = active ?? {
+        id: `turn-${thread.turns.length}`,
+        status: "inProgress",
+        items: [],
+      };
+      if (!active) thread.turns.push(turn);
+      const user = {
+        type: "userMessage",
+        id: randomUUID(),
+        clientId: params.clientUserMessageId,
+        content: params.input,
+      };
+      turn.items.push(user);
+      persist();
+      send({
+        method: "item/completed",
+        params: { threadId: thread.id, turnId: turn.id, item: user },
+      });
+      if (params.input[0].text === "finish steering") {
+        turn.status = "completed";
+        const reply = {
+          type: "agentMessage",
+          id: randomUUID(),
+          text: turn.items.map((item) => item.content[0].text).join(" | "),
+        };
+        turn.items.push(reply);
+        persist();
+        send({
+          method: "item/completed",
+          params: { threadId: thread.id, turnId: turn.id, item: reply },
+        });
+        // Completion before acknowledgement must not drop the final response.
+        send({
+          method: "turn/completed",
+          params: { threadId: thread.id, turn },
+        });
+      }
+      send({ id, result: { turn } });
+      return;
+    }
     let acknowledged = false;
     const turn = {
       id: `turn-${thread.turns.length}`,

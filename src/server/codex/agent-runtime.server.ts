@@ -12,6 +12,7 @@ import {
 import { releaseComputer } from "../computer/session.server";
 import { computerAction } from "../computer/tools.server";
 import { PublishArtifact, publishArtifact } from "../files/tools.server";
+import { reflectionTools } from "../reflections/store.server";
 import { handleAgentTool } from "./agent-tools.server";
 import { CodexError, openAppServer, openHostServer } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
@@ -166,7 +167,7 @@ const makeAgentServer = (
       },
     );
     let threadId: string | undefined;
-    let allowMutations = false;
+    let allowMutations: boolean | "reflection" = false;
     let runId: string | undefined;
     let toolSignal: AbortSignal | undefined;
     let turnId: string | undefined;
@@ -224,6 +225,8 @@ const makeAgentServer = (
         runId && threadId
           ? { agentId, runId, threadId, requestKey: JSON.stringify(requestId) }
           : undefined;
+      if (isNativeApproval(method) && allowMutations === "reflection")
+        throw new Error("Reflection cannot request additional permissions.");
       if (isNativeApproval(method)) {
         if (!context || !toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
@@ -253,6 +256,17 @@ const makeAgentServer = (
         throw new Error();
       }
 
+      if (allowMutations === "reflection" && !reflectionTools.has(call.tool)) {
+        return {
+          success: false,
+          contentItems: [
+            {
+              type: "inputText",
+              text: "Reflection can only read and update its own soul.",
+            },
+          ],
+        };
+      }
       if (call.tool === "roost_computer") {
         return Effect.runPromise(computerAction(agentId, call.arguments), {
           signal: toolSignal,
@@ -302,7 +316,7 @@ const makeAgentServer = (
       client,
       bindThread: (
         id: string,
-        mutations = true,
+        mutations: boolean | "reflection" = true,
         activeRunId?: string,
         signal?: AbortSignal,
       ) => {

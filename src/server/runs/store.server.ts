@@ -10,13 +10,14 @@ import { deliverDelegationResults } from "../delegations/store.server";
 import { linkAttachments, readRunFiles } from "../files/store.server";
 import { assertAvailable, isMaintenance } from "../maintenance.server";
 import { notifyRunFinished } from "../notifications/push.server";
+import { scheduleReflections } from "../reflections/store.server";
 import { writeTransaction } from "../transaction.server";
 import { putMessage } from "./timeline.server";
 
 export type Run = {
   id: string;
   agentId: string;
-  kind: "chat" | "automation" | "delegation" | "handoff";
+  kind: "chat" | "automation" | "delegation" | "handoff" | "reflection";
   prompt: string;
   status: string;
   automationId: string | null;
@@ -117,7 +118,12 @@ export const enqueueChat = (input: SendMessage) =>
         ...(files.length ? { files } : {}),
       });
 
-      return { id: input.messageId };
+      const active = db
+        .prepare(
+          "SELECT id FROM runs WHERE agentId=? AND status='running' AND kind IN ('chat','handoff') AND cancelRequested=0",
+        )
+        .get(input.agentId);
+      return { id: active ? String(active.id) : input.messageId };
     });
   });
 
@@ -177,6 +183,16 @@ export function readRunSummaries(
 
 export const cancelRun = (agentId: string, id: string) =>
   withAgentStore((db) => {
+    // A follow-up belongs to the active run, including after a page reload.
+    const steering = db
+      .prepare(
+        "SELECT owner FROM runs WHERE id=? AND agentId=? AND status='steering'",
+      )
+      .get(id, agentId);
+    if (steering)
+      db.prepare(
+        "UPDATE runs SET cancelRequested=1 WHERE agentId=? AND owner=? AND status='running'",
+      ).run(agentId, String(steering.owner));
     db.prepare(
       "UPDATE runs SET cancelRequested=1, status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END, finishedAt=CASE WHEN status='queued' THEN ? ELSE finishedAt END WHERE id=? AND agentId=? AND status IN ('queued','running')",
     ).run(Date.now(), id, agentId);
@@ -196,7 +212,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
         return false;
       if (lease?.owner !== owner) {
         const abandoned = db
-          .prepare("SELECT * FROM runs WHERE status='running'")
+          .prepare("SELECT * FROM runs WHERE status IN ('running','steering')")
           .all() as Run[];
         for (const run of abandoned) {
           const messages = (JSON.parse(run.messages) as Message[]).map(
@@ -205,7 +221,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
                 ? ({ ...message, status: "interrupted" } as Message)
                 : message,
           );
-          if (run.kind !== "automation")
+          if (run.kind !== "automation" && run.kind !== "reflection")
             for (const message of messages)
               putMessage(db, run.agentId, message);
           db.prepare(
@@ -276,22 +292,51 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
         ).run(next, Number(next !== null), automation.id);
       }
 
+      scheduleReflections(db, now);
       return true;
     }),
   );
 
 export const claimRun = (owner: string, allowBackground = true) =>
-  withAgentStore((db) => {
-    const now = Date.now();
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      const now = Date.now();
 
-    return db
-      .prepare(
-        "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (? OR q.kind='chat') AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
-      )
-      .get(owner, now, Number(allowBackground), owner, now - 30000) as
-      | Run
-      | undefined;
-  });
+      const claimed = db
+        .prepare(
+          "UPDATE runs SET status='running',owner=?,startedAt=? WHERE id=(SELECT q.id FROM runs q WHERE q.status='queued' AND (? OR q.kind='chat') AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.agentId=q.agentId AND r.status='running') ORDER BY CASE q.kind WHEN 'chat' THEN 0 WHEN 'reflection' THEN 2 ELSE 1 END,q.createdAt LIMIT 1) RETURNING *",
+        )
+        .get(owner, now, Number(allowBackground), owner, now - 30000) as
+        | Run
+        | undefined;
+      if (claimed?.kind === "reflection")
+        db.prepare(
+          "UPDATE agent_reflections SET lastActivityAt=COALESCE((SELECT MAX(finishedAt) FROM runs WHERE agentId=? AND kind<>'reflection'),0) WHERE agentId=?",
+        ).run(claimed.agentId, claimed.agentId);
+      return claimed;
+    }),
+  );
+
+// Only the worker holding this agent's active conversation may consume input.
+// Mark it before sending: an ambiguous provider failure must never replay it.
+export const claimSteeringRun = (run: Run) =>
+  withAgentStore(
+    (db) =>
+      db
+        .prepare(
+          "UPDATE runs SET status='steering',owner=?,startedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE id=(SELECT q.id FROM runs q WHERE q.agentId=? AND q.kind='chat' AND q.status='queued' AND q.cancelRequested=0 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=? AND r.owner=? AND r.status='running' AND r.kind IN ('chat','handoff') AND r.cancelRequested=0) AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) ORDER BY q.createdAt,q.rowid LIMIT 1) RETURNING *",
+        )
+        .get(
+          run.owner,
+          Date.now(),
+          run.id,
+          run.agentId,
+          run.id,
+          run.owner,
+          run.owner,
+          Date.now() - 30000,
+        ) as Run | undefined,
+  );
 
 export const persistRun = (run: Run, messages: readonly Message[]) =>
   withAgentStore((db) =>
@@ -308,7 +353,7 @@ export const persistRun = (run: Run, messages: readonly Message[]) =>
         JSON.stringify(messages),
         run.id,
       );
-      if (run.kind !== "automation")
+      if (run.kind !== "automation" && run.kind !== "reflection")
         for (const message of messages) putMessage(db, run.agentId, message);
     }),
   );
@@ -337,7 +382,9 @@ export const finishRun = (
         ?.text?.trim();
       if (
         status === "completed" &&
-        (run.kind === "automation" || run.kind === "delegation") &&
+        (run.kind === "automation" ||
+          run.kind === "delegation" ||
+          run.kind === "reflection") &&
         !answer
       ) {
         status = "failed";
@@ -353,9 +400,34 @@ export const finishRun = (
         Date.now(),
         run.id,
       );
+      // Follow-ups share the parent's outcome and are never run again later.
+      db.prepare(
+        "UPDATE runs SET status=?,messages=?,error=?,finishedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE agentId=? AND owner=? AND status='steering'",
+      ).run(
+        status,
+        JSON.stringify(messages),
+        error ?? null,
+        Date.now(),
+        run.id,
+        run.agentId,
+        run.owner,
+      );
       expireApprovals(db);
-      if (run.kind !== "automation")
+      if (run.kind !== "automation" && run.kind !== "reflection")
         for (const message of messages) putMessage(db, run.agentId, message);
+      if (
+        status === "completed" &&
+        run.kind === "reflection" &&
+        answer &&
+        answer !== "ROOST_NO_UPDATE"
+      ) {
+        putMessage(db, run.agentId, {
+          id: `result:${run.id}`,
+          role: "assistant",
+          title: "Reflection",
+          text: answer,
+        });
+      }
       if (status === "completed" && run.kind === "automation") {
         const automation = JSON.parse(run.automationSnapshot!) as Automation;
         if (
