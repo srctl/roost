@@ -88,7 +88,54 @@ The extra TypeScript command covers the browser test and fixture outside the app
 TSConfig. Client/server and CLI builds succeeded. Vite emitted an existing
 extensionless-config-import warning and plugin timing notices.
 
-## Screenshots
+## Matched BEFORE / AFTER fixture evidence
+
+These are actual browser screenshots, not mockups. The same
+`tests/fixtures/composer` layout and unchanged shared styles/components render:
+
+- **BEFORE:** composer source from `3f7bae287253e1c4c5449ea78521b2fcc072152d`.
+- **AFTER:** composer source from `47e0eaae9ad0733f3196cc92d2709f39b240a81f`.
+
+The capture script loads the exact source using `git show` and a Vite module-load
+plugin; it never rewrites the implementation or switches another worktree.
+Each pair uses the same viewport (desktop 1280×844, mobile 390×844), device scale
+factor 1, light color scheme, reduced motion, unfocused input, and pointer away
+from controls. Both states have a running turn, no attachments, and no pending
+upload/send. The text state contains exactly `follow up`; the empty state is
+empty. These are mobile browser captures, not a physical iOS PWA.
+
+| Matching viewport/state | BEFORE | AFTER |
+| --- | --- | --- |
+| Desktop 1280×844, running + text | ![BEFORE desktop running with text](comparison/desktop-running-text-before.png) | ![AFTER desktop running with text](comparison/desktop-running-text-after.png) |
+| Desktop 1280×844, running + empty | ![BEFORE desktop running empty](comparison/desktop-running-empty-before.png) | ![AFTER desktop running empty](comparison/desktop-running-empty-after.png) |
+| Mobile 390×844, running + text | ![BEFORE mobile running with text](comparison/mobile-running-text-before.png) | ![AFTER mobile running with text](comparison/mobile-running-text-after.png) |
+| Mobile 390×844, running + empty | ![BEFORE mobile running empty](comparison/mobile-running-empty-before.png) | ![AFTER mobile running empty](comparison/mobile-running-empty-after.png) |
+
+Reproduce from the repository root with loopback/browser execution available:
+
+```sh
+COMPOSER_CHROME_PATH=/usr/bin/google-chrome node --import tsx scripts/capture-composer.ts
+```
+
+Result: all eight captures passed visibility and computed-dimension assertions,
+with no browser page errors. All eight screenshots were visually inspected.
+[Capture metadata](comparison/capture.json) records browser version, source
+hashes, Git revisions, viewports, states, and measured button dimensions. Mobile
+BEFORE circles are 44px; AFTER circles are 36px inside 44px touch targets. Desktop
+controls remain 28px. Running + text changes from Stop and Send to only Send.
+
+The capture script also passed:
+
+```sh
+node_modules/.bin/tsc --ignoreConfig --noEmit --target ES2022 --lib ES2022,DOM,DOM.Iterable --module ESNext --moduleResolution Bundler --jsx react-jsx --strict --skipLibCheck --types vite/client,node scripts/capture-composer.ts
+/tmp/roost-composer-tools/node_modules/.bin/pnpm lint
+git diff --check
+```
+
+This evidence-only follow-up does not change the implementation, existing
+regression tests, or fixtures; the full-suite/auth results above still apply.
+
+## Earlier current-state screenshots
 
 Screenshots from the passing component fixture are retained beside this file.
 They show the component in isolation; the surrounding page is not the full app.
