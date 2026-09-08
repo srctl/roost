@@ -281,6 +281,12 @@ export const getCodexConnection = Effect.scoped(
         message: CODEX_SIGN_IN_REQUIRED,
       });
     }
+    return yield* getCodexModels(client);
+  }),
+);
+
+export const getCodexModels = (client: AppServer) =>
+  Effect.gen(function* () {
     const models: Array<{
       model: string;
       displayName: string;
@@ -322,5 +328,4 @@ export const getCodexConnection = Effect.scoped(
         message: "Codex has no available models. Check your CLI configuration.",
       });
     return { models };
-  }),
-);
+  });

@@ -154,8 +154,9 @@ invalid selected values produce a recoverable message rather than a misleading
 plot. The library adds roughly 160 KB gzip in its lazy client chunk; the build
 reports its existing 500 KB uncompressed chunk-size warning threshold.
 
-SQLite migration 9 adds agent/key-scoped dataset storage and preserves all
-existing boards and the dashboard setting. Dynamic tool version 11 ensures
+SQLite migration 10 reconciles the dataset and automation-model feature previews
+that both used schema 9, preserving boards, data sources, models, and settings.
+Dynamic tool version 12 ensures
 existing agent threads discover the new tools through Roost's existing migration
 mechanism.
 

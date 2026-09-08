@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getConnection } from "../features/agents/functions";
 import { saveAgentAutomation } from "../features/automations/functions";
 import type { Automation, Schedule } from "../features/automations/schema";
 import { nextOccurrence } from "../server/automations/schedule";
@@ -69,6 +70,31 @@ export function AutomationForm({
   const [notification, setNotification] = useState<Automation["notification"]>(
     automation?.notification ?? "when-needed",
   );
+  const [model, setModel] = useState(automation?.model ?? "");
+  const [models, setModels] = useState<
+    Array<{ model: string; displayName: string }>
+  >([]);
+  const [modelError, setModelError] = useState("");
+  const [modelsLoading, setModelsLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    void getConnection()
+      .then((result) => {
+        if (cancelled) return;
+        if (result.ok) setModels(result.value.models);
+        else setModelError(result.error);
+      })
+      .catch(() => {
+        if (!cancelled)
+          setModelError("Could not load models. Reopen the form to try again.");
+      })
+      .finally(() => {
+        if (!cancelled) setModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const preview = useMemo(() => {
@@ -127,6 +153,7 @@ export function AutomationForm({
           prompt,
           schedule: preview.schedule,
           notification,
+          model: model || null,
           expectedRevision: automation?.revision,
         },
       });
@@ -171,6 +198,52 @@ export function AutomationForm({
         Each run starts fresh with this task, the agent’s current soul, and its
         own memory. Include the context it will need.
       </p>
+      <label {...stylex.props(styles.label)}>
+        Model
+        <select
+          value={model}
+          onChange={(event) => setModel(event.target.value)}
+          {...stylex.props(styles.input)}
+        >
+          <option value="">Use agent default</option>
+          {model && !models.some((entry) => entry.model === model) && (
+            <option value={model}>
+              {model} (
+              {modelsLoading
+                ? "loading"
+                : modelError
+                  ? "availability unknown"
+                  : "unavailable"}
+              )
+            </option>
+          )}
+          {models.map((entry) => (
+            <option key={entry.model} value={entry.model}>
+              {entry.displayName}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p {...stylex.props(styles.help)}>
+        Applies to scheduled runs and Run now. The default uses the agent’s
+        model.
+        {modelsLoading ? " Loading models…" : ""}
+      </p>
+      {modelError && (
+        <p role="status" {...stylex.props(styles.help)}>
+          {modelError} You can still use the agent default or keep the saved
+          selection.
+        </p>
+      )}
+      {model &&
+        !modelsLoading &&
+        !modelError &&
+        !models.some((entry) => entry.model === model) && (
+          <p role="status" {...stylex.props(styles.help)}>
+            This model is unavailable. Runs will fail until you choose an
+            available model or the agent default.
+          </p>
+        )}
       <label {...stylex.props(styles.label)}>
         Schedule
         <select

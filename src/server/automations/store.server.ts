@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Automation, AutomationInput } from "../../features/automations/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
+import { CodexError, getCodexConnection } from "../codex/app-server.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import { nextOccurrence, scheduleLabel } from "./schedule";
@@ -78,84 +79,106 @@ export const saveAutomation = (
   input: AutomationInput,
   expectedRevision?: number,
 ) =>
-  withAgentStore((db) => {
-    const decoded = Schema.decodeUnknownSync(AutomationInput)(input);
-    const data = {
-      ...decoded,
-      schedule: {
-        ...decoded.schedule,
-        timezone:
-          decoded.schedule.timezone ??
-          Intl.DateTimeFormat().resolvedOptions().timeZone,
-      },
-    };
-    requireAgent(db, data.agentId);
-
-    return writeTransaction(db, () => {
-      const owner = db
-        .prepare("SELECT agentId FROM automations WHERE id=?")
-        .get(data.id);
-
-      if (owner && owner.agentId !== data.agentId) {
-        throw new AgentStoreError({
-          message: "This automation ID has already been used.",
+  Effect.gen(function* () {
+    const decoded = yield* Schema.decodeUnknown(AutomationInput)(input);
+    const current = (yield* listAutomations(decoded.agentId)).find(
+      (automation) => automation.id === decoded.id,
+    );
+    if (decoded.model && decoded.model !== current?.model) {
+      const { models } = yield* getCodexConnection;
+      if (!models.some((entry) => entry.model === decoded.model))
+        return yield* new CodexError({
+          message:
+            "That automation model is unavailable. Reload the form and choose another model or use the agent default.",
         });
-      }
+    }
+    return yield* withAgentStore((db) => {
+      const data = {
+        ...decoded,
+        schedule: {
+          ...decoded.schedule,
+          timezone:
+            decoded.schedule.timezone ??
+            Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      };
+      requireAgent(db, data.agentId);
 
-      const current = readAutomations(db, data.agentId).find(
-        (a) => a.id === data.id,
-      );
+      return writeTransaction(db, () => {
+        const owner = db
+          .prepare("SELECT agentId FROM automations WHERE id=?")
+          .get(data.id);
 
-      if (current && expectedRevision === undefined) {
-        if (
-          current.name === data.name &&
-          current.prompt === data.prompt &&
-          current.notification === data.notification &&
-          JSON.stringify(current.schedule) === JSON.stringify(data.schedule)
-        ) {
-          return current;
+        if (owner && owner.agentId !== data.agentId) {
+          throw new AgentStoreError({
+            message: "This automation ID has already been used.",
+          });
         }
 
-        throw new AgentStoreError({
-          message: "This automation already exists. Reload before editing.",
-        });
-      }
+        const current = readAutomations(db, data.agentId).find(
+          (a) => a.id === data.id,
+        );
 
-      if (
-        expectedRevision !== undefined &&
-        (!current || current.revision !== expectedRevision)
-      ) {
-        throw new AgentStoreError({
-          message: "This automation changed. Reload before saving.",
-        });
-      }
+        // Older callers omit model on edits; null explicitly restores inheritance.
+        const model =
+          decoded.model === undefined
+            ? (current?.model ?? null)
+            : decoded.model;
 
-      let next: number | null;
+        if (current && expectedRevision === undefined) {
+          if (
+            (current.model ?? null) === model &&
+            current.name === data.name &&
+            current.prompt === data.prompt &&
+            current.notification === data.notification &&
+            JSON.stringify(current.schedule) === JSON.stringify(data.schedule)
+          ) {
+            return current;
+          }
 
-      try {
-        new Intl.DateTimeFormat("en-US", { timeZone: data.schedule.timezone });
-        next = nextOccurrence(data.schedule, Date.now());
-      } catch (error) {
-        throw new AgentStoreError({
-          message:
-            error instanceof Error
-              ? error.message
-              : "Choose a valid schedule and IANA timezone.",
-        });
-      }
+          throw new AgentStoreError({
+            message: "This automation already exists. Reload before editing.",
+          });
+        }
 
-      if (!next) {
-        throw new AgentStoreError({
-          message: "No future runs match this schedule and date range.",
-        });
-      }
+        if (
+          expectedRevision !== undefined &&
+          (!current || current.revision !== expectedRevision)
+        ) {
+          throw new AgentStoreError({
+            message: "This automation changed. Reload before saving.",
+          });
+        }
 
-      const revision = (current?.revision ?? 0) + 1;
-      db.prepare(
-        `INSERT INTO automations (
-           id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        let next: number | null;
+
+        try {
+          new Intl.DateTimeFormat("en-US", {
+            timeZone: data.schedule.timezone,
+          });
+          next = nextOccurrence(data.schedule, Date.now());
+        } catch (error) {
+          throw new AgentStoreError({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Choose a valid schedule and IANA timezone.",
+          });
+        }
+
+        if (!next) {
+          throw new AgentStoreError({
+            message: "No future runs match this schedule and date range.",
+          });
+        }
+
+        const revision = (current?.revision ?? 0) + 1;
+        db.prepare(
+          `INSERT INTO automations (
+           id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt, model
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
+           model = excluded.model,
            name = excluded.name,
            prompt = excluded.prompt,
            schedule = excluded.schedule,
@@ -163,36 +186,39 @@ export const saveAutomation = (
            revision = excluded.revision,
            nextRunAt = excluded.nextRunAt
          WHERE automations.agentId = excluded.agentId`,
-      ).run(
-        data.id,
-        data.agentId,
-        data.name,
-        data.prompt,
-        JSON.stringify(data.schedule),
-        data.notification,
-        revision,
-        current ? Number(current.enabled) : 1,
-        current?.enabled === false ? null : next,
-      );
-      // Queued work uses the old saved prompt; cancel it when the commitment changes.
-      db.prepare(
-        "UPDATE runs SET status='cancelled', finishedAt=? WHERE automationId=? AND status='queued'",
-      ).run(Date.now(), data.id);
-      putMessage(db, data.agentId, {
-        id: randomUUID(),
-        role: "notice",
-        noticeKind: "automation",
-        referenceId: data.id,
-        title: current ? "Automation updated" : "Automation created",
-        text: `${data.name} · ${scheduleLabel(data.schedule)} · ${data.notification === "always" ? "Report every run" : "Only notify when needed"}`,
-      });
+        ).run(
+          data.id,
+          data.agentId,
+          data.name,
+          data.prompt,
+          JSON.stringify(data.schedule),
+          data.notification,
+          revision,
+          current ? Number(current.enabled) : 1,
+          current?.enabled === false ? null : next,
+          model,
+        );
+        // Queued work uses the old saved prompt; cancel it when the commitment changes.
+        db.prepare(
+          "UPDATE runs SET status='cancelled', finishedAt=? WHERE automationId=? AND status='queued'",
+        ).run(Date.now(), data.id);
+        putMessage(db, data.agentId, {
+          id: randomUUID(),
+          role: "notice",
+          noticeKind: "automation",
+          referenceId: data.id,
+          title: current ? "Automation updated" : "Automation created",
+          text: `${data.name} · ${scheduleLabel(data.schedule)} · ${data.notification === "always" ? "Report every run" : "Only notify when needed"}`,
+        });
 
-      return {
-        ...data,
-        revision,
-        enabled: current?.enabled ?? true,
-        nextRunAt: current?.enabled === false ? null : next,
-      };
+        return {
+          ...data,
+          model,
+          revision,
+          enabled: current?.enabled ?? true,
+          nextRunAt: current?.enabled === false ? null : next,
+        };
+      });
     });
   });
 
