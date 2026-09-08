@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1Z6EQS1EMEWG3WXJWVKQJQD",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".dockerignore",
+    "docs/deploy-docs-railway.md",
+    "docs/deploy-railway.md",
+    "docs/public-sites.md",
+    "scripts/check-docs-deployment.mjs",
+    "sites/docs/Caddyfile",
+    "sites/docs/Dockerfile"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 83299,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1346304,
+    "output_tokens": 9242,
+    "api_call_count": 36
+  }
+}

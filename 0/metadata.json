@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1Z6EQS1EMEWG3WXJWVKQJQD",
+  "session_id": "01a07dee-3330-74e2-87c3-7d12b2e0df63",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-08T00:24:59.287378Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "save_step_count": 2,
+  "files_touched": [
+    ".dockerignore",
+    "docs/deploy-docs-railway.md",
+    "docs/deploy-railway.md",
+    "docs/public-sites.md",
+    "scripts/check-docs-deployment.mjs",
+    "sites/docs/Caddyfile",
+    "sites/docs/Dockerfile"
+  ],
+  "agent": "Pi",
+  "model": "gpt-6-astra",
+  "turn_id": "d529b62143b1",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 83299,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1346304,
+    "output_tokens": 9242,
+    "api_call_count": 36
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-08T00:24:59.097586Z",
+    "agent_lines": 337,
+    "agent_removed": 4,
+    "human_added": 266,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 603,
+    "total_lines_changed": 607,
+    "agent_percentage": 56.17792421746294,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
