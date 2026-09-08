@@ -41,6 +41,7 @@ export function Composer({
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const [text, setText] = useState("");
+  const hasText = text.trim().length > 0;
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -272,7 +273,8 @@ export function Composer({
           }}
           {...stylex.props(styles.input)}
         />
-        {busy && (
+        {/* Attachment-only drafts retain both controls; whitespace is empty. */}
+        {busy && !hasText && (
           <Button
             key="stop"
             type="button"
@@ -285,7 +287,7 @@ export function Composer({
             <Appear pop aria-hidden="true" xstyle={styles.stopIcon} />
           </Button>
         )}
-        {(!busy || text.trim() || files.length > 0) && (
+        {(!busy || hasText || files.length > 0) && (
           <Button
             key="send"
             type="submit"
@@ -463,7 +465,11 @@ const styles = stylex.create({
     height: { default: 28, "@media (max-width: 700px)": 44 },
     flexShrink: 0,
     padding: 0,
-    borderWidth: 0,
+    // Inset the mobile circle without shrinking its 44px touch target.
+    borderWidth: { default: 0, "@media (max-width: 700px)": 4 },
+    borderStyle: "solid",
+    borderColor: "transparent",
+    backgroundClip: "padding-box",
     borderRadius: "50%",
     backgroundColor: colors.action,
     color: colors.onAccent,
