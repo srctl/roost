@@ -1,0 +1,3 @@
+PASS desktop: source drilldown, stale GitHub, review != Done, attention filter, empty search, missing PR, verified handoff, slot release, reset, alternative layouts and mobile back navigation.
+PASS mobile: source drilldown, stale GitHub, review != Done, attention filter, empty search, missing PR, verified handoff, slot release, reset, alternative layouts and mobile back navigation.
+PASS: after desktop 1440x1100 / mobile 390x844; no page overflow, browser errors or external/API requests.

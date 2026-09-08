@@ -1,0 +1,1 @@
+PASS: before desktop 1440x1100 / mobile 390x844; no page overflow, browser errors or external/API requests.
