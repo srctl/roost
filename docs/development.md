@@ -33,6 +33,10 @@ Generated routes and Codex protocol types, SVG assets, and local agent/browser
 directories are excluded. Markdown and YAML are maintained manually; they are no
 longer covered by the formatter check.
 
+Composer desktop/mobile interaction checks and matched screenshots are recorded
+in [the review evidence](reviews/composer-controls/README.md). Disposable browser
+helpers and their fixture are retained only in the historical review revision.
+
 For production:
 
 ```sh
