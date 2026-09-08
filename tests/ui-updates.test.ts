@@ -79,6 +79,23 @@ test("capability never infers enrollment or activates unqualified installations"
     { packaged: true, platform: "linux", arch: "x64", systemd: true },
   ])
     assert.equal(capability(facts).canActivate, false);
+  for (const [extra, code] of [
+    [{ distribution: "fedora:43" }, "unsupported-distribution"],
+    [
+      { distribution: "ubuntu:24.04", filesystem: "overlay" },
+      "unsupported-storage",
+    ],
+  ] as const)
+    assert.equal(
+      capability({
+        packaged: true,
+        platform: "linux",
+        arch: "x64",
+        systemd: true,
+        ...extra,
+      }).code,
+      code,
+    );
   assert.equal(
     capability({
       packaged: false,
@@ -117,6 +134,17 @@ test("stable numeric versions and explicit database/runtime compatibility defaul
 test("offers pin stable release, asset identity, digest, size and expiry", () => {
   const source = metadata();
   const offer = parseOffer(source, "srctl/roost", 1000);
+  assert.ok(
+    Buffer.byteLength(
+      JSON.stringify(
+        parseOffer(
+          { ...source, body: "\u0000".repeat(16000) },
+          "srctl/roost",
+          1000,
+        ),
+      ),
+    ) < 60000,
+  );
   assertOffer(offer, offer.id, "0.1.40", 2000);
   assert.throws(() => assertOffer(offer, offer.id, "0.2.0", 2000));
   assert.throws(() => assertOffer(offer, offer.id, "0.1.40", offer.expiresAt));
@@ -253,6 +281,16 @@ test("kernel ownership survives flock exit, excludes CLI, releases after SIGKILL
   const root = await mkdtemp("/tmp/ui-update-kernel-");
   try {
     await withKernelLock(root, async () => {
+      await withKernelLock(
+        root,
+        async () => {
+          await assert.rejects(
+            withKernelLock(root, async () => {}, "supervisor"),
+            /operation is active/,
+          );
+        },
+        "supervisor",
+      );
       await assert.rejects(
         withKernelLock(root, async () => {}),
         /operation is active/,

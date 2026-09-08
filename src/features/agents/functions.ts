@@ -36,9 +36,11 @@ const result = <A, E extends { message: string }>(
     ),
   );
 
-export const getAgents = createServerFn({ method: "GET" })
-  .middleware([available])
-  .handler(() => result(listAgents()));
+// Read-only navigation remains available during update drain. Full startup gates
+// still reject ordinary HTTP before any loader runs.
+export const getAgents = createServerFn({ method: "GET" }).handler(() =>
+  result(listAgents()),
+);
 
 export const getConnection = createServerFn({ method: "GET" })
   .middleware([available])

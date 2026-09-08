@@ -89,5 +89,9 @@ export async function withLock<T>(
   root: string,
   action: () => Promise<T>,
 ): Promise<T> {
+  if (existsSync(join(root, "updater.json")))
+    throw new Error(
+      "This installation is enrolled. Use the supervised updater; setup and legacy direct operations are fenced.",
+    );
   return withKernelLock(root, () => withLegacyLock(root, action));
 }

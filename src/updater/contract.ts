@@ -68,6 +68,8 @@ export type Capability = {
     | "externally-managed"
     | "unsupported-platform"
     | "unsupported-service-manager"
+    | "unsupported-distribution"
+    | "unsupported-storage"
     | "setup-required"
     | "qualification-required";
   reason: string;
@@ -79,6 +81,8 @@ export function capability(facts: {
   platform: string;
   arch: string;
   systemd: boolean;
+  distribution?: string;
+  filesystem?: string;
 }): Capability {
   if (!facts.packaged)
     return {
@@ -100,10 +104,24 @@ export function capability(facts: {
         "This installation does not have the required systemd supervisor.",
       canActivate: false,
     };
+  if (facts.distribution && facts.distribution !== "ubuntu:24.04")
+    return {
+      code: "unsupported-distribution",
+      reason:
+        "Initial UI update qualification is limited to Ubuntu 24.04. Use operator-managed updates on this distribution.",
+      canActivate: false,
+    };
+  if (facts.filesystem && facts.filesystem !== "ext4")
+    return {
+      code: "unsupported-storage",
+      reason:
+        "Initial UI updates require persistent local ext4 installation storage. This storage layout requires operator-managed updates.",
+      canActivate: false,
+    };
   return {
-    code: "qualification-required",
+    code: "setup-required",
     reason:
-      "This build does not include updater enrollment or activation. Supervised recovery still requires implementation and lifecycle qualification. Continue using operator-managed updates.",
+      "Explicit operator enrollment is required. Run roost updates enroll from the packaged terminal CLI; activation also requires a qualified helper build.",
     canActivate: false,
   };
 }

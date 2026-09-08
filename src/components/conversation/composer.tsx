@@ -15,6 +15,8 @@ import {
   MAX_FILE_BYTES,
 } from "../../features/chat/files";
 import { usePreferences } from "../../features/settings/preferences";
+import { readDraft, saveDraft } from "../../features/updates/drafts";
+import { useUpdateBlocked } from "../../features/updates/state";
 import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 import { Appear } from "../ui/appear";
@@ -38,11 +40,29 @@ export function Composer({
   onSend: (text: string, files: readonly FileAttachment[]) => Promise<boolean>;
   onStop: () => void;
 }) {
+  const updating = useUpdateBlocked();
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const [text, setText] = useState("");
   const hasText = text.trim().length > 0;
   const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [draftLoaded, setDraftLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    const draft = readDraft(agentId);
+    setText(draft?.text ?? "");
+    setFiles(draft?.files ?? []);
+    setDraftLoaded(agentId);
+  }, [agentId]);
+  useEffect(() => {
+    if (draftLoaded === agentId)
+      try {
+        saveDraft(agentId, text, files);
+      } catch {
+        setUploadError(
+          "Draft could not be retained locally. Keep this tab open during an update.",
+        );
+      }
+  }, [agentId, text, files, draftLoaded]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const submitting = useRef(false);
@@ -81,10 +101,11 @@ export function Composer({
     // away from the tap. Keep focus; the native click still submits the form.
     if (event.button === 0 && document.activeElement === input.current)
       event.preventDefault();
+    if (updating) return;
   }
 
   async function attach(selected: FileList | readonly File[] | null) {
-    if (!selected?.length) return;
+    if (!selected?.length || updating) return;
     if (loading || submitting.current || uploading) {
       setUploadError(
         uploading
@@ -140,6 +161,7 @@ export function Composer({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (updating) return;
     if (
       loading ||
       submitting.current ||
@@ -236,6 +258,7 @@ export function Composer({
             uploading ||
             files.length >= MAX_ATTACHMENTS
           }
+          blockDuringUpdate
           onClick={() => fileInput.current?.click()}
           xstyle={styles.attachButton}
         >
@@ -268,6 +291,7 @@ export function Composer({
               !event.nativeEvent.isComposing
             ) {
               event.preventDefault();
+              if (updating) return;
               event.currentTarget.form?.requestSubmit();
             }
           }}
@@ -279,6 +303,7 @@ export function Composer({
             key="stop"
             type="button"
             onMouseDown={keepInputFocus}
+            allowDuringUpdate
             onClick={onStop}
             disabled={!hydrated}
             aria-label="Stop response"

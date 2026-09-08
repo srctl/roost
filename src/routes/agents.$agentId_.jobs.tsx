@@ -217,6 +217,7 @@ function AgentJobs({
                     <Button
                       disabled={Boolean(stopping) || job.cancelRequested}
                       aria-label={`Stop ${job.title}`}
+                      allowDuringUpdate
                       onClick={() => void stop(job.id)}
                       xstyle={styles.stop}
                     >

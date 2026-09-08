@@ -1,154 +1,209 @@
-# UI self-updates: implementation status
+# UI self-updates
 
-**Draft, incomplete. UI activation is disabled for every installation.** This
-branch is not an implementation of all three approved phases and must not be
-released as a working self-updater. No enrollment command or updater service is
-installed by this code. Do not delete legacy lock files to enable the UI.
+This draft implements the supervised update path, enrollment, recovery engine,
+and UI. **Activation remains disabled in the shipped helper until the complete
+qualification matrix passes.** There is no environment variable, HTTP flag, or
+enrollment option that bypasses that build decision. Enrollment installs real
+service authority and is an explicit operator action, not an activation bypass.
 
-The approved design is available at
-[the immutable design revision](https://github.com/srctl/roost/blob/47093a36a0858e9948e68cba7c403e56ee61425e/docs/ui-self-update-design.md)
-and [design PR #10](https://github.com/srctl/roost/pull/10). This branch starts at
-`7415789` (0.1.40); it does not assume the design PR has merged.
+The implementation starts from `7415789` (0.1.40), including its coding-job
+protection and recovery changes. It follows the
+[approved design revision](https://github.com/srctl/roost/blob/47093a36a0858e9948e68cba7c403e56ee61425e/docs/ui-self-update-design.md);
+[design PR #10](https://github.com/srctl/roost/pull/10) is separate from this PR.
 
-## Implemented behavior
+## Initial supported contract
 
-Settings has a searchable Updates section. Source/orchestrated installations
-report externally managed status. Packaged installations report unsupported
-architecture/service-manager reasons or that enrollment and activation remain
-unimplemented. Nothing infers privileges from Linux x64, a proxy login, or the
-presence of `ROOST_HOME` alone.
+Only explicitly enrolled, packaged Linux x64 installations on Ubuntu 24.04,
+systemd and persistent local ext4 storage are candidates for qualification.
+The application unit must match Roost's generated unit, with only the updater
+startup drop-in. Custom hooks, additional overrides, noncanonical/shared writable
+installation paths (the installation root must be mode 0700), externally managed deployments and other service managers
+are unsupported. Source installations show their external-management reason in
+Settings and cannot activate an update.
 
-A native-authenticated packaged installation with a configured repository can
-request bounded, rate-limited stable-release metadata. The check pins repository,
-release/asset IDs, SHA-256 digest, advertised size, version and expiry. It rejects
-ambiguous artifacts, drafts and prereleases. Conditional requests retain the
-original offer expiry; a 304 does not authorize an expired offer. Remote notes
-are rendered as plain React text. Network failures are not “up to date.” Metadata
-alone is not evidence of artifact or migration compatibility.
+Both the previous and candidate packages must include the startup gate and a
+compatible `compatibility.json`: updater protocol 1, app/auth schema input ranges
+and output versions, complete managed-data snapshots, unchanged excluded state,
+and the same bundled Codex version. Packages predating this contract, including
+the original 0.1.40 release, need a normal operator-managed upgrade to a gate-aware
+release **before enrollment**. Merely adding a manifest to an old binary is unsafe.
+Bundled Node and Codex must execute on the host; changed Codex versions require
+terminal maintenance and separate compatibility review. No external model API
+connection is required for candidate health.
 
-`GET /api/updates` exposes only local capability when native authentication is
-absent; remote metadata and CSRF tokens require a native session. The check POST
-requires a recent session, exact origin/host, JSON, a session-bound CSRF token and
-an empty allowlisted body. Activation POSTs cannot invoke the legacy CLI or any
-other executable. No browser request can install privileges.
+The installation user is a trust boundary. Same-user arbitrary code can access
+its installation, data and private helper socket. Independent operator service
+changes, external writers and remote effects are outside the recovery guarantee.
+Updates cause downtime; they do not provide universal recovery or undo external
+actions such as messages, commits or remote provisioning.
 
-The default web process does not inherit a terminal's GitHub credentials into
-this release checker. The checker primitive supports an explicitly supplied
-read-only credential, with redirects disabled. Private-repository credential
-provisioning for a future supervised helper remains outstanding.
+## Operator enrollment
 
-Current CLI setup/update/start/stop operations now acquire an inherited-file-
-descriptor `flock` lock as well as the legacy exclusive-create lock. The kernel
-lock file is never unlinked. The legacy lock remains necessary to exclude old
-binaries; a hard interruption can still leave that legacy file. This is not the
-permanent enrollment sentinel or automatic stale-lock recovery described in the
-design. `flock` from util-linux is required for this Linux CLI path.
+Do this only during an authorized maintenance window, using a packaged,
+gate-aware release. These commands are documentation, not automatic deployment:
 
-The 0.1.40 coding worker already observes existing workers during maintenance and
-fences ambiguous Herdr recovery/submission. Those protections remain intact.
-CLI draining now includes steering, missing workers and null observations. A
-maintenance predicate also prevents claiming new steering. Conservatively, review
-jobs remain blockers even if their last observation was idle. Nothing replays a
-prompt or forcibly stops a worker.
+```sh
+roost auth setup --origin https://your-roost-host
+# Register the native passkey using the private link before relying on UI controls.
+roost updates enroll
+roost updates status
+```
 
-## Recovery primitives, not an activated recovery engine
+Enrollment verifies installation identity/layout, Python 3 with Linux
+`SO_PEERCRED`, systemd, ext4 and the application unit. It requires interactive
+operator sudo authorization and installs root-owned files:
 
-The new internal modules provide a versioned compatibility contract, durable
-private JSON replacement with file/directory fsync, journal identity/sequence
-validation and conservative recovery decisions. A committed record cannot be
-rewritten as a restoring record. Unknown/corrupt evidence is rejected.
+* `/etc/systemd/system/roost-UID-updater.service`, running as the installation
+  user, pinned to the enrolled release's Node/CLI outside the app control group;
+* `/etc/systemd/system/roost-UID.service.d/updater.conf`, ordering startup after
+  the helper and supplying its fixed startup capability file;
+* `/etc/sudoers.d/roost-UID-updater`, allowing **only** noninteractive
+  `/usr/bin/systemctl start roost-UID.service` and
+  `/usr/bin/systemctl stop roost-UID.service`.
 
-The snapshot primitive copies complete managed app data into a private operation
-directory, requires both SQLite stores, verifies database integrity and content
-digests, checks space/inode headroom, and rejects links, hard links, special files
-and nested mounts. It compares source content before/after copying and never
-accepts an existing partial snapshot. It assumes an external supervisor has
-already stopped and fenced writers; it does **not** establish that condition.
-Configuration/release identity capture must still be integrated with the engine.
+HTTP has no enrollment, repair, shell, path, URL or unit-control operation.
+The daemon verifies that it is the fixed helper unit's main PID; it cannot be run
+as an unsupervised CLI subprocess. The helper accepts bounded protocol messages on `ROOST_HOME/updates/helper.sock`,
+mode 0600, through a separately supervised Python peer-credential bridge. Only
+its own UID is accepted. The socket and operation directories are private.
 
-These modules are exercised with disposable files and child processes. They are
-not called by HTTP activation or the existing CLI update transaction. There is
-no automatic retention deletion; test snapshots are removed only with their
-disposable fixture. Future enrollment must protect and retain at least the last
-complete recovery pair, never reclaim it just to make room for an update.
+Enrollment leaves `ROOST_HOME/operation.lock` as a permanent legacy CLI fence.
+**Do not delete it as a stale PID file.** Current CLI setup/update/start/stop and
+the helper share a kernel `flock` domain, `updater.lock`; enrolled updates and
+start/stop route through the helper. Enrolled `roost update` prints the offer;
+`roost update --version EXACT_VERSION` explicitly confirms it. Never unlink that kernel lock file either.
+`updater-owner.json` records PID, boot ID and process-start ticks for diagnostics;
+it may be stale after exit and never grants ownership. A separate lifetime
+`updater-supervisor.lock` prevents a second helper invocation from replacing the
+active socket or changing its gate; it never replaces the shared transaction lock. `flock` (util-linux),
+Python 3, findmnt and systemd/sudo are required on the initial platform.
 
-The compatibility contract defaults to refusing absent/unknown app/auth ranges,
-helper protocol, data format or bundled Codex version. It requires unchanged
-excluded mutable state. It is not yet emitted by packaging or enforced by an
-activation engine; existing release bundles therefore have no qualified UI
-migration contract. Managed-data snapshots cannot restore `~/.codex`, browser
-profiles, external worktrees, remote Herdr infrastructure or external actions.
+Repeating enrollment with the same pinned helper is supported after partial
+setup. Re-enrolling from a different release refuses to replace a running helper.
+Helper upgrades are separate operator maintenance: finish/recover all operations,
+stop the app and helper, review the new helper's protocol compatibility, then
+replace the pinned helper unit and enrollment metadata under the installation
+lock. There is intentionally no automatic helper upgrade or uninstall command.
+Do not remove the legacy fence while any older CLI can access this installation.
 
-## Remaining implementation and acceptance gates
+For a private repository, provision a read-only release credential explicitly as
+`ROOST_HOME/updates/github-token`, a regular installation-user-owned file, mode
+0600, at most 1024 bytes. Restart only the helper during authorized idle
+maintenance to load a changed credential. It is never returned to the browser or
+inherited from the web process. API requests cannot redirect that credential;
+artifact redirects permit only GitHub's fixed release asset hosts without the
+authorization header.
 
-1. Enrolled installation validation (including distribution, mount durability,
-   canonical identities and service authority); pinned separately supervised
-   helper; private socket peer credentials; root-owned fixed-unit noninteractive
-   service policy; permanent legacy CLI sentinel; shared CLI/helper routing.
-2. Bounded artifact streaming/extraction and runtime execution preflight tied to
-   immutable accepted offers; packaging compatibility contract; durable actor,
-   idempotency and offer acceptance records.
-3. Full transaction executor, cancellation/deferral, writer/quiescence barrier,
-   complete snapshot/config pair, systemd stop/group verification, candidate
-   startup capability and side-effect gate, bounded multi-surface probes, durable
-   commit, data/release rollback and resumable rename intents.
-4. Boot ordering and manual-launch guard, independent read-only diagnostics and
-   a tested operator repair procedure. Never run an old release against migrated
-   candidate data or automatically restore data after committed work.
-5. UI version confirmation, durable operation observation, lost-response
-   reconciliation, multi-tab maintenance, retained drafts, reconnect/reauth and
-   one-time asset reload. No activation controls are exposed before these gates.
-6. Real disposable Ubuntu 24.04 systemd and reboot/fault-injection qualification,
-   followed by authenticated browser update/rollback acceptance. Additional
-   distributions and changed bundled runtimes require separate evidence.
+## Transaction and recovery
 
-There is intentionally no operator enrollment recipe yet: installing an
-unqualified helper would bypass these gates. Continue the documented
-[operator-managed installation/update workflow](install.md) with its existing
-limitations. Do not claim zero downtime, universal recovery, or rollback of
-external effects.
+Settings checks the configured repository's published stable release. The offer
+pins repository, release ID, asset ID, version, SHA-256 digest, size and expiry.
+“Published” is not a promise of compatibility: downloaded manifests, schemas and
+bundled runtime execution are checked before stopping. A same-publisher API digest
+detects replacement/corruption, not publisher compromise. Missing digests, changed
+identities, downgrade/equal versions, drafts/prereleases and expired offers fail.
+Downloads, metadata, request bodies, redirects and extraction are bounded.
+Extraction accepts regular files/directories only, rejects links, devices, path
+escapes, duplicates and unsupported extensions, and caps expanded bytes and files.
 
-## Verification matrix and infrastructure limits
+Activation requires exact version confirmation and a native passkey session less
+than five minutes old, exact Origin/host, JSON, a session-bound CSRF token and a
+bounded idempotency key. Session validity is rechecked after reading the body.
+Acceptance is journaled/fsynced before acknowledgement. Repeating the accepted
+key returns its operation; changing its actor/offer/version conflicts. Once
+accepted, session expiry does not cancel recovery. No lost response triggers an
+automatic POST retry.
 
-| Design layer | Available evidence | Still required |
-| --- | --- | --- |
-| Release | Numeric stable versions; offer identity/digest/size/expiry validation; duplicate/draft/prerelease rejection; HTTP failure/backoff/coalescing; byte bounds; redirect refusal; unknown compatibility refusal | Live offline/private/429 behavior; approved artifact replaced at download; bounded hostile archive extraction; ABI execution; packaged migration compatibility |
-| Authorization | Recent-session/origin/host/JSON/CSRF and field-allowlist tests; unauthenticated source activation/check rejection; no-store status | Native end-to-end activation; revocation races; accepted-operation authorization consumption; idempotency conflicts |
-| Concurrency | Real kernel flock exclusion against another client and CLI; SIGKILL releases kernel ownership; lock symlinks rejected; legacy exclusion retained | Helper versus CLI/enrollment races; permanent old-CLI fence; reboot identity; durable acceptance under lost replies |
-| Work | Existing 0.1.40 coding observation/recovery regressions; steering barrier; active/missing/null observations block CLI draining | Global submission/tool/delegation quiescence at stop boundary; external idle attestation; authenticated update initiated by active coding work |
-| Data | Both SQLite databases and managed files copied/verified; tampering rejected; links refused; capacity refusal; journal corruption/identity/sequence checks | Large datasets; WAL/SHM crash boundaries; all mount/layout cases; disk/inode exhaustion during writes; copy interruption; config pairing; rollback restore transaction |
-| Lifecycle | Existing fake-service CLI rollback regressions | Real systemd update, rollback, group-empty proof, slow shutdown/orphans, port collision, candidate assets/auth, helper survival, initially stopped installation |
-| Fault injection | Child lock-owner SIGKILL; recovery decision rules; commit-to-restore refusal | Process kill and actual VM reboot at every journal/snapshot/rename/start/commit/admission boundary; failed rollback/manual recovery |
-| Browser | Actual matched desktop/mobile Settings screenshots; source capability and disabled controls | Accepted update/rollback, lost response/disconnect, retained drafts, multi-tab synchronization, reauth, stale assets, assistive-technology validation |
+The helper holds the installation lock across staging, drain, stop, snapshot,
+activation, probe and commit. It blocks new conversation/steering/automation/
+delegation/coding claims transactionally while continuing existing coding-worker
+observation. Running, missing, unknown, stale or identity-uncertain workers defer
+the update. Review status alone is insufficient: idle identity must be verified
+and fresh. Queued jobs remain queued. In-flight requests, login, desktop viewers/
+actions and background tasks must finish before stopping. The five-minute drain
+deadline never authorizes forced termination or replay. Cancellation is durable
+before the stop boundary; a later cancel request is refused.
 
-Read-only infrastructure research found Docker 29.1.3 reachable outside the
-sandbox, with no existing test images; Docker alone is not evidence of a
-rebootable Ubuntu systemd VM. No local QEMU or systemd-nspawn runner was found.
-The documented exe.dev SSH host fingerprint was verified against its official
-reference using a temporary known-hosts file. The API then rejected the available
-credentials (`Permission denied (publickey,keyboard-interactive)`). No host SSH
-configuration was changed and no VM was provisioned. An authorized disposable
-Ubuntu 24.04 VM/runner and access method are needed to close the real lifecycle
-and reboot test gap. No live Roost service/configuration/storage was modified,
-enrolled, restarted, or updated.
+After closing all writers, the helper stops the exact service and verifies its
+control group empty. The complete `data` tree (both SQLite stores, sidecars,
+managed files/memory/workspaces) is copied, integrity/digest checked and fsynced.
+Config is retained alongside the snapshot for diagnosis/operator recovery.
+Symlinks, hard links, special files and nested mounts are rejected rather than
+silently excluded. Capacity checks reserve staged bytes, snapshot/restore space
+and inode headroom. Snapshot permissions are reduced to owner-only access.
+Snapshots are secrets; they can contain credentials and conversation content.
 
-## Checks completed for this draft
+The candidate starts behind a capability-bound gate that blocks ordinary HTTP,
+auth writes, worker claims, login and external effects. A two-minute probe checks
+expected version/operation, app and auth database integrity/schema, packaged
+assets and worker initialization. A durable commit precedes opening admission.
+A previously stopped CLI installation is probed but returned to stopped state.
 
-All repository check components passed: lint, TypeScript, 173 unit tests, app and
-CLI builds, production-auth smoke, site TypeScript, six site tests and both site
-builds. The final updater-focused rerun passed all 12 tests. Chromium verified
-Settings in two tabs at both desktop/mobile viewports, search and Escape-to-clear,
-no horizontal overflow, disabled source checks and denied source activation.
+Before commit, failure restores a verified copy of the snapshot and selects the
+matching previous release. Candidate data is retained separately as `failed-data`;
+the original snapshot remains untouched. Recovery resumes interrupted pointer/
+data renames and re-probes the previous version behind the gate. After commit,
+automatic recovery never restores old data or discards new work. Missing/corrupt
+evidence, an unexpected pointer or failed recovery keeps maintenance closed.
+Boot recovery runs in the pinned helper; the app also rejects startup without
+current-boot readiness and a valid open/verification gate.
 
-The first check attempts inherited Roost/Codex/Herdr/listener environment values
-and a `0077` umask. These conflicted with unrelated test assumptions. Checks were
-run with those runtime/listener variables removed and a `0022` umask scoped to
-the test subprocess; production-auth/site checks were completed separately after
-the listener override was removed. The new snapshot/journal tests also passed
-under the original restrictive umask. This does not qualify systemd updates,
-boot recovery or the unimplemented activation flow.
+## Status, reconnect and repair
 
-Docker-based VM emulation was not attempted. The available Docker daemon may be
-a route to future disposable qualification; its availability has not established
-that the full VM/reboot matrix can run here. Infrastructure limitations are
-separate from the unfinished implementation listed above.
+The searchable Settings section shows actual phases, blockers and downloaded
+bytes, never invented percentages. It supports cancellation, deferral, recent
+authentication, cached outage messaging, multi-tab observation and manual asset
+reload while preserving the route. Polling backs off after disconnection. An
+unconfirmed response stays pending until its request key matches durable status
+or the operator explicitly dismisses it after inspection. A closed app cannot
+serve fresh progress; the browser says it is reconnecting.
+
+Unsubmitted composer text and uploaded attachment references are retained in
+bounded browser-local storage, separately per tab and conversation. Sending
+clears that tab's draft; reload never submits it. Storage failure is surfaced.
+Do not rely on browser drafts as a backup, and use a trusted browser profile.
+Mutating submit controls pause during drain while read/navigation and deliberate
+stop controls remain available; server barriers enforce the admission decision.
+
+The independent terminal diagnostic command works even when the app/socket is down:
+
+```sh
+roost updates status
+roost updates status --id OPERATION_UUID
+journalctl -u roost-UID-updater.service
+journalctl -u roost-UID.service
+```
+
+It reports the fixed units, installation, gate, advisory lock owner, phases and
+matching snapshot locations under `ROOST_HOME/updates/OPERATION_UUID/`.
+Do not publish those directories or raw data/config files. Retain journals,
+`snapshot.json`, `snapshot/`, saved config, `failed-data/` and both releases while
+investigating. Never guess a snapshot or delete a lock to resume service.
+
+For an intact manual-recovery operation, after fixing the underlying problem,
+the terminal-only repair retries the recorded decision with explicit version:
+
+```sh
+# Only for an uncommitted operation, using its recorded previous version:
+roost updates repair --id OPERATION_UUID --decision restore --confirm-version 0.1.40
+# Only for a committed operation, using its recorded candidate version:
+roost updates repair --id OPERATION_UUID --decision resume --confirm-version 0.1.41
+```
+
+The helper rejects the wrong decision/version. Repair cannot bypass failed
+snapshot integrity or resurrect corrupt/missing journals; those require manual
+forensic recovery from independently verified backups with the app stopped.
+After commit, no automatic “restore previous data” option is offered.
+
+Retention is conservative: **no automatic deletion** of operations, snapshots,
+failed data, or retained releases. Operators may archive old terminal operations
+only during idle maintenance after keeping the last verified recovery pair and
+the helper's pinned release. Never reclaim the only recovery pair to make an
+update fit. Large installations may need operator-managed backup/update instead.
+
+## Verification and qualification
+
+See [verification evidence](ui-self-update-evidence/README.md) for matched rendered
+screenshots, exact test results, disposable VM setup and remaining acceptance
+gaps. Unqualified activation remains disabled despite the implemented engine and
+UI. This is a safety gate pending evidence, not an HTTP-accessible override.

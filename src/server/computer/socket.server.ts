@@ -1,5 +1,6 @@
 import { connect, type Socket } from "node:net";
 import { defineWebSocketHandler } from "nitro";
+import { appGate } from "../../updater/gate";
 import { authenticatedSocket, sessionActive } from "../auth/session.server";
 import {
   attachViewer,
@@ -13,6 +14,8 @@ const authTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 export default defineWebSocketHandler({
   upgrade(request) {
+    if (appGate().mode !== "open")
+      throw new Response("Update admission is closed", { status: 503 });
     const session = authenticatedSocket(request);
     const id = new URL(request.url).searchParams.get("ticket") ?? "";
     if (!connectViewer(id, request.headers.get("origin"), session))
@@ -57,6 +60,11 @@ export default defineWebSocketHandler({
   },
 
   message(peer, message) {
+    if (["hold", "verify", "manual"].includes(appGate().mode)) {
+      sockets.get(peer.id)?.destroy();
+      peer.close(1013, "Roost is updating");
+      return;
+    }
     if (
       !sessionActive(
         typeof peer.context.session === "string" ? peer.context.session : null,

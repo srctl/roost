@@ -182,6 +182,21 @@ writeFileSync(
   )}\n`,
 );
 
+writeFileSync(
+  join(bundle, "compatibility.json"),
+  JSON.stringify({
+    protocol: 1,
+    startupGate: 1,
+    app: { min: 0, max: 10, output: 10 },
+    auth: { min: 0, max: 0, output: 0 },
+    data: "complete-snapshot-v1",
+    externalState: "unchanged",
+    codex: pins.codex.version,
+  }),
+);
+for (const file of ["extract.py", "peer-broker.py"])
+  copyReleaseTree(join(root, "src/updater", file), join(bundle, "cli", file));
+
 const archive = join(output, "roost-linux-x64.tar.gz");
 
 execFileSync(

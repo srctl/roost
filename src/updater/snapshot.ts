@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import {
+  cpSync,
+  createReadStream,
+  existsSync,
+  mkdtempSync,
+  rmSync,
+} from "node:fs";
 import {
   chmod,
   cp,
@@ -11,6 +17,7 @@ import {
   realpath,
   statfs,
 } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { durableJson, operationId, syncDirectory } from "./journal";
@@ -97,10 +104,11 @@ export async function requireHeadroom(
   bytes: number,
   files: number,
   staging = 0,
+  stagingFiles = 0,
 ) {
   const free = await statfs(root, { bigint: true });
   if (
-    ![bytes, files, staging].every(
+    ![bytes, files, staging, stagingFiles].every(
       (value) => Number.isSafeInteger(value) && value >= 0,
     )
   )
@@ -108,7 +116,7 @@ export async function requireHeadroom(
   if (
     free.bavail * free.bsize <
       BigInt(bytes) * 3n + BigInt(staging) + 128n * 1024n * 1024n ||
-    free.ffree < BigInt(files) * 3n + 1024n
+    free.ffree < BigInt(files) * 3n + BigInt(stagingFiles) + 1024n
   )
     throw new Error(
       "Insufficient free space or inodes for snapshot and recovery.",
@@ -116,21 +124,32 @@ export async function requireHeadroom(
 }
 
 function integrity(directory: string) {
-  for (const name of ["roost.sqlite", "auth.sqlite"]) {
-    const path = join(directory, name);
-    // Both stores are required for the native-auth update contract.
-    const db = new DatabaseSync(path, { readOnly: true });
-    try {
-      if (
-        db
-          .prepare("PRAGMA integrity_check")
-          .all()
-          .some((row) => row.integrity_check !== "ok")
-      )
-        throw new Error("Snapshot database integrity check failed.");
-    } finally {
-      db.close();
+  // SQLite can alter SHM even for a read-only connection. Inspect a private copy
+  // so verification never changes the immutable recovery pair or its sidecars.
+  const temporary = mkdtempSync(join(tmpdir(), "roost-snapshot-check-"));
+  try {
+    for (const name of ["roost.sqlite", "auth.sqlite"]) {
+      for (const suffix of ["", "-wal", "-shm", "-journal"]) {
+        const source = join(directory, name + suffix);
+        if (existsSync(source)) cpSync(source, join(temporary, name + suffix));
+      }
+      const path = join(temporary, name);
+      // Both stores are required for the native-auth update contract.
+      const db = new DatabaseSync(path, { readOnly: true });
+      try {
+        if (
+          db
+            .prepare("PRAGMA integrity_check")
+            .all()
+            .some((row) => row.integrity_check !== "ok")
+        )
+          throw new Error("Snapshot database integrity check failed.");
+      } finally {
+        db.close();
+      }
     }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
   }
 }
 
@@ -207,3 +226,20 @@ export async function verifySnapshot(
     throw new Error("Snapshot data failed digest verification.");
   return actual;
 }
+
+export async function verifyData(directory: string, expected: string) {
+  integrity(directory);
+  if ((await scan(directory)).digest !== expected)
+    throw new Error("Restored data does not match complete snapshot.");
+}
+export async function syncTree(directory: string) {
+  for (const entry of (await scan(directory)).entries.reverse()) {
+    const fd = await open(join(directory, entry.path), "r");
+    try {
+      await fd.sync();
+    } finally {
+      await fd.close();
+    }
+  }
+}
+export const inspectData = scan;

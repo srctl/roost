@@ -15,6 +15,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Effect } from "effect";
 import { AuthStore } from "../server/auth/store.server";
+import { updaterRequest } from "../updater/client";
+import { serveUpdater } from "../updater/daemon";
+import { enroll, readEnrollment } from "../updater/enrollment";
+import { readGate, startupGuard } from "../updater/gate";
+import { withKernelLock } from "../updater/lock";
 import {
   activate,
   downloadRelease,
@@ -45,6 +50,9 @@ const help = `Roost
   roost setup [--repository owner/repo] [--port 3000] [--skip-login]
   roost setup --login                 Sign in with the bundled Codex
   roost update [--version 0.1.0]
+  roost updates enroll               Explicit operator enrollment (sudo)
+  roost updates status [--id UUID]    Read-only helper diagnostics
+  roost updates repair --id UUID --decision restore|resume --confirm-version X.Y.Z
   roost auth setup --origin https://roost.example.com
   roost auth recover [--origin https://roost.example.com]
   roost server start
@@ -256,6 +264,88 @@ async function main() {
 
     return;
   }
+  if (action === "updates") {
+    const [operation, ...rest] = args;
+    if (operation === "serve") {
+      flags(rest, {});
+      await serveUpdater(root, join(bundle, "cli"));
+      return;
+    }
+    if (operation === "enroll") {
+      flags(rest, {});
+      await enroll(await config(), (await readRelease(bundle)).version);
+      return;
+    }
+    if (operation === "repair") {
+      const options = flags(rest, {
+        "--id": "value",
+        "--decision": "value",
+        "--confirm-version": "value",
+      });
+      console.log(
+        await updaterRequest(root, {
+          action: "repair",
+          id: options["--id"],
+          decision: options["--decision"],
+          version: options["--confirm-version"],
+        }),
+      );
+      return;
+    }
+    if (operation === "status") {
+      const options = flags(rest, { "--id": "value" });
+      // Diagnostics are independently available even if the web app/socket is down.
+      const { readJournal } = await import("../updater/journal");
+      const { readdir } = await import("node:fs/promises");
+      const enrollment = await readEnrollment(root);
+      console.log(
+        JSON.stringify(
+          {
+            unit: serviceName(enrollment.installation),
+            helper: `roost-${enrollment.installation.uid}-updater.service`,
+            root,
+            gate: {
+              mode: readGate(root).mode,
+              operation: readGate(root).operation,
+            },
+            lockOwner: existsSync(join(root, "updater-owner.json"))
+              ? JSON.parse(
+                  await readFile(join(root, "updater-owner.json"), "utf8"),
+                )
+              : null,
+          },
+          null,
+          2,
+        ),
+      );
+      for (const id of await readdir(join(root, "updates"))) {
+        if (
+          !/^[a-f0-9-]{36}$/.test(id) ||
+          (options["--id"] && id !== options["--id"])
+        )
+          continue;
+        const journal = await readJournal(root, id);
+        console.log(
+          JSON.stringify(
+            {
+              id,
+              phase: journal.phase,
+              previous: journal.previous,
+              candidate: journal.candidate,
+              snapshotDigest: journal.snapshotDigest,
+              location: join(root, "updates", id),
+            },
+            null,
+            2,
+          ),
+        );
+      }
+      return;
+    }
+    throw new Error(
+      "Use roost updates enroll or status. Recovery runs automatically in the supervised helper; inspect its journal before operator repair.",
+    );
+  }
   if (action === "auth") {
     const [operation, ...rest] = args;
     if (operation !== "setup" && operation !== "recover")
@@ -263,20 +353,29 @@ async function main() {
     const options = flags(rest, { "--origin": "value" });
     if (operation === "setup" && !options["--origin"])
       throw new Error("Specify --origin https://your-host.");
-    const store = new AuthStore(
-      resolve(process.env.ROOST_DATA_DIR ?? join(root, "data")),
-    );
-    try {
-      const link = store.setup(options["--origin"], operation === "recover");
-      console.log(
-        "Open this private, single-use link within 15 minutes to register your passkey:",
+    await withKernelLock(root, async () => {
+      if (
+        existsSync(join(root, "updater.json")) &&
+        readGate(root).mode !== "open"
+      )
+        throw new Error(
+          "Authentication recovery must wait for updater recovery.",
+        );
+      const store = new AuthStore(
+        resolve(process.env.ROOST_DATA_DIR ?? join(root, "data")),
       );
-      console.log(link);
-      if (operation === "recover")
-        console.log("Previous passkeys and sessions were revoked.");
-    } finally {
-      store.close();
-    }
+      try {
+        const link = store.setup(options["--origin"], operation === "recover");
+        console.log(
+          "Open this private, single-use link within 15 minutes to register your passkey:",
+        );
+        console.log(link);
+        if (operation === "recover")
+          console.log("Previous passkeys and sessions were revoked.");
+      } finally {
+        store.close();
+      }
+    });
     return;
   }
   if (process.platform !== "linux" || process.arch !== "x64")
@@ -298,7 +397,37 @@ async function main() {
   }
   if (action === "update") {
     const options = flags(args, { "--version": "value" });
-    await withLock(root, () => update(options));
+    if (existsSync(join(root, "updater.json"))) {
+      const status = await updaterRequest<{
+        latest?: { id: string; version: string; expiresAt: number };
+      }>(root, { action: "status" });
+      const offer =
+        status.latest && status.latest.expiresAt > Date.now()
+          ? status.latest
+          : await updaterRequest<{ id: string; version: string }>(root, {
+              action: "check",
+            });
+      if (!options["--version"])
+        throw new Error(
+          `Confirm the exact offer with roost update --version ${offer.version}. This requires an outage.`,
+        );
+      if (options["--version"] !== offer.version)
+        throw new Error(
+          "Enrolled CLI updates accept only the pinned latest stable offer.",
+        );
+      const { createHash, randomUUID } = await import("node:crypto");
+      console.log(
+        await updaterRequest(root, {
+          action: "accept",
+          offerId: offer.id,
+          version: offer.version,
+          key: randomUUID(),
+          actor: createHash("sha256")
+            .update(`operator:${userInfo().uid}`)
+            .digest("hex"),
+        }),
+      );
+    } else await withLock(root, () => update(options));
 
     return;
   }
@@ -312,6 +441,8 @@ async function main() {
   const c = await config();
   if (operation === "run") {
     const release = await readRelease(bundle);
+    startupGuard(root, release.version, process.env.ROOST_UPDATE_TOKEN);
+    process.env.ROOST_PUBLIC_DIR = join(bundle, "app/public");
     process.env.HOST = "127.0.0.1";
     process.env.NITRO_HOST = "127.0.0.1";
     process.env.PORT = String(c.port);
@@ -340,11 +471,17 @@ async function main() {
     return;
   }
   if (operation === "start") {
-    await withLock(root, () => start(c));
+    if (existsSync(join(root, "updater.json")))
+      await updaterRequest(root, { action: "start" });
+    else await withLock(root, () => start(c));
 
     return;
   }
   if (operation === "stop") {
+    if (existsSync(join(root, "updater.json"))) {
+      await updaterRequest(root, { action: "stop" });
+      return;
+    }
     await withLock(root, async () => {
       await service(c, "stop");
       console.log(

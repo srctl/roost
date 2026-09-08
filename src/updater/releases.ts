@@ -127,7 +127,7 @@ export function parseOffer(
     id: createHash("sha256")
       .update(JSON.stringify({ ...identity, expiresAt }))
       .digest("hex"),
-    notes: typeof release.body === "string" ? release.body.slice(0, 16000) : "",
+    notes: typeof release.body === "string" ? release.body.slice(0, 8000) : "",
     checkedAt: now,
     expiresAt,
   };
@@ -168,7 +168,9 @@ export class ReleaseChecker {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-      ...(this.cache?.etag ? { "If-None-Match": this.cache.etag } : {}),
+      ...(this.cache?.etag && this.cache.offer.expiresAt > this.clock()
+        ? { "If-None-Match": this.cache.etag }
+        : {}),
     };
     const response = await this.fetcher(
       `https://api.github.com/repos/${this.repository}/releases/latest`,
