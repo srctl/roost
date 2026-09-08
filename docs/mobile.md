@@ -13,8 +13,9 @@ without being redirected; an empty workspace offers **Create an agent**.
 
 Swipe right across the page to open the agent picker, or tap the menu button.
 Use a short, mostly horizontal swipe outside text inputs, controls, and horizontally
-scrolling content such as code blocks and tables. Select an agent, tap outside the
-drawer, or use its close button to dismiss it.
+scrolling content such as code blocks and tables. Swipe left across the drawer
+to dismiss it, including across an agent row. You can also select an agent, tap
+outside the drawer, or use its close button.
 
 On phones, the document stays fixed while the conversation or settings content
 scrolls inside it. While the keyboard is closed, browser tabs use the dynamic

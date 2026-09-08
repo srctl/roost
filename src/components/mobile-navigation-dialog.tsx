@@ -1,7 +1,8 @@
 import { Dialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
-import type { RefObject } from "react";
+import { type RefObject, useEffect, useState } from "react";
 import { useOpenAfterMount } from "../features/motion";
+import { listenForNavigationSwipe } from "../features/navigation-swipe";
 import { Route } from "../routes/__root";
 import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
@@ -18,12 +19,27 @@ export function MobileNavigationDialog({
 }) {
   const agents = Route.useLoaderData();
   const shown = useOpenAfterMount(open);
+  const [drawer, setDrawer] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!drawer || !shown) return;
+    const mobile = window.matchMedia("(max-width: 700px)");
+    return listenForNavigationSwipe(
+      drawer,
+      () => mobile.matches,
+      () => onOpenChange(false),
+      "left",
+    );
+  }, [drawer, shown, onOpenChange]);
 
   return (
     <Dialog.Root open={shown} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop {...stylex.props(styles.backdrop)} />
-        <Dialog.Popup finalFocus={trigger} {...stylex.props(styles.drawer)}>
+        <Dialog.Popup
+          ref={setDrawer}
+          finalFocus={trigger}
+          {...stylex.props(styles.drawer)}
+        >
           <Dialog.Title {...stylex.props(styles.srOnly)}>
             Navigation
           </Dialog.Title>

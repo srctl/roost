@@ -1,9 +1,11 @@
-/** Adds a right-swipe shortcut without taking over native scrolling or zoom. */
+/** Adds a swipe shortcut without taking over native scrolling or zoom. */
 export function listenForNavigationSwipe(
   surface: HTMLElement,
   enabled: () => boolean,
-  onOpen: () => void,
+  onSwipe: () => void,
+  direction: "left" | "right" = "right",
 ) {
+  const sign = direction === "right" ? 1 : -1;
   let start: { id: number; x: number; y: number; time: number } | null = null;
 
   const reset = () => {
@@ -17,10 +19,15 @@ export function listenForNavigationSwipe(
     if (!(target instanceof Element)) return;
     if (
       target.closest(
-        'input, textarea, select, button, a, [contenteditable]:not([contenteditable="false"]), [role="slider"], [role="dialog"], canvas, video',
+        'input, textarea, select, button, [contenteditable]:not([contenteditable="false"]), [role="slider"], canvas, video',
       )
     )
       return;
+    // Closing should also work across agent links. Ignore any nested dialog,
+    // while allowing gestures inside the navigation dialog itself.
+    if (direction === "right" && target.closest("a")) return;
+    const dialog = target.closest('[role="dialog"]');
+    if (dialog && dialog !== surface) return;
     if (!window.getSelection()?.isCollapsed) return;
 
     // Code blocks, tables, resize handles, and the remote computer own their
@@ -57,9 +64,9 @@ export function listenForNavigationSwipe(
       reset();
       return;
     }
-    const dx = touch.clientX - start.x;
+    const dx = (touch.clientX - start.x) * sign;
     const dy = Math.abs(touch.clientY - start.y);
-    // Once scrolling or swiping left, do not reinterpret the gesture later.
+    // Once scrolling or swiping the other way, do not reinterpret it later.
     if (dx < -12 || (dy > 12 && dy > Math.abs(dx))) reset();
   };
 
@@ -71,7 +78,7 @@ export function listenForNavigationSwipe(
       (touch) => touch.identifier === origin.id,
     );
     if (!touch) return;
-    const dx = touch.clientX - origin.x;
+    const dx = (touch.clientX - origin.x) * sign;
     const dy = Math.abs(touch.clientY - origin.y);
     if (
       dx >= 72 &&
@@ -79,7 +86,7 @@ export function listenForNavigationSwipe(
       event.timeStamp - origin.time <= 700 &&
       window.getSelection()?.isCollapsed
     )
-      onOpen();
+      onSwipe();
   };
 
   surface.addEventListener("touchstart", onStart, { passive: true });
