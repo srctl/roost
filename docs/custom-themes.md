@@ -106,7 +106,46 @@ The browser harness intentionally uses an isolated instance without production
 credentials. Its output defaults to `docs/theme-evidence` and is configurable
 with `THEME_EVIDENCE_DIR`.
 
-## Visual evidence
+## Matched BEFORE / AFTER Settings renders
+
+These are actual rendered production builds, captured on 2026-09-08. **BEFORE**
+uses pre-change commit `3f7bae287253e1c4c5449ea78521b2fcc072152d` (the parent
+of the implementation), built from a Git archive in `/tmp`. **AFTER** uses
+`f5ee1107c5047d42c16719a23216897a782a8086`. The baseline contains no theme picker;
+an after screenshot with Default selected is not being used as the baseline.
+
+Both builds used fresh, separate temporary data and temporary localhost ports:
+no agents, Codex disconnected, notification delivery unconfigured, navigation
+closed, Settings at the top, response style Codex, activity details off, and
+light device appearance. The after view uses Default/System to isolate the UI
+change. Each pair has the same viewport and device scale factor of 1. Chromium
+reported no page/hydration errors or horizontal overflow. Both preview processes
+were stopped after capture; no live data, host configuration, or other worktree
+was changed. [Capture metadata](theme-evidence/paired-settings-capture.json).
+
+### Desktop BEFORE — 1440 × 1100
+
+![BEFORE: pre-change Settings on desktop, 1440 by 1100](theme-evidence/before-settings-desktop.png)
+
+### Desktop AFTER — 1440 × 1100
+
+![AFTER: Settings with the new theme picker on desktop, 1440 by 1100](theme-evidence/after-settings-desktop.png)
+
+### Mobile BEFORE — 390 × 844
+
+![BEFORE: pre-change Settings on mobile, 390 by 844](theme-evidence/before-settings-mobile.png)
+
+### Mobile AFTER — 390 × 844
+
+![AFTER: Settings with the new theme picker on mobile, 390 by 844](theme-evidence/after-settings-mobile.png)
+
+### Representative custom palettes
+
+![AFTER: Rosé Pine dark on desktop](theme-evidence/desktop-rose-pine-dark.png)
+
+![AFTER: Catppuccin light on mobile](theme-evidence/mobile-catppuccin-light.png)
+
+## All palette views
 
 | Palette | Desktop light | Desktop dark | Mobile light | Mobile dark |
 | --- | --- | --- | --- | --- |
