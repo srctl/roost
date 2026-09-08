@@ -3,6 +3,7 @@ import {
   Fragment,
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -100,6 +101,16 @@ export function Conversation({
   const computerOpen =
     !manualComputerOpen && !!(computerAnchor && dismissedComputerRun !== runId);
   const viewport = useRef<HTMLDivElement>(null);
+  const history = useRef<HTMLDivElement>(null);
+  const [showBottomButton, setShowBottomButton] = useState(false);
+  const updateBottomButton = useCallback(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const distance =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    // Half a visible page, but never inside the existing 64px follow boundary.
+    setShowBottomButton(distance > Math.max(64, element.clientHeight / 2));
+  }, []);
   const { responseStyle, showActivityDetails } = usePreferences();
   const followReply = useRef(true);
   // Sending scrolls smoothly so the new bubble glides up from the composer.
@@ -126,13 +137,18 @@ export function Conversation({
   }, [messages, loadingOlder]);
   useLayoutEffect(() => {
     const element = viewport.current;
-    if (!element || !followReply.current) return;
+    if (!element) return;
+    if (!followReply.current) {
+      updateBottomButton();
+      return;
+    }
     const smooth =
       (smoothNext.current || settleUntil.current > Date.now()) &&
       !prefersReducedMotion();
     smoothNext.current = false;
     if (smooth) settleUntil.current = Date.now() + SETTLE_MS;
     scrollToEnd(element, smooth);
+    updateBottomButton();
   }, [
     messages,
     savedComputerAnchor,
@@ -141,6 +157,7 @@ export function Conversation({
     showActivityDetails,
     computerOpen,
     computerEnabled,
+    updateBottomButton,
   ]);
   useEffect(() => {
     const element = viewport.current;
@@ -150,16 +167,21 @@ export function Conversation({
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (followReply.current)
-          scrollToEnd(element, settleUntil.current > Date.now());
+          scrollToEnd(
+            element,
+            settleUntil.current > Date.now() && !prefersReducedMotion(),
+          );
+        updateBottomButton();
       });
     });
     observer.observe(element);
+    if (history.current) observer.observe(history.current);
 
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [updateBottomButton]);
 
   return (
     <section
@@ -190,102 +212,132 @@ export function Conversation({
           )}
         </AgentHeader>
       )}
-      <ScrollArea
-        label="Conversation history"
-        viewportRef={viewport}
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          const distance =
-            element.scrollHeight - element.scrollTop - element.clientHeight;
-          if (settleUntil.current > Date.now()) {
-            if (distance < 2) settleUntil.current = 0;
-            return;
-          }
-          followReply.current = distance < 64;
-        }}
-      >
-        <div {...stylex.props(styles.history, live && styles.enter)}>
-          {loading && showLoading && (
-            <p role="status">Loading conversation… You can start typing.</p>
-          )}
-          {before !== null && (
-            <Button
-              disabled={loadingOlder}
-              onClick={() => {
-                if (viewport.current)
-                  prepend.current = {
-                    height: viewport.current.scrollHeight,
-                    top: viewport.current.scrollTop,
-                  };
-                followReply.current = false;
-                void loadOlder();
-              }}
-            >
-              {loadingOlder ? "Loading older messages…" : "Load older messages"}
-            </Button>
-          )}
-          {!loading && !messages.length && (
-            <div {...stylex.props(styles.empty)}>
-              <h2>Say hello to {agent.name}.</h2>
-              <p>
-                Ask a question, share an idea, or tell your agent what you need.
-              </p>
-            </div>
-          )}
-          {messages.map((message) => (
-            <Fragment key={message.id}>
-              {message.role === "user" ? (
-                <UserMessage
-                  files={message.files}
-                  entering={entering.has(message.id)}
-                >
-                  {message.text}
-                </UserMessage>
-              ) : message.role === "notice" ? (
-                <ConversationNotice agentId={agent.id} message={message} />
-              ) : message.role === "activity" ? (
-                <ToolActivity
-                  agentId={agent.id}
-                  message={message}
-                  entering={entering.has(message.id)}
-                />
-              ) : (
-                <AgentMessage
-                  name={agent.name}
-                  title={message.title}
-                  files={message.files}
-                  entering={entering.has(message.id)}
-                >
-                  {message.text}
-                </AgentMessage>
-              )}
-              {computerEnabled &&
-                computerOpen &&
-                message.id === computerAnchor && (
-                  <Suspense fallback={<p role="status">Loading desktop…</p>}>
-                    <ComputerPanel
-                      agentName={agent.name}
-                      onClose={() => setDismissedComputerRun(runId)}
-                    />
-                  </Suspense>
-                )}
-            </Fragment>
-          ))}
-          {computerEnabled &&
-            computerOpen &&
-            !messages.some((message) => message.id === computerAnchor) && (
-              <Suspense fallback={<p role="status">Loading desktop…</p>}>
-                <ComputerPanel
-                  agentName={agent.name}
-                  onClose={() => setDismissedComputerRun(runId)}
-                />
-              </Suspense>
+      <div {...stylex.props(styles.historyArea)}>
+        <ScrollArea
+          label="Conversation history"
+          viewportRef={viewport}
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            const distance =
+              element.scrollHeight - element.scrollTop - element.clientHeight;
+            updateBottomButton();
+            if (settleUntil.current > Date.now()) {
+              if (distance < 2) settleUntil.current = 0;
+              return;
+            }
+            followReply.current = distance < 64;
+          }}
+        >
+          <div
+            ref={history}
+            {...stylex.props(styles.history, live && styles.enter)}
+          >
+            {loading && showLoading && (
+              <p role="status">Loading conversation… You can start typing.</p>
             )}
-          {busy && !waitingForApproval && responseStyle === "messages" && (
-            <TypingIndicator name={agent.name} />
-          )}
-        </div>
-      </ScrollArea>
+            {before !== null && (
+              <Button
+                disabled={loadingOlder}
+                onClick={() => {
+                  if (viewport.current)
+                    prepend.current = {
+                      height: viewport.current.scrollHeight,
+                      top: viewport.current.scrollTop,
+                    };
+                  followReply.current = false;
+                  void loadOlder();
+                }}
+              >
+                {loadingOlder
+                  ? "Loading older messages…"
+                  : "Load older messages"}
+              </Button>
+            )}
+            {!loading && !messages.length && (
+              <div {...stylex.props(styles.empty)}>
+                <h2>Say hello to {agent.name}.</h2>
+                <p>
+                  Ask a question, share an idea, or tell your agent what you
+                  need.
+                </p>
+              </div>
+            )}
+            {messages.map((message) => (
+              <Fragment key={message.id}>
+                {message.role === "user" ? (
+                  <UserMessage
+                    files={message.files}
+                    entering={entering.has(message.id)}
+                  >
+                    {message.text}
+                  </UserMessage>
+                ) : message.role === "notice" ? (
+                  <ConversationNotice agentId={agent.id} message={message} />
+                ) : message.role === "activity" ? (
+                  <ToolActivity
+                    agentId={agent.id}
+                    message={message}
+                    entering={entering.has(message.id)}
+                  />
+                ) : (
+                  <AgentMessage
+                    name={agent.name}
+                    title={message.title}
+                    files={message.files}
+                    entering={entering.has(message.id)}
+                  >
+                    {message.text}
+                  </AgentMessage>
+                )}
+                {computerEnabled &&
+                  computerOpen &&
+                  message.id === computerAnchor && (
+                    <Suspense fallback={<p role="status">Loading desktop…</p>}>
+                      <ComputerPanel
+                        agentName={agent.name}
+                        onClose={() => setDismissedComputerRun(runId)}
+                      />
+                    </Suspense>
+                  )}
+              </Fragment>
+            ))}
+            {computerEnabled &&
+              computerOpen &&
+              !messages.some((message) => message.id === computerAnchor) && (
+                <Suspense fallback={<p role="status">Loading desktop…</p>}>
+                  <ComputerPanel
+                    agentName={agent.name}
+                    onClose={() => setDismissedComputerRun(runId)}
+                  />
+                </Suspense>
+              )}
+            {busy && !waitingForApproval && responseStyle === "messages" && (
+              <TypingIndicator name={agent.name} />
+            )}
+          </div>
+        </ScrollArea>
+        {showBottomButton && (
+          <Button
+            aria-label="Scroll to bottom"
+            title="Scroll to bottom"
+            xstyle={styles.bottomButton}
+            onClick={() => {
+              const element = viewport.current;
+              if (!element) return;
+              followReply.current = true;
+              smoothNext.current = false;
+              settleUntil.current = 0;
+              // An immediate jump also respects reduced motion and cannot fight
+              // the next manual scroll while a long animation settles.
+              scrollToEnd(element, false);
+              updateBottomButton();
+              element.focus({ preventScroll: true });
+            }}
+          >
+            <Icon name="arrow-down" size={20} />
+          </Button>
+        )}
+      </div>
       {computerEnabled && manualComputerOpen && (
         <Suspense fallback={<p role="status">Loading desktop…</p>}>
           <ComputerPanel
@@ -364,6 +416,37 @@ const styles = stylex.create({
   chatTitle: { margin: 0, fontSize: 13, fontWeight: 500 },
   closeChat: {
     display: { default: "none", "@media (max-width: 1100px)": "inline-flex" },
+  },
+  historyArea: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minHeight: 0,
+  },
+  bottomButton: {
+    position: "absolute",
+    bottom: 12,
+    insetInlineStart: "calc(50% - 22px)",
+    width: 44,
+    height: 44,
+    minHeight: 44,
+    padding: 0,
+    borderRadius: "50%",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    backgroundColor: {
+      default: `color-mix(in srgb, ${colors.surface} 88%, transparent)`,
+      ":hover": colors.selected,
+    },
+    color: colors.foreground,
+    outline: {
+      default: null,
+      ":focus-visible": `2px solid ${colors.foreground}`,
+    },
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 2px 8px rgb(0 0 0 / 12%)",
   },
   history: {
     flex: 1,
