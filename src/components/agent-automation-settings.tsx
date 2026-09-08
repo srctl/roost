@@ -22,6 +22,7 @@ function runLabel(run: RunSummary): string {
     delegation: "Delegated task",
     handoff: "Specialist update",
     reflection: "Reflection",
+    coding: "Coding update",
   }[run.kind];
 }
 

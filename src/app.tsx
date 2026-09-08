@@ -52,7 +52,8 @@ export function App() {
       state.matches.some(
         (match) =>
           match.routeId === "/agents/$agentId" ||
-          match.routeId === "/agents/$agentId_/dashboard",
+          match.routeId === "/agents/$agentId_/dashboard" ||
+          match.routeId === "/agents/$agentId_/jobs",
       ),
   });
   const shell = useRef<HTMLDivElement>(null);

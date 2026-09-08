@@ -17,7 +17,13 @@ import { putMessage } from "./timeline.server";
 export type Run = {
   id: string;
   agentId: string;
-  kind: "chat" | "automation" | "delegation" | "handoff" | "reflection";
+  kind:
+    | "chat"
+    | "automation"
+    | "delegation"
+    | "handoff"
+    | "reflection"
+    | "coding";
   prompt: string;
   status: string;
   automationId: string | null;

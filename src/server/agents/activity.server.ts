@@ -7,6 +7,13 @@ export const readAgentActivity = () =>
     const activity: Record<string, AgentActivity> = {};
     for (const row of db
       .prepare(
+        "SELECT agentId,status FROM coding_jobs WHERE status IN ('queued','starting','running','blocked') ORDER BY CASE status WHEN 'blocked' THEN 1 ELSE 0 END",
+      )
+      .all())
+      activity[String(row.agentId)] =
+        row.status === "blocked" ? "approval" : "delegating";
+    for (const row of db
+      .prepare(
         "SELECT DISTINCT d.sourceAgentId FROM delegations d JOIN runs r ON r.id=d.id WHERE r.status IN ('queued','running')",
       )
       .all())

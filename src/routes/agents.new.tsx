@@ -18,6 +18,7 @@ function CreateAgentPage() {
   const router = useRouter();
   const navigate = Route.useNavigate();
   const [busy, setBusy] = useState(false);
+  const [kind, setKind] = useState<"assistant" | "coding">("assistant");
   const [error, setError] = useState<string>();
   const attempt = useRef<{ key: string; id: string } | null>(null);
 
@@ -30,6 +31,7 @@ function CreateAgentPage() {
       instructions: String(form.get("instructions")).trim(),
       character: String(form.get("character")) as typeof Character.Type,
       model: String(form.get("model")),
+      kind,
     };
     if (!values.name || !values.instructions) {
       setError("Give your agent a name and instructions before saving.");
@@ -106,12 +108,38 @@ function CreateAgentPage() {
             />
           </label>
           <label {...stylex.props(styles.field)}>
+            Agent type
+            <select
+              name="kind"
+              value={kind}
+              onChange={(event) =>
+                setKind(event.target.value as "assistant" | "coding")
+              }
+              disabled={busy}
+              {...stylex.props(styles.input)}
+            >
+              <option value="assistant">General assistant</option>
+              <option value="coding">Coding agent</option>
+            </select>
+            {kind === "coding" && (
+              <span {...stylex.props(styles.muted)}>
+                Manages coding jobs for a project, with the same soul, memory,
+                and reflection as any agent. Configure its project and execution
+                profiles in settings after creating it.
+              </span>
+            )}
+          </label>
+          <label {...stylex.props(styles.field)}>
             What should your agent help with?
             <textarea
               name="instructions"
               required
               maxLength={8000}
-              placeholder="Research ideas, compare options, and bring back a clear recommendation…"
+              placeholder={
+                kind === "coding"
+                  ? "Manage development for my project. Clarify the task, oversee the coding work, and bring back verified results for review…"
+                  : "Research ideas, compare options, and bring back a clear recommendation…"
+              }
               disabled={busy}
               {...stylex.props(styles.input, styles.textarea)}
             />

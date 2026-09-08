@@ -16,6 +16,7 @@ connect it to Codex.
 
 ## Work with your agents
 
+- [Coding agents](coding-agents.md) — manage development jobs, task sources, and execution profiles.
 - [Automations](automations.md) — recurring work, timezones, quiet updates, and run history.
 - [Delegation](delegation.md) — let agents hand a focused task to a specialist.
 - [Files and approvals](files-and-approvals.md) — upload inputs, download results,

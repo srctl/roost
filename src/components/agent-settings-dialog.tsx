@@ -51,7 +51,10 @@ export function AgentSettingsDialog({
         <Suspense
           fallback={<p {...stylex.props(styles.loading)}>Loading settings…</p>}
         >
-          <AgentIdentitySettings agentId={agent.id} />
+          <AgentIdentitySettings
+            agentId={agent.id}
+            coding={agent.kind === "coding"}
+          />
         </Suspense>
       </SheetContent>
     </Sheet>

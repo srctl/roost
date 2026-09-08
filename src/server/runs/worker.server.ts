@@ -8,6 +8,7 @@ import {
   readConversation,
   sendConversation,
 } from "../codex/conversation.server";
+import { tickCodingJobs } from "../coding/worker.server";
 import { notifyRunFinished } from "../notifications/push.server";
 import {
   claimRun,
@@ -169,6 +170,8 @@ type Worker = {
   background: Set<string>;
   tick: () => Promise<void>;
   tasks: Set<Promise<void>>;
+  codingController?: AbortController;
+  lastCodingTick?: number;
 };
 
 const globalState = globalThis as typeof globalThis & {
@@ -203,6 +206,7 @@ export function startWorker() {
     try {
       const owns = await Effect.runPromise(schedulerTick(current.owner));
       if (!owns) {
+        current.codingController?.abort();
         for (const controller of current.controllers.values())
           controller.abort();
 
@@ -219,6 +223,25 @@ export function startWorker() {
       );
       for (const stop of stops)
         current.controllers.get(String(stop.id))?.abort();
+      if (
+        !current.codingController &&
+        Date.now() - (current.lastCodingTick ?? 0) >= 5000
+      ) {
+        const controller = new AbortController();
+        current.codingController = controller;
+        current.lastCodingTick = Date.now();
+        const task = tickCodingJobs(current.owner, controller.signal)
+          .catch(() =>
+            console.error(
+              "Roost could not monitor coding jobs; it will retry without resubmitting tasks.",
+            ),
+          )
+          .finally(() => {
+            current.codingController = undefined;
+            current.tasks.delete(task);
+          });
+        current.tasks.add(task);
+      }
       while (!current.stopped && current.controllers.size < 4) {
         // Keep one slot available for user conversations while specialists work.
         const run = await Effect.runPromise(
@@ -257,6 +280,7 @@ export function startWorker() {
     while (current.ticking)
       await new Promise((resolve) => setTimeout(resolve, 10));
     for (const controller of current.controllers.values()) controller.abort();
+    current.codingController?.abort();
     await Promise.allSettled([...current.tasks]);
     await Effect.runPromise(
       withAgentStore((db) =>

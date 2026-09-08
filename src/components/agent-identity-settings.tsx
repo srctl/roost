@@ -1,6 +1,6 @@
 import { Tabs } from "@base-ui/react/tabs";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   getAgentIdentity,
   reflectAgentNow,
@@ -24,7 +24,19 @@ type Identity = Extract<
   { ok: true }
 >["value"];
 
-export function AgentIdentitySettings({ agentId }: { agentId: string }) {
+const AgentCodingSettings = lazy(() =>
+  import("./agent-coding-settings").then((module) => ({
+    default: module.AgentCodingSettings,
+  })),
+);
+
+export function AgentIdentitySettings({
+  agentId,
+  coding = false,
+}: {
+  agentId: string;
+  coding?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [changeId, setChangeId] = useState<string>();
   const [identity, setIdentity] = useState<Identity>();
@@ -168,7 +180,19 @@ export function AgentIdentitySettings({ agentId }: { agentId: string }) {
         <Tabs.Tab value="automations" {...stylex.props(styles.tab)}>
           Automations
         </Tabs.Tab>
+        {coding && (
+          <Tabs.Tab value="coding" {...stylex.props(styles.tab)}>
+            Coding
+          </Tabs.Tab>
+        )}
       </Tabs.List>
+      {coding && (
+        <Tabs.Panel value="coding" {...stylex.props(styles.panel)}>
+          <Suspense fallback={<p role="status">Loading coding settings…</p>}>
+            <AgentCodingSettings agentId={agentId} />
+          </Suspense>
+        </Tabs.Panel>
+      )}
       <Tabs.Panel value="soul" {...stylex.props(styles.panel)}>
         <p {...stylex.props(styles.help)}>
           Your agent’s purpose, personality, and boundaries. You can edit these

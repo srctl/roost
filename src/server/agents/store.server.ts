@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 7)
+        if (version > 8)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -167,6 +167,52 @@ export function withAgentStore<A>(
             PRAGMA user_version = 7;
             COMMIT;`);
         }
+        if (version < 8) {
+          db.exec(`BEGIN IMMEDIATE;
+            ALTER TABLE agents ADD COLUMN kind TEXT NOT NULL DEFAULT 'assistant' CHECK(kind IN ('assistant','coding'));
+            CREATE TABLE coding_settings (
+              agentId TEXT PRIMARY KEY, repository TEXT NOT NULL,
+              projectInstructions TEXT NOT NULL, defaultProfileId TEXT,
+              sources TEXT NOT NULL, revision INTEGER NOT NULL
+            );
+            CREATE TABLE coding_profiles (
+              id TEXT PRIMARY KEY, name TEXT NOT NULL,
+              kind TEXT NOT NULL CHECK(kind IN ('local','ssh')),
+              target TEXT NOT NULL, instructions TEXT NOT NULL, revision INTEGER NOT NULL
+            );
+            CREATE TABLE coding_jobs (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL, title TEXT NOT NULL,
+              brief TEXT NOT NULL, assignment TEXT NOT NULL DEFAULT '',
+              profileId TEXT, sourceUrl TEXT NOT NULL,
+              status TEXT NOT NULL CHECK(status IN ('queued','starting','running','blocked','review','completed','failed','cancelled')),
+              cwd TEXT NOT NULL, sessionName TEXT NOT NULL,
+              workerName TEXT NOT NULL, workerKind TEXT NOT NULL,
+              remoteTarget TEXT NOT NULL, repository TEXT NOT NULL,
+              projectInstructions TEXT NOT NULL, profileInstructions TEXT NOT NULL,
+              sourceRunId TEXT NOT NULL DEFAULT '', lastWorkerState TEXT NOT NULL DEFAULT '',
+              observedWorking INTEGER NOT NULL DEFAULT 0, dispatchedAt INTEGER,
+              notifiedStatus TEXT NOT NULL DEFAULT '', paneId TEXT NOT NULL DEFAULT '',
+              sessionIdentity TEXT NOT NULL DEFAULT '', launchOwner TEXT NOT NULL DEFAULT '',
+              nativeSessionId TEXT NOT NULL DEFAULT '',
+              cancelRequested INTEGER NOT NULL DEFAULT 0, request TEXT NOT NULL,
+              summary TEXT NOT NULL, error TEXT NOT NULL, output TEXT NOT NULL DEFAULT '',
+              lastCheckedAt INTEGER NOT NULL DEFAULT 0,
+              createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, revision INTEGER NOT NULL
+            );
+            CREATE INDEX coding_jobs_agent ON coding_jobs(agentId,createdAt DESC);
+            CREATE INDEX coding_jobs_status ON coding_jobs(status);
+            CREATE TABLE coding_job_inputs (
+              id TEXT PRIMARY KEY, jobId TEXT NOT NULL, agentId TEXT NOT NULL,
+              prompt TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued',
+              error TEXT NOT NULL DEFAULT '', createdAt INTEGER NOT NULL
+            );
+            CREATE INDEX coding_job_inputs_job ON coding_job_inputs(jobId,status,createdAt);
+            CREATE TABLE coding_job_updates (
+              runId TEXT PRIMARY KEY, jobId TEXT NOT NULL, agentId TEXT NOT NULL
+            );
+            PRAGMA user_version = 8;
+            COMMIT;`);
+        }
         return run(db, directory);
       } finally {
         db.close();
@@ -205,7 +251,8 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
           agent.name !== data.name ||
           agent.instructions !== data.instructions ||
           agent.character !== data.character ||
-          agent.model !== data.model
+          agent.model !== data.model ||
+          agent.kind !== (data.kind ?? "assistant")
         ) {
           throw new AgentStoreError({
             message:
@@ -216,10 +263,14 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
 
         return agent;
       }
-      const agent = { ...data, createdAt: new Date().toISOString() };
+      const agent = {
+        ...data,
+        kind: data.kind ?? "assistant",
+        createdAt: new Date().toISOString(),
+      };
       mkdirSync(join(root, "workspaces", agent.id), { recursive: true });
       db.prepare(
-        "INSERT INTO agents (id, name, instructions, character, model, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO agents (id, name, instructions, character, model, createdAt, kind) VALUES (?, ?, ?, ?, ?, ?, ?)",
       ).run(
         agent.id,
         agent.name,
@@ -227,6 +278,7 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
         agent.character,
         agent.model,
         agent.createdAt,
+        agent.kind,
       );
       db.exec("COMMIT");
 
@@ -282,7 +334,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,8)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,9)",
     ).run(threadId);
   });
 

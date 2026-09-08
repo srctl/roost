@@ -23,12 +23,15 @@ const Instructions = Schema.Trim.pipe(
 
 const Model = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200));
 
+export const AgentKind = Schema.Literal("assistant", "coding");
+
 export const CreateAgentInput = Schema.Struct({
   id: Schema.UUID,
   name: Name,
   instructions: Instructions,
   character: Character,
   model: Model,
+  kind: Schema.optional(AgentKind),
 });
 
 export type CreateAgentInput = typeof CreateAgentInput.Type;

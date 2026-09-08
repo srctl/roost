@@ -9,6 +9,7 @@ import {
   saveAutomation,
   toggleAutomation,
 } from "../automations/store.server";
+import { codingTools, handleCodingTool } from "../coding/tools.server";
 import {
   DeleteDashboard,
   dashboardTools,
@@ -165,6 +166,8 @@ export function handleAgentTool(
       return yield* new CodexError({
         message: "Reflection can only read and update its own soul.",
       });
+    if (codingTools.some((spec) => spec.name === tool))
+      return yield* handleCodingTool(agentId, runId, tool, arguments_);
     if (tool === "roost_notify")
       return yield* notifyAgent(
         agentId,

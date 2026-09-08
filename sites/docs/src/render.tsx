@@ -33,6 +33,7 @@ const groups = [
     title: "Use Roost",
     pages: [
       ["agents-and-memory", "Agents & memory"],
+      ["coding-agents", "Coding agents"],
       ["automations", "Automations"],
       ["delegation", "Delegation"],
       ["files-and-approvals", "Files & approvals"],

@@ -27,6 +27,7 @@ const sections = [
     title: "Use Roost",
     slugs: [
       "agents-and-memory",
+      "coding-agents",
       "automations",
       "delegation",
       "files-and-approvals",

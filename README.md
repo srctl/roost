@@ -85,7 +85,7 @@ accounts; they are not isolated operating-system users.
 
 - [Documentation](docs/index.md)
 - [Agents and memory](docs/agents-and-memory.md)
-- [Automations](docs/automations.md) and [delegation](docs/delegation.md)
+- [Coding agents](docs/coding-agents.md), [automations](docs/automations.md), and [delegation](docs/delegation.md)
 - [Files and approvals](docs/files-and-approvals.md)
 - [Shared computer](docs/computer.md), [dashboards](docs/dashboards.md), and [mobile access](docs/mobile.md)
 - [Development](docs/development.md) and [architecture](docs/architecture.md)
