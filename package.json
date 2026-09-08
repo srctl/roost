@@ -30,11 +30,15 @@
     "check:sites": "pnpm typecheck:sites && pnpm test:sites && pnpm build:sites",
     "test:sites": "node --import tsx --test sites/docs/*.test.tsx",
     "test:auth": "pnpm build && pnpm test:auth:production",
-    "test:auth:production": "node --import tsx scripts/test-auth-production.ts"
+    "test:auth:production": "node --import tsx scripts/test-auth-production.ts",
+    "test:charts": "node --import tsx scripts/test-dashboard-charts.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
     "@effect/platform-node": "0.108.1",
+    "@fluentui/react-charts": "9.3.25",
+    "@fluentui/react-provider": "9.22.20",
+    "@fluentui/react-theme": "9.2.2",
     "@novnc/novnc": "1.5.0",
     "@simplewebauthn/server": "13.3.2",
     "@stylexjs/stylex": "0.19.0",
@@ -61,6 +65,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "babel-plugin-react-compiler": "1.0.0",
     "nitro": "3.0.260903-beta",
+    "playwright": "1.58.2",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
     "unplugin": "2.3.11",
@@ -69,5 +74,15 @@
   "bin": {
     "roost": "bin/roost"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "packageExtensions": {
+      "@fluentui/react-charts@9.3.25": {
+        "dependencies": {
+          "@fluentui/react-menu": "9.25.4",
+          "@fluentui/tokens": "1.0.0-alpha.24"
+        }
+      }
+    }
+  }
 }

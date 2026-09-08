@@ -4,6 +4,7 @@ import { available } from "../../server/available";
 import {
   getDashboardPreference,
   listDashboards,
+  listDatasets,
   setDashboardPreference,
 } from "../../server/dashboards/store.server";
 
@@ -38,6 +39,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         const preference = yield* getDashboardPreference();
         return {
           ...preference,
+          datasets: preference.enabled ? yield* listDatasets(data.agentId) : [],
           widgets: preference.enabled
             ? yield* listDashboards(data.agentId)
             : [],

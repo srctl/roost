@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { AgentHeader } from "../components/agent-header";
 import { Conversation } from "../components/conversation";
+import { DashboardDataSources } from "../components/dashboard-data";
 import { DashboardWidget } from "../components/dashboard-widget";
 import { Button } from "../components/ui/button";
 import type { Agent } from "../features/agents/schema";
@@ -262,12 +263,14 @@ function AgentDashboard({
           Could not refresh. Showing the last loaded dashboard.
         </p>
       )}
+      <DashboardDataSources datasets={result.value.datasets} />
       {widgets.length ? (
         <div {...stylex.props(styles.grid)}>
           {widgets.map((widget) => (
             <DashboardWidget
               key={`${widget.agentId}:${widget.key}`}
               widget={widget}
+              datasets={result.value.datasets}
               agentName={agent.name}
               onDiscuss={onDiscuss}
             />
