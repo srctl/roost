@@ -27,12 +27,14 @@ export async function applyUpdate(
   let recovered = true;
   maintenance(root, true);
   try {
-    console.log("Waiting for active work to finish (up to five minutes)…");
+    console.log(
+      "Waiting for agent runs and coding jobs to finish (up to five minutes)…",
+    );
     const deadline = Date.now() + 300000;
     while (running && activeRuns(root) > 0) {
       if (Date.now() > deadline)
         throw new Error(
-          "Work is still running. Update cancelled; retry when it finishes.",
+          "Work or a resumable coding job is still active. Update cancelled; complete or stop coding jobs before retrying.",
         );
       await delay(500, undefined, { signal });
     }

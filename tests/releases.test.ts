@@ -33,6 +33,87 @@ import {
 
 const run = Effect.runPromise;
 
+test("update work detection includes resumable coding jobs and supports older databases", async () => {
+  const root = await mkdtemp("/tmp/roost-update-coding-");
+  await mkdir(join(root, "data"));
+  const db = new DatabaseSync(join(root, "data/roost.sqlite"));
+  try {
+    db.exec(
+      "CREATE TABLE runs(status TEXT); INSERT INTO runs VALUES ('running'),('queued')",
+    );
+    assert.equal(activeRuns(root), 1);
+    db.exec(
+      "DELETE FROM runs; CREATE TABLE coding_jobs(status TEXT,lastWorkerState TEXT)",
+    );
+    for (const [status, state, expected] of [
+      ["starting", "not_started", 1],
+      ["running", "working", 1],
+      ["blocked", "blocked", 1],
+      ["blocked", "unknown", 1],
+      ["blocked", "recovering", 1],
+      ["review", "idle", 1],
+      ["queued", "unknown", 0],
+      ["blocked", "not_started", 0],
+      ["blocked", "missing", 0],
+      ["completed", "idle", 0],
+      ["cancelled", "idle", 0],
+      ["failed", "unknown", 0],
+    ] as const) {
+      db.exec("DELETE FROM coding_jobs");
+      db.prepare("INSERT INTO coding_jobs VALUES (?,?)").run(status, state);
+      assert.equal(activeRuns(root), expected, `${status}/${state}`);
+    }
+  } finally {
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("an update cannot stop the service while a coding worker is active", async () => {
+  const root = await mkdtemp("/tmp/roost-update-coding-drain-");
+  await mkdir(join(root, "data"));
+  const db = new DatabaseSync(join(root, "data/roost.sqlite"));
+  const abort = new AbortController();
+  let stops = 0;
+  try {
+    db.exec(
+      "CREATE TABLE runs(status TEXT); CREATE TABLE coding_jobs(status TEXT,lastWorkerState TEXT); INSERT INTO coding_jobs VALUES ('running','working'); CREATE TABLE runtime_control(id INTEGER,maintenance INTEGER); INSERT INTO runtime_control VALUES(1,0)",
+    );
+    const old = await release(root, "0.1.0");
+    const next = await release(root, "0.2.0");
+    await activate(root, old);
+    const updating = applyUpdate(
+      root,
+      old,
+      next,
+      {
+        isActive: async () => true,
+        start: async () => {},
+        stop: async () => {
+          stops++;
+        },
+        healthy: async () => {},
+      },
+      abort.signal,
+    );
+    const timer = setTimeout(() => abort.abort(), 50);
+    try {
+      await assert.rejects(updating, { name: "AbortError" });
+    } finally {
+      clearTimeout(timer);
+    }
+    assert.equal(stops, 0);
+    assert.equal(await realpath(join(root, "current")), await realpath(old));
+    assert.equal(
+      db.prepare("SELECT maintenance FROM runtime_control").get()?.maintenance,
+      0,
+    );
+  } finally {
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function release(root: string, version: string) {
   const directory = join(root, "releases", version);
   for (const file of [

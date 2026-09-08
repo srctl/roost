@@ -51,7 +51,8 @@ export async function tickCodingJobs(
   const jobs = await Effect.runPromise(
     withAgentStore((db) =>
       writeTransaction(db, () => {
-        if (!owns(db, owner) || isMaintenance(db)) return [];
+        if (!owns(db, owner)) return [];
+        const maintaining = isMaintenance(db);
         for (const row of db
           .prepare("SELECT * FROM coding_jobs WHERE status='starting'")
           .all()) {
@@ -98,7 +99,11 @@ export async function tickCodingJobs(
           .prepare(
             "SELECT * FROM coding_jobs WHERE status='queued' ORDER BY createdAt LIMIT ?",
           )
-          .all(Math.max(0, Math.min(4 - active, 4 - stops.length)));
+          .all(
+            maintaining
+              ? 0
+              : Math.max(0, Math.min(4 - active, 4 - stops.length)),
+          );
         const monitoring = db
           .prepare(
             "SELECT * FROM coding_jobs WHERE status IN ('running','blocked','review') AND NOT (status='blocked' AND lastWorkerState='not_started') AND cancelRequested=0 AND lastCheckedAt<? ORDER BY lastCheckedAt,createdAt LIMIT ?",
@@ -363,7 +368,15 @@ export async function tickCodingJobs(
                   db,
                   job.agentId,
                   job.id,
-                  { launchOwner: owner },
+                  {
+                    launchOwner: owner,
+                    // Protect server recovery from an update before the next
+                    // worker observation replaces the old "missing" state.
+                    lastWorkerState:
+                      current.lastWorkerState === "missing"
+                        ? "recovering"
+                        : current.lastWorkerState,
+                  },
                   current.revision,
                 );
               return row;
@@ -379,6 +392,7 @@ export async function tickCodingJobs(
               identity(job),
               signal,
               () => checkSubmission(job),
+              job.cwd,
             );
             await Effect.runPromise(
               withAgentStore((db) =>

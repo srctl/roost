@@ -115,6 +115,100 @@ const deliveries = (jobId: string) =>
     ),
   );
 
+test("maintenance monitors existing coding jobs without launching or dispatching queued work", async () =>
+  fixture(async (agentId) => {
+    const active = await create(agentId);
+    const mock = mockAdapter();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    const queued = await create(agentId);
+    const inputId = randomUUID();
+    await run(
+      withAgentStore((db) => {
+        db.exec("UPDATE runtime_control SET maintenance=1 WHERE id=1");
+        db.prepare(
+          "INSERT INTO coding_job_inputs(id,jobId,agentId,prompt,createdAt) VALUES(?,?,?,?,?)",
+        ).run(inputId, active.id, agentId, "Continue", Date.now());
+      }),
+    );
+    mock.state.worker = worker("idle");
+    await poll();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(
+      (await run(getCodingJob(agentId, active.id))).status,
+      "review",
+    );
+    assert.equal(
+      (await run(getCodingJob(agentId, queued.id))).status,
+      "queued",
+    );
+    assert.equal(mock.calls.starts, 1);
+    assert.equal(mock.calls.prompts, 0);
+    assert.equal(mock.calls.reads, 1);
+    assert.equal(
+      await run(
+        withAgentStore(
+          (db) =>
+            db
+              .prepare("SELECT status FROM coding_job_inputs WHERE id=?")
+              .get(inputId)?.status,
+        ),
+      ),
+      "queued",
+    );
+  }));
+
+test("authorized continuation supplies the saved working directory and identity for recovery", async () =>
+  fixture(async (agentId) => {
+    const job = await create(agentId);
+    const mock = mockAdapter();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    await run(
+      updateCodingJob(agentId, job.id, {
+        status: "blocked",
+        lastWorkerState: "missing",
+      }),
+    );
+    const chat = await run(
+      enqueueChat({
+        messageId: randomUUID(),
+        agentId,
+        text: "Recover this job and continue",
+      }),
+    );
+    await run(claimRun(owner));
+    await run(
+      continueCodingJob(agentId, chat.id, {
+        id: job.id,
+        requestId: randomUUID(),
+        prompt: "Recover and continue",
+      }),
+    );
+    mock.adapter.promptCodingWorker = async (
+      _target,
+      _name,
+      _brief,
+      expected,
+      _signal,
+      beforeSend,
+      cwd,
+    ) => {
+      assert.equal(expected, "owned-session|session:native-session");
+      assert.equal(cwd, job.cwd);
+      assert.equal(
+        (await run(getCodingJob(agentId, job.id))).lastWorkerState,
+        "recovering",
+      );
+      await beforeSend?.();
+      mock.calls.prompts++;
+      return worker();
+    };
+    await poll();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(mock.calls.starts, 1);
+    assert.equal(mock.calls.prompts, 1);
+    assert.equal((await run(getCodingJob(agentId, job.id))).status, "running");
+  }));
+
 test("coding workers launch once and publish one review update after observed work settles", async () =>
   fixture(async (agentId) => {
     const job = await create(agentId);

@@ -117,3 +117,15 @@ fix the reported dependency and ask the agent to continue the same job. Roost
 retries the initial launch with its original assignment and follow-up, rather
 than sending input to a nonexistent worker. This recovery is available only
 when Roost knows no worker was launched; uncertain submissions stay blocked.
+
+When an existing job's named Herdr server is unavailable, an authorized
+continuation can start that server from the recorded working directory. It
+checks the restored worker's identity before sending the follow-up. This does
+not create a replacement worker or replay the original assignment. Routine
+monitoring remains read-only. A missing worker, changed identity, or uncertain
+submission still needs inspection.
+
+The coordinator may also inspect and recover the job-owned server within your
+authorized assignment. If the original worker cannot be restored, it can carry
+out an explicitly authorized replacement after inspecting saved work and
+referencing the original job. Worker approval prompts still require resolution.

@@ -469,6 +469,61 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
     }
   }
 
+  // Starting this named server restores its saved session; it does not create
+  // a replacement worker or submit an assignment.
+  async function ensureSession(
+    target: HerdrTarget,
+    cwd: string,
+    signal?: AbortSignal,
+  ) {
+    if (!isAbsolute(cwd) || cwd.includes("\0"))
+      throw new HerdrError(
+        "The recovery directory must be absolute",
+        "invalid_cwd",
+        "prepare",
+      );
+    let listing: Record<string, unknown>;
+    try {
+      listing = await command(target, ["workspace", "list"], "prepare", {
+        signal,
+      });
+    } catch (error) {
+      if (!(error instanceof HerdrError) || error.code !== "server_not_running")
+        throw error;
+      await command(target, ["server"], "prepare", {
+        detached: true,
+        cwd,
+        mutating: true,
+        signal,
+      });
+      const deadline = Date.now() + 10_000;
+      while (true) {
+        try {
+          listing = await command(target, ["workspace", "list"], "prepare", {
+            signal,
+            timeoutMs: 3000,
+          });
+          break;
+        } catch (error) {
+          if (
+            !(error instanceof HerdrError) ||
+            error.code !== "server_not_running"
+          )
+            throw error;
+          if (Date.now() >= deadline)
+            throw new HerdrError(
+              "The owned Herdr session did not become ready",
+              "startup_timeout",
+              "prepare",
+              true,
+            );
+          await delay(200, undefined, { signal });
+        }
+      }
+    }
+    return listing;
+  }
+
   async function promptCodingWorker(
     target: HerdrTarget,
     name: string,
@@ -476,9 +531,27 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
     expectedIdentity?: string,
     signal?: AbortSignal,
     beforeSend?: () => Promise<void>,
+    recoveryCwd?: string,
   ): Promise<HerdrWorker> {
     validateBrief(brief);
-    const existing = await getWorker(target, name, "prompt", signal);
+    let existing: HerdrWorker;
+    try {
+      existing = await getWorker(target, name, "prompt", signal);
+    } catch (error) {
+      if (
+        !(error instanceof HerdrError) ||
+        error.code !== "server_not_running" ||
+        !expectedIdentity ||
+        !recoveryCwd
+      )
+        throw error;
+      // Only an authorized continuation can recover a stopped server. Check
+      // cancellation/maintenance before starting it, then verify the worker
+      // before sending anything. Never retry a failed prompt here.
+      await beforeSend?.();
+      await ensureSession(target, recoveryCwd, signal);
+      existing = await getWorker(target, name, "prompt", signal);
+    }
     verifyIdentity(existing, expectedIdentity, "prompt");
     if (existing.state === "working" || existing.state === "unknown") {
       throw new HerdrError(
@@ -577,45 +650,7 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
         throw failure(error, "prepare", false);
       }
     }
-    let listing: Record<string, unknown>;
-    try {
-      listing = await command(target, ["workspace", "list"], "prepare", {
-        signal: options.signal,
-      });
-    } catch (error) {
-      if (!(error instanceof HerdrError) || error.code !== "server_not_running")
-        throw error;
-      await command(target, ["server"], "prepare", {
-        detached: true,
-        cwd: options.cwd,
-        mutating: true,
-        signal: options.signal,
-      });
-      const deadline = Date.now() + 10_000;
-      while (true) {
-        try {
-          listing = await command(target, ["workspace", "list"], "prepare", {
-            signal: options.signal,
-            timeoutMs: 3000,
-          });
-          break;
-        } catch (error) {
-          if (
-            !(error instanceof HerdrError) ||
-            error.code !== "server_not_running"
-          )
-            throw error;
-          if (Date.now() >= deadline)
-            throw new HerdrError(
-              "The owned Herdr session did not become ready",
-              "startup_timeout",
-              "prepare",
-              true,
-            );
-          await delay(200, undefined, { signal: options.signal });
-        }
-      }
-    }
+    const listing = await ensureSession(target, options.cwd, options.signal);
     if (!Array.isArray(listing.workspaces))
       throw new HerdrError(
         "Herdr returned an invalid workspace list",

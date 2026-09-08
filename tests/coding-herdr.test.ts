@@ -70,6 +70,150 @@ function startup() {
   ];
 }
 
+test("continuation restores an unavailable named server and verifies the original worker before prompting", async () => {
+  const adapter = mock([
+    serverError("server_not_running"),
+    serverError("server_not_running"),
+    { stdout: "", stderr: "" },
+    reply({ type: "workspace_list", workspaces: [] }),
+    reply({ type: "agent_info", agent: agent() }),
+    reply({ type: "agent_prompted", agent: agent("working") }),
+  ]);
+  let checks = 0;
+  const worker = await adapter.promptCodingWorker(
+    target,
+    name,
+    "Continue",
+    "terminal:terminal-1",
+    undefined,
+    async () => {
+      checks++;
+    },
+    options.cwd,
+  );
+  assert.equal(worker.state, "working");
+  assert.equal(checks, 2);
+  assert.equal(adapter.commands[2]?.cwd, options.cwd);
+  assert.equal(adapter.commands[2]?.detached, true);
+  assert.deepEqual(adapter.commands[2]?.args, [
+    "--session",
+    target.sessionName,
+    "server",
+  ]);
+  assert.equal(
+    adapter.commands.filter((c) => c.args.includes("prompt")).length,
+    1,
+  );
+  assert.equal(
+    adapter.commands.some(
+      (c) => c.args.includes("create") || c.args.includes("start"),
+    ),
+    false,
+  );
+});
+
+test("recovery never prompts a missing, replaced, or approval-blocked worker", async () => {
+  for (const [result, code] of [
+    [serverError("agent_name_not_found"), "agent_name_not_found"],
+    [
+      reply({ type: "agent_info", agent: agent("idle", "replacement") }),
+      "identity_changed",
+    ],
+    [reply({ type: "agent_info", agent: agent("blocked") }), "agent_blocked"],
+  ] as const) {
+    const adapter = mock([
+      serverError("server_not_running"),
+      serverError("server_not_running"),
+      { stdout: "", stderr: "" },
+      reply({ type: "workspace_list", workspaces: [] }),
+      result,
+    ]);
+    await assert.rejects(
+      adapter.promptCodingWorker(
+        target,
+        name,
+        "Continue",
+        "terminal:terminal-1",
+        undefined,
+        undefined,
+        options.cwd,
+      ),
+      { code },
+    );
+    assert.equal(
+      adapter.commands.some((c) => c.args.includes("prompt")),
+      false,
+    );
+  }
+});
+
+test("recovery requires a known identity, explicit server absence, and permission to continue", async () => {
+  for (const code of ["timeout", "permission_denied", "agent_name_not_found"]) {
+    const adapter = mock([serverError(code)]);
+    await assert.rejects(
+      adapter.promptCodingWorker(
+        target,
+        name,
+        "Continue",
+        "terminal:terminal-1",
+        undefined,
+        undefined,
+        options.cwd,
+      ),
+      { code },
+    );
+    assert.equal(adapter.commands.length, 1);
+  }
+  const unknown = mock([serverError("server_not_running")]);
+  await assert.rejects(
+    unknown.promptCodingWorker(
+      target,
+      name,
+      "Continue",
+      undefined,
+      undefined,
+      undefined,
+      options.cwd,
+    ),
+  );
+  assert.equal(unknown.commands.length, 1);
+  const cancelled = mock([serverError("server_not_running")]);
+  await assert.rejects(
+    cancelled.promptCodingWorker(
+      target,
+      name,
+      "Continue",
+      "terminal:terminal-1",
+      undefined,
+      async () => {
+        throw new Error("maintenance");
+      },
+      options.cwd,
+    ),
+    /maintenance/,
+  );
+  assert.equal(cancelled.commands.length, 1);
+});
+
+test("a failed submission is never retried as server recovery", async () => {
+  const adapter = mock([
+    reply({ type: "agent_info", agent: agent() }),
+    serverError("server_not_running"),
+  ]);
+  await assert.rejects(
+    adapter.promptCodingWorker(
+      target,
+      name,
+      "Continue",
+      "terminal:terminal-1",
+      undefined,
+      undefined,
+      options.cwd,
+    ),
+  );
+  assert.equal(adapter.commands.length, 2);
+});
+
 test("starts a named worker without focusing and confirms activity after submission", async () => {
   const adapter = mock(startup());
   const worker = await adapter.startCodingWorker(target, options);

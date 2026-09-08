@@ -24,11 +24,28 @@ export function activeRuns(root: string): number {
   try {
     db.exec("PRAGMA busy_timeout=5000");
 
-    return Number(
+    const runs = Number(
       db
         .prepare("SELECT count(*) AS count FROM runs WHERE status='running'")
         .get()?.count ?? 0,
     );
+    // Older installations predate coding jobs. A detached Herdr server still
+    // belongs to Roost's systemd cgroup and will be killed when Roost stops.
+    const hasCodingJobs = db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='coding_jobs'",
+      )
+      .get();
+    const coding = hasCodingJobs
+      ? Number(
+          db
+            .prepare(
+              "SELECT count(*) AS count FROM coding_jobs WHERE status IN ('starting','running') OR (status IN ('blocked','review') AND lastWorkerState NOT IN ('not_started','missing'))",
+            )
+            .get()?.count ?? 0,
+        )
+      : 0;
+    return runs + coding;
   } finally {
     db.close();
   }

@@ -111,11 +111,17 @@ Tokens are used only for GitHub requests, never saved in Roost's configuration.
 
 The updater verifies GitHub's SHA-256 asset digest and the archive's paths and
 manifest before changing the running installation. It pauses new requests and
-queue claims, waits up to five minutes for active runs, stops the service, and
-backs up the entire data directory. Queued work remains queued. An atomic
+queue claims, waits up to five minutes for active runs and coding jobs, stops
+the service, and backs up the entire data directory. Queued work remains queued. An atomic
 `current` symlink switch selects the new release. The new server must report
 the expected release version and open its database successfully before work
 resumes. An installation that was stopped stays stopped after verification.
+
+Complete or stop coding jobs before updating, including jobs awaiting review or
+worker input: their Herdr sessions are still needed for continuation. Coding
+monitoring continues during maintenance, but new launches and follow-ups pause.
+If work remains, the update cancels and leaves Roost running. Jobs known to have
+no worker (prelaunch failures or confirmed missing workers) do not block updates.
 
 If startup or health checking fails, Roost restores the old release and data
 backup, then restores the previous service state. Failed migration data is
