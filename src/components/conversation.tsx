@@ -441,6 +441,10 @@ const styles = stylex.create({
       ":hover": colors.selected,
     },
     color: colors.foreground,
+    outline: {
+      default: null,
+      ":focus-visible": `2px solid ${colors.foreground}`,
+    },
     backdropFilter: "blur(12px)",
     boxShadow: "0 2px 8px rgb(0 0 0 / 12%)",
   },

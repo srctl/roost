@@ -1,5 +1,9 @@
 # Bottom of chat button
 
+For the follow-up stacked on custom themes PR2, see the
+[theme compatibility checks and matched screenshots](../chat-bottom-theme-evidence/README.md).
+The evidence below documents the original button implementation.
+
 When the reader is more than half the visible history viewport away from the
 bottom, a circular “Scroll to bottom” button appears 12px above the history's
 bottom edge, above the composer and any approval/error controls. Its hit area is
