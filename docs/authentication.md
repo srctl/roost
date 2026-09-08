@@ -31,7 +31,7 @@ ROOST_DATA_DIR=/absolute/path/to/data node .output/cli/roost.mjs \
   auth setup --origin https://roost.example.com
 ```
 
-These commands require Roost 0.1.32 or newer, or a source build containing native
+These commands require Roost 0.1.33 or newer, or a source build containing native
 auth. Update older packaged installations before enabling login.
 Packaged installations use `$ROOST_HOME/data` (normally
 `~/.local/share/roost/data`). Source servers default to `.roost`; do not omit

@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -11,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { copyReleaseTree, validateReleaseArchive } from "./release-files.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -88,13 +88,12 @@ for (const [name, pin] of Object.entries(pins)) {
     { stdio: "inherit" },
   );
   if (name === "node") {
-    cpSync(join(unpacked, "bin/node"), join(bundle, "runtime/node"));
-    cpSync(join(unpacked, "LICENSE"), join(bundle, "runtime/node-LICENSE"));
-  } else
-    cpSync(unpacked, join(bundle, "runtime/codex"), {
-      recursive: true,
-      dereference: true,
-    });
+    copyReleaseTree(join(unpacked, "bin/node"), join(bundle, "runtime/node"));
+    copyReleaseTree(
+      join(unpacked, "LICENSE"),
+      join(bundle, "runtime/node-LICENSE"),
+    );
+  } else copyReleaseTree(unpacked, join(bundle, "runtime/codex"));
 }
 
 // Runtime and dependency licenses travel with the distribution.
@@ -105,7 +104,7 @@ for (const notice of ["LICENSE", "NOTICE"]) {
       `https://raw.githubusercontent.com/openai/codex/rust-v${pins.codex.version}/${notice}`,
       path,
     );
-  cpSync(path, join(bundle, "runtime/codex", notice));
+  copyReleaseTree(path, join(bundle, "runtime/codex", notice));
 }
 
 for (const [source, target] of [
@@ -114,13 +113,10 @@ for (const [source, target] of [
   [".output/cli", "cli"],
   ["bin", "bin"],
 ]) {
-  cpSync(join(root, source), join(bundle, target), {
-    recursive: true,
-    dereference: true,
-  });
+  copyReleaseTree(join(root, source), join(bundle, target));
 }
 
-cpSync(join(root, "LICENSE"), join(bundle, "LICENSE"));
+copyReleaseTree(join(root, "LICENSE"), join(bundle, "LICENSE"));
 
 const licenses = join(bundle, "licenses");
 
@@ -139,10 +135,7 @@ function copyLicenses(packageDir, name) {
         `${name.replaceAll("/", "__")}@${version}`,
       );
       mkdirSync(destination, { recursive: true });
-      cpSync(join(packageDir, file), join(destination, file), {
-        recursive: true,
-        dereference: true,
-      });
+      copyReleaseTree(join(packageDir, file), join(destination, file));
     }
   }
 }
@@ -167,7 +160,7 @@ if (existsSync(store))
   for (const entry of readdirSync(store))
     scanModules(join(store, entry, "node_modules"));
 
-cpSync(
+copyReleaseTree(
   join(root, "THIRD_PARTY_NOTICES.md"),
   join(bundle, "THIRD_PARTY_NOTICES.md"),
 );
@@ -209,11 +202,13 @@ execFileSync(
   },
 );
 
+validateReleaseArchive(archive);
+
 writeFileSync(
   join(output, "SHA256SUMS"),
   `${createHash("sha256").update(readFileSync(archive)).digest("hex")}  roost-linux-x64.tar.gz\n`,
 );
 
-cpSync(join(root, "scripts/install.sh"), join(output, "install.sh"));
+copyReleaseTree(join(root, "scripts/install.sh"), join(output, "install.sh"));
 
 console.log(`Packaged Roost ${version}: ${archive}`);
