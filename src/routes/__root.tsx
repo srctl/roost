@@ -7,6 +7,8 @@ import { getComputerStatus } from "../features/computer/functions";
 import { getDashboardSetting } from "../features/dashboards/functions";
 import { getDisplayPreferences } from "../features/settings/display-functions";
 import { getSidebarPreferences } from "../features/settings/sidebar-functions";
+import { ThemeDocument, ThemeMeta } from "../features/settings/theme-provider";
+import { defaultTheme, themeCss } from "../features/settings/themes";
 import stylesheet from "../styles/reset.css?url";
 import { colors } from "../styles/tokens.stylex";
 
@@ -81,27 +83,20 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const initial =
+    Route.useLoaderData()?.displayPreferences?.theme ?? defaultTheme;
   return (
-    <html lang="en" {...stylex.props(styles.document)}>
+    <ThemeDocument initial={initial} {...stylex.props(styles.document)}>
       <head>
         <HeadContent />
-        {/* Router metadata deduplicates by name; both theme variants are needed. */}
-        <meta
-          name="theme-color"
-          content="#FFFFFF"
-          media="(prefers-color-scheme: light)"
-        />
-        <meta
-          name="theme-color"
-          content="#20221E"
-          media="(prefers-color-scheme: dark)"
-        />
+        <style>{themeCss}</style>
+        <ThemeMeta />
       </head>
       <body>
         {children}
         <Scripts />
       </body>
-    </html>
+    </ThemeDocument>
   );
 }
 
@@ -109,6 +104,5 @@ const styles = stylex.create({
   document: {
     backgroundColor: colors.background,
     color: colors.foreground,
-    colorScheme: "light dark",
   },
 });
