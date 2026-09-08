@@ -11,6 +11,11 @@ unavailable, or no agent has been visited yet, startup shows the agent list.
 Direct links keep their destination. Tap **roost** in navigation to open the list
 without being redirected; an empty workspace offers **Create an agent**.
 
+Swipe right across the page to open the agent picker, or tap the menu button.
+Use a short, mostly horizontal swipe outside text inputs, controls, and horizontally
+scrolling content such as code blocks and tables. Select an agent, tap outside the
+drawer, or use its close button to dismiss it.
+
 On phones, the document stays fixed while the conversation or settings content
 scrolls inside it. While the keyboard is closed, browser tabs use the dynamic
 viewport (`100dvh`), while installed standalone apps use the full viewport

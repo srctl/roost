@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { listenForNavigationSwipe } from "../features/navigation-swipe";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -14,6 +15,19 @@ export function MobileNavigation() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const surface = trigger.current?.closest<HTMLElement>("[data-roost-shell]");
+    if (!surface || open) return;
+    const mobile = window.matchMedia("(max-width: 700px)");
+    return listenForNavigationSwipe(
+      surface,
+      () => mobile.matches,
+      () => {
+        setMounted(true);
+        setOpen(true);
+      },
+    );
+  }, [open]);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 701px)");
     const closeOnDesktop = () => {

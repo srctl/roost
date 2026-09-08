@@ -126,7 +126,7 @@ export function App() {
   return (
     <PreferencesProvider>
       <AgentActivityProvider>
-        <div ref={shell} {...stylex.props(styles.app)}>
+        <div ref={shell} data-roost-shell {...stylex.props(styles.app)}>
           {/* The sidebar stays mounted while collapsed so its width can animate
               shut. Inert keeps the hidden links out of the tab order. */}
           <div
