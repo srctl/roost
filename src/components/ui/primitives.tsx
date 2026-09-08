@@ -70,6 +70,7 @@ const paths = {
       <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10" />
     </>
   ),
+  "arrow-down": <path d="M12 5v14m-6-6 6 6 6-6" />,
   "chevron-down": <path d="m8 10 4 4 4-4" />,
   "chevron-right": <path d="m10 8 4 4-4 4" />,
   more: (
