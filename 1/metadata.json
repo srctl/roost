@@ -1,0 +1,81 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1Z6EQS1EMEWG3WXJWVKQJQD",
+  "session_id": "01a07e55-4d49-7183-b538-cba52beedf2b",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-08T00:24:59.511251Z",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "save_step_count": 3,
+  "files_touched": [
+    ".dockerignore",
+    "docs/deploy-docs-railway.md",
+    "docs/deploy-marketing-railway.md",
+    "docs/deploy-railway.md",
+    "docs/public-sites.md",
+    "scripts/check-docs-deployment.mjs",
+    "scripts/check-marketing-deployment.mjs",
+    "sites/docs/Caddyfile",
+    "sites/docs/Dockerfile",
+    "sites/marketing/Caddyfile",
+    "sites/marketing/Dockerfile"
+  ],
+  "agent": "Pi",
+  "model": "gpt-6-astra",
+  "turn_id": "24b2f752028e",
+  "checkpoint_transcript_start": 79,
+  "transcript_lines_at_start": 79,
+  "compact_transcript_start": 18,
+  "token_usage": {
+    "input_tokens": 226164,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2688128,
+    "output_tokens": 10525,
+    "api_call_count": 33
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-08T00:24:59.463343Z",
+    "agent_lines": 603,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 603,
+    "total_lines_changed": 607,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 332,
+      "agent_lines_removed": 4
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 603,
+      "agent_lines_removed": 4
+    }
+  ]
+}
