@@ -29,7 +29,8 @@ write shows an error and leaves the preview reversible.
   radio groups, paired light/dark swatches, selection indicators, save/cancel,
   status announcements, and route-unmount cleanup.
 - `tests/themes.test.ts`: cookie validation/round-trips and numerical contrast
-  tests. `scripts/test-themes-browser.mjs`: reproducible interaction/render tests.
+  tests. Disposable browser helpers were removed during release integration;
+  the screenshots and verification record remain.
 
 ## Palette sources and adaptations
 
@@ -84,27 +85,6 @@ pnpm build
 env -u NITRO_PORT -u NITRO_HOST pnpm test:auth:production
 pnpm check:sites
 ```
-
-Start a separate preview (choose an unused port and a fresh temporary data dir):
-
-```sh
-ROOST_DATA_DIR=/tmp/roost-theme-preview-data \
-ROOST_CODEX_BINARY=/nonexistent-theme-test-codex \
-NITRO_HOST=127.0.0.1 NITRO_PORT=4318 node .output/server/index.mjs
-```
-
-With Playwright available, run in another terminal:
-
-```sh
-PLAYWRIGHT_MODULE=/tmp/roost-theme-tools/node_modules/playwright/index.mjs \
-CHROME_BINARY=/opt/google/chrome/chrome \
-THEME_TEST_ORIGIN=http://localhost:4318 \
-node scripts/test-themes-browser.mjs
-```
-
-The browser harness intentionally uses an isolated instance without production
-credentials. Its output defaults to `docs/theme-evidence` and is configurable
-with `THEME_EVIDENCE_DIR`.
 
 ## Matched BEFORE / AFTER Settings renders
 

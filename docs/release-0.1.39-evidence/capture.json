@@ -1,0 +1,142 @@
+{
+  "afterSource": "dc345d72f0587fcd2a96bd3db534c32f6672157e",
+  "beforeSource": "Same candidate in an isolated copy, with the two original feature components restored before building",
+  "beforeOverrides": {
+    "src/components/dashboard-fluent-chart.tsx": "9cd53a42ce507e0f2d24bf276ce2986e3716e654",
+    "src/routes/settings.tsx": "261338e1859015038bd712a9f6c218aa8be73a05"
+  },
+  "captures": [
+    {
+      "file": "settings-desktop-before.png",
+      "phase": "before",
+      "screen": "settings",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": null,
+      "errors": [],
+      "sha256": "5f50f443e2e298f71328c319f18dc24e7fc2c2ec6d8943caf5a4cbe10c55f0ed"
+    },
+    {
+      "file": "charts-desktop-before.png",
+      "phase": "before",
+      "screen": "charts",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": {
+        "foreground": "rgb(255, 255, 255)",
+        "neutral": "#292929"
+      },
+      "errors": [],
+      "sha256": "24f826dd61874018e4d6e972015ae1e353704995129d2ca78c20b09ab79a5440"
+    },
+    {
+      "file": "settings-mobile-before.png",
+      "phase": "before",
+      "screen": "settings",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": null,
+      "errors": [],
+      "sha256": "9f07f0a182d10f1aaebb49fe1219505c850e82ee94e29ae0aad6d812dc874c00"
+    },
+    {
+      "file": "charts-mobile-before.png",
+      "phase": "before",
+      "screen": "charts",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": {
+        "foreground": "rgb(255, 255, 255)",
+        "neutral": "#292929"
+      },
+      "errors": [],
+      "sha256": "920de3d73793c05c88c3aafe860078910db00a4f362772aca19c2003db9e312e"
+    },
+    {
+      "file": "settings-desktop-after.png",
+      "phase": "after",
+      "screen": "settings",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": null,
+      "errors": [],
+      "sha256": "30654e594909ac58985c4dd245971c59a30f9a822b83abae7b1102ac68ef80ae"
+    },
+    {
+      "file": "charts-desktop-after.png",
+      "phase": "after",
+      "screen": "charts",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": {
+        "foreground": "rgb(76, 79, 105)",
+        "neutral": "#ffffff"
+      },
+      "errors": [],
+      "sha256": "91ea9a96e36ba587dd064e01250d181c7cc1b462ce56895b425b3fcc5f8bafcc"
+    },
+    {
+      "file": "settings-mobile-after.png",
+      "phase": "after",
+      "screen": "settings",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": null,
+      "errors": [],
+      "sha256": "a238660689ad9dadb1b82831ec6a784e09a939e3623490b3a93769dbe7dd4bef"
+    },
+    {
+      "file": "charts-mobile-after.png",
+      "phase": "after",
+      "screen": "charts",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 1,
+      "deviceAppearance": "dark",
+      "theme": "catppuccin:light",
+      "provider": {
+        "foreground": "rgb(76, 79, 105)",
+        "neutral": "#ffffff"
+      },
+      "errors": [],
+      "sha256": "230d3a68d19a3f70f9dcfb129e92ca98526de0a1d7f02884c31f24e7602fc236"
+    }
+  ]
+}

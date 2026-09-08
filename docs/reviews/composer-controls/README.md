@@ -14,79 +14,22 @@ At widths up to 700px, Send and Stop have 36px visible circles inside 44px touch
 targets. Desktop remains 28px. Accessible names and native keyboard activation
 remain intact.
 
-## Results and commands
+## Verification record
 
-This VM did not have pnpm/Corepack on PATH. The commands below used pnpm 9.15.0 at
-`/tmp/roost-composer-tools/node_modules/.bin/pnpm`; on a normal development setup,
-substitute `pnpm`. Dependencies were installed with `install --frozen-lockfile`,
-then Playwright 1.58.2 was added as a pinned development dependency.
+The original PR passed 138 regression tests, lint, typecheck, production app/CLI
+builds, and production-auth smoke. Tests used bundled Node 24, pnpm 9.15.0,
+process-local umask 022, and removed inherited Codex/Nitro overrides.
 
-### Full suite: PASS, 138 tests, 0 failures
+The isolated real-component browser fixture passed on desktop, mobile touch, and
+standalone JavaScript emulation: text/empty/whitespace transitions, send/stop
+callbacks, failed-send retention, pending-send edits, upload guards, attachment
+payloads, keyboard/touch activation, and 44px mobile targets with 36px circles.
 
-```sh
-umask 022
-env -u ROOST_CODEX_BINARY -u NITRO_PORT -u NITRO_HOST /tmp/roost-composer-tools/node_modules/.bin/pnpm test
-```
-
-Ran in a dedicated test shell with loopback access. The umask and environment
-removals apply only to this process, with no host configuration changes. The
-suite includes backend follow-up/attachment steering and cancellation tests.
-
-The initial run had 132 passes and six failures: five Herdr mock failures with
-inherited `ROOST_CODEX_BINARY`, plus a packaging executable-mode mismatch under
-umask `0077`. All passed after the test environment correction above; no unrelated
-source or tests were modified.
-
-### Production auth: PASS
-
-```sh
-umask 022
-env -u NITRO_PORT -u NITRO_HOST /tmp/roost-composer-tools/node_modules/.bin/pnpm test:auth:production
-```
-
-Output: `Production auth smoke passed: enrollment, login, private pages/API,
-desktop upgrade, revocation, and recovery.`
-
-The earlier run with inherited Nitro host/port overrides stalled and was
-interrupted. Removing those overrides let the existing test use its isolated
-server and temporary data successfully.
-
-### Composer browser regression: PASS in all three modes
-
-```sh
-COMPOSER_CHROME_PATH=/usr/bin/google-chrome COMPOSER_ARTIFACTS=/tmp/roost-composer-artifacts /tmp/roost-composer-tools/node_modules/.bin/pnpm test:composer
-```
-
-The isolated Vite fixture uses actual Composer/Button components, local send/stop
-callback doubles, and mocked uploads. It starts no Roost worker and uses a
-separate headless Chrome profile, without accessing the shared desktop.
-
-Desktop, mobile touch, and standalone JavaScript emulation each passed:
-
-- Text/empty/whitespace visibility transitions and draft clearing after success.
-- Click/tap and Enter submission, trimmed payloads, duplicate-send prevention,
-  failed-send retention, and preservation of edits made during pending sends.
-- Keyboard Stop activation on desktop and outer-rim taps on mobile; idle sending
-  and Shift+Enter newline behavior.
-- Loading/upload guards, attachment-only control visibility, attachment payloads,
-  and attachment clearing after success.
-- Measured 44px mobile targets with 4px transparent borders and 28px desktop
-  controls; no browser page errors.
-
-### Lint, typechecking, build: PASS
-
-```sh
-/tmp/roost-composer-tools/node_modules/.bin/pnpm lint
-/tmp/roost-composer-tools/node_modules/.bin/pnpm typecheck
-/tmp/roost-composer-tools/node_modules/.bin/pnpm build
-node_modules/.bin/biome check --error-on-warnings scripts/test-composer.ts tests/fixtures/composer
-node_modules/.bin/tsc --ignoreConfig --noEmit --target ES2022 --lib ES2022,DOM,DOM.Iterable --module ESNext --moduleResolution Bundler --jsx react-jsx --strict --skipLibCheck --types vite/client,node scripts/test-composer.ts tests/fixtures/composer/main.tsx
-git diff --check
-```
-
-The extra TypeScript command covers the browser test and fixture outside the app
-TSConfig. Client/server and CLI builds succeeded. Vite emitted an existing
-extensionless-config-import warning and plugin timing notices.
+Disposable capture/test scripts, their fixture, package commands, and the unused
+Playwright development dependency were removed during release integration.
+The [historical revision](https://github.com/srctl/roost/tree/104becfb36cb03c8de3e7db491611e7575f8510c)
+retains them for auditing these captures. Local ignored copies passed again on
+the combined release candidate; see [integration verification](../../release-0.1.39-evidence/README.md).
 
 ## Matched BEFORE / AFTER fixture evidence
 
@@ -111,29 +54,12 @@ empty. These are mobile browser captures, not a physical iOS PWA.
 | Mobile 390×844, running + text | ![BEFORE mobile running with text](comparison/mobile-running-text-before.png) | ![AFTER mobile running with text](comparison/mobile-running-text-after.png) |
 | Mobile 390×844, running + empty | ![BEFORE mobile running empty](comparison/mobile-running-empty-before.png) | ![AFTER mobile running empty](comparison/mobile-running-empty-after.png) |
 
-Reproduce from the repository root with loopback/browser execution available:
-
-```sh
-COMPOSER_CHROME_PATH=/usr/bin/google-chrome node --import tsx scripts/capture-composer.ts
-```
-
 Result: all eight captures passed visibility and computed-dimension assertions,
 with no browser page errors. All eight screenshots were visually inspected.
 [Capture metadata](comparison/capture.json) records browser version, source
 hashes, Git revisions, viewports, states, and measured button dimensions. Mobile
 BEFORE circles are 44px; AFTER circles are 36px inside 44px touch targets. Desktop
 controls remain 28px. Running + text changes from Stop and Send to only Send.
-
-The capture script also passed:
-
-```sh
-node_modules/.bin/tsc --ignoreConfig --noEmit --target ES2022 --lib ES2022,DOM,DOM.Iterable --module ESNext --moduleResolution Bundler --jsx react-jsx --strict --skipLibCheck --types vite/client,node scripts/capture-composer.ts
-/tmp/roost-composer-tools/node_modules/.bin/pnpm lint
-git diff --check
-```
-
-This evidence-only follow-up does not change the implementation, existing
-regression tests, or fixtures; the full-suite/auth results above still apply.
 
 ## Earlier current-state screenshots
 
