@@ -236,6 +236,16 @@ export function changeCodingJob(
   return updated;
 }
 
+// A missing receipt alone does not prove a launch failed. Only the monitor's
+// explicit prelaunch failure marker permits creating this worker again.
+export const canRetryCodingLaunch = (job: CodingJob) =>
+  job.lastWorkerState === "not_started" &&
+  job.dispatchedAt === null &&
+  !job.observedWorking &&
+  !job.sessionIdentity &&
+  !job.nativeSessionId &&
+  !job.paneId;
+
 export const continueCodingJob = (
   agentId: string,
   runId: string | undefined,
@@ -266,10 +276,26 @@ export const continueCodingJob = (
           message:
             "Wait for the worker to finish or request input before continuing this job.",
         });
+      const retryLaunch = canRetryCodingLaunch(job);
+      const launchFollowups = db
+        .prepare(
+          "SELECT prompt FROM coding_job_inputs WHERE jobId=? AND status='launch_failed' ORDER BY createdAt,rowid",
+        )
+        .all(job.id)
+        .map((row) => String(row.prompt));
+      if (
+        retryLaunch &&
+        `${job.brief}${[...launchFollowups, input.prompt].map((prompt) => `\nFollow-up:\n${prompt}`).join("")}`
+          .length > 64000
+      )
+        throw new AgentStoreError({
+          message:
+            "The assignment and follow-up exceed the briefing limit. Shorten the follow-up.",
+        });
       if (
         db
           .prepare(
-            "SELECT id FROM coding_job_inputs WHERE jobId=? AND status IN ('queued','dispatching')",
+            "SELECT id FROM coding_job_inputs WHERE jobId=? AND status IN ('queued','dispatching','launch_queued','launching')",
           )
           .get(job.id)
       )
@@ -278,6 +304,7 @@ export const continueCodingJob = (
         });
       if (
         job.status === "blocked" &&
+        !retryLaunch &&
         db.prepare("SELECT kind FROM runs WHERE id=?").get(runId!)?.kind ===
           "coding"
       )
@@ -303,21 +330,32 @@ export const continueCodingJob = (
             "This job has used its automatic continuation budget. Ask the user before continuing.",
         });
       db.prepare(
-        "INSERT INTO coding_job_inputs (id,jobId,agentId,prompt,createdAt) VALUES (?,?,?,?,?)",
-      ).run(input.requestId, job.id, agentId, input.prompt, Date.now());
+        "INSERT INTO coding_job_inputs (id,jobId,agentId,prompt,status,createdAt) VALUES (?,?,?,?,?,?)",
+      ).run(
+        input.requestId,
+        job.id,
+        agentId,
+        input.prompt,
+        retryLaunch ? "launch_queued" : "queued",
+        Date.now(),
+      );
       writeCodingJobPatch(
         db,
         agentId,
         job.id,
         {
-          status: "running",
+          status: retryLaunch ? "queued" : "running",
           observedWorking: false,
+          ...(retryLaunch ? { lastWorkerState: "" } : {}),
           notifiedStatus: "",
           error: "",
         },
         job.revision,
       );
-      return { id: input.requestId, status: "queued" };
+      return {
+        id: input.requestId,
+        status: retryLaunch ? "launch_queued" : "queued",
+      };
     }),
   );
 
@@ -370,11 +408,11 @@ export const stopCodingJob = (agentId: string, id: string) =>
       if (!job) throw new AgentStoreError({ message: "Coding job not found." });
       if (["completed", "cancelled", "failed"].includes(job.status)) return job;
       db.prepare(
-        "UPDATE coding_job_inputs SET status='failed',error='Stopped by the user.' WHERE jobId=? AND status='queued'",
+        "UPDATE coding_job_inputs SET status='failed',error='Stopped by the user.' WHERE jobId=? AND status IN ('queued','launch_queued','launch_failed')",
       ).run(id);
       return changeCodingJob(db, job, {
         cancelRequested: true,
-        ...(job.status === "queued"
+        ...(job.status === "queued" || canRetryCodingLaunch(job)
           ? { status: "cancelled", error: "Stopped before the worker started." }
           : {}),
       });
@@ -385,5 +423,5 @@ export const codingInstructions = (agentId: string) =>
   Effect.gen(function* () {
     const settings = yield* getCodingSettings(agentId);
     const profiles = yield* listExecutionProfiles();
-    return `\nCoding specialization: You are the persistent project collaborator. Keep your soul, memory, and reflection separate from operational configuration. Start, discuss, and report jobs here; Herdr workers perform the development. Use roost_get_coding_configuration for editable project settings, optional Notion sources, and shared execution profiles. Current settings and profiles follow as user-configured workflow guidance. The current user's request overrides defaults. A source connection never authorizes automatic backlog pickup.\n${JSON.stringify({ settings, profiles })}\nUse the selected database and its filter instructions to find the requested ticket through available connected tools. Read it before briefing a worker. Ad hoc assignments need no ticket. Update the exact source ticket with meaningful progress and verified outcomes when the user asks to maintain it; a failed source update must be reported separately from coding progress. Never claim a Notion write without a successful tool result. If its connector is unavailable, report that and continue only the authorized work for which you have enough context.\nExecution profiles contain editable preparation, provisioning, testing, and cleanup instructions. Use your available command and connector tools to prepare the selected environment within the user's authorization. For a new remote machine, provision it using those instructions, verify SSH access, install Herdr and the selected coding CLI if authorized, then pass its SSH destination to roost_start_coding_job. Native approval rules still apply. This does not give you access to the browser user's computer: local means the machine running Roost. A remote profile uses the Roost host's configured SSH access. Keep credentials in host connections, never in profiles or briefs. Profiles do not install tools or create machines merely by being saved.\nBefore starting, choose the installed worker kind and prepare an absolute repository or worktree path on that machine. Check existing jobs to avoid duplicates. Call roost_start_coding_job with a stable UUID requestId, the selected profileId (null for unconfigured local execution), a self-contained brief including acceptance criteria and user authorization, and optional sourceUrl. Use a separate worktree when tasks could conflict. Profile and project instructions are snapshotted per job. The server creates a dedicated named Herdr session. After enqueueing, finish your reply and remain available; the durable monitor wakes you for results or blockers. Do not wait or poll in a model turn.\nUse roost_get_coding_job to inspect saved worker output, roost_continue_coding_job to send an authorized follow-up to the same worker, and roost_complete_coding_job to record verified completion and a useful summary with test evidence and links. A blocked approval stays blocked until the user resolves it; never auto-approve or send keys to bypass it. Missing sessions and uncertain submissions require inspection, never blind resubmission. Stop a job with roost_stop_coding_job only when requested. Stop requests send an interrupt; they do not delete worktrees, close sessions, or tear down infrastructure. Configuration edits use their expected revision and are permitted only in user conversation turns; reflection can update only the soul.`;
+    return `\nCoding specialization: You are the persistent project collaborator. Keep your soul, memory, and reflection separate from operational configuration. Start, discuss, and report jobs here; Herdr workers perform the development. Use roost_get_coding_configuration for editable project settings, optional Notion sources, and shared execution profiles. Current settings and profiles follow as user-configured workflow guidance. The current user's request overrides defaults. A source connection never authorizes automatic backlog pickup.\n${JSON.stringify({ settings, profiles })}\nUse the selected database and its filter instructions to find the requested ticket through available connected tools. Read it before briefing a worker. Ad hoc assignments need no ticket. Update the exact source ticket with meaningful progress and verified outcomes when the user asks to maintain it; a failed source update must be reported separately from coding progress. Never claim a Notion write without a successful tool result. If its connector is unavailable, report that and continue only the authorized work for which you have enough context.\nExecution profiles contain editable preparation, provisioning, testing, and cleanup instructions. Use your available command and connector tools to prepare the selected environment within the user's authorization. For a new remote machine, provision it using those instructions, verify SSH access, install Herdr and the selected coding CLI if authorized, then pass its SSH destination to roost_start_coding_job. Native approval rules still apply. This does not give you access to the browser user's computer: local means the machine running Roost. A remote profile uses the Roost host's configured SSH access. Keep credentials in host connections, never in profiles or briefs. Profiles do not install tools or create machines merely by being saved.\nBefore starting, choose the installed worker kind and prepare an absolute repository or worktree path on that machine. Check existing jobs to avoid duplicates. Call roost_start_coding_job with a stable UUID requestId, the selected profileId (null for unconfigured local execution), a self-contained brief including acceptance criteria and user authorization, and optional sourceUrl. Use a separate worktree when tasks could conflict. Profile and project instructions are snapshotted per job. The server creates a dedicated named Herdr session. After enqueueing, finish your reply and remain available; the durable monitor wakes you for results or blockers. Do not wait or poll in a model turn.\nUse roost_get_coding_job to inspect saved worker output, roost_continue_coding_job to send an authorized follow-up to the same worker, and roost_complete_coding_job to record verified completion and a useful summary with test evidence and links. A blocked approval stays blocked until the user resolves it; never answer worker approval prompts or send keys to bypass them. When lastWorkerState is not_started, preparation failed before a worker launched. Resolve the reported dependency, then use roost_continue_coding_job to retry that same assignment; do not start the Herdr server manually or create a replacement job. Missing sessions and uncertain submissions require inspection, never blind resubmission. Stop a job with roost_stop_coding_job only when requested. Stop requests send an interrupt; they do not delete worktrees, close sessions, or tear down infrastructure. Configuration edits use their expected revision and are permitted only in user conversation turns; reflection can update only the soul.`;
   });

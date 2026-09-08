@@ -97,8 +97,10 @@ to review its work; it does not prove the assignment is complete. The coordinato
 records completion after checking the acceptance criteria.
 
 Jobs can be queued, starting, running, waiting for attention, ready for review,
-completed, failed, or cancelled. Worker approvals require the user to resolve
-them in the worker's own terminal. Roost does not automatically approve them.
+completed, failed, or cancelled. Codex workers use automatic risk review with
+the workspace sandbox and approval policy still enabled. Approval prompts that
+remain blocked require the user to resolve them in the worker's own terminal;
+the coordinating agent never answers those prompts or sends keys to bypass them.
 
 Use **Stop job** or ask the agent to stop an assignment. Stops are asynchronous
 interrupt requests. Stopping preserves the Herdr session, worktree, and
@@ -109,3 +111,9 @@ Roost and the execution machine must remain available to monitor work. After a
 restart or connection failure, an uncertain launch or missing session requires
 inspection instead of blindly submitting the assignment again. Recorded jobs
 remain available for recovery and discussion.
+
+If preparation fails before a worker starts, such as a missing Herdr executable,
+fix the reported dependency and ask the agent to continue the same job. Roost
+retries the initial launch with its original assignment and follow-up, rather
+than sending input to a nonexistent worker. This recovery is available only
+when Roost knows no worker was launched; uncertain submissions stay blocked.

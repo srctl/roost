@@ -271,6 +271,7 @@ test("reflection uses bounded own-agent context and restricts tools to audited s
     );
     assert.equal(native.options.sandbox, "read-only");
     assert.equal(native.options.approvalPolicy, "never");
+    assert.equal(native.options.approvalsReviewer, "user");
     assert.equal(native.options.config["features.apps"], false);
     assert.deepEqual(
       native.options.dynamicTools.map((t: { name: string }) => t.name),

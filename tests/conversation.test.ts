@@ -202,6 +202,12 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
         (tool: { name: string }) => tool.name === "roost_update_soul",
       ),
     );
+    for (const options of [localThread.options, localThread.resumeOptions]) {
+      assert.equal(options.approvalsReviewer, "auto_review");
+      assert.equal(options.approvalPolicy, "on-request");
+      assert.equal(options.sandbox, "workspace-write");
+      assert.match(options.developerInstructions, /Never work around a denial/);
+    }
     writeFileSync(
       join(directory, "fake-config.json"),
       JSON.stringify({ features: { apps: false }, apps: {} }),

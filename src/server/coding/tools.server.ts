@@ -68,7 +68,7 @@ export const codingTools: DynamicToolSpec[] = [
   ),
   spec(
     "roost_continue_coding_job",
-    "Queue a follow-up for an existing ready/blocked coding job within its original assignment. Use a stable requestId to prevent duplicate prompts. A blocked approval cannot be answered by this tool: the user must resolve it in the worker's terminal first. Finish your reply after queueing; do not poll.",
+    "Continue an existing ready/blocked coding job within its original assignment. If lastWorkerState is not_started, preparation failed before a worker launched: fix that dependency, then use this tool to retry the original launch. Other missing or uncertain workers require inspection. Use a stable requestId to prevent duplicate prompts. A blocked approval cannot be answered by this tool: the user must resolve it in the worker's terminal first. Finish your reply after queueing; do not poll.",
     ContinueCodingJob,
   ),
   spec(

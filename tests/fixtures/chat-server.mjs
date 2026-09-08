@@ -84,6 +84,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
       args: process.argv.slice(2),
     };
   }
+  if (method === "thread/resume") thread.resumeOptions = params;
   if (method.startsWith("thread/")) {
     persist();
     send({ id, result: { thread } });

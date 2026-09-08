@@ -334,7 +334,7 @@ export const saveConversationThread = (
       "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
     ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,9)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,10)",
     ).run(threadId);
   });
 

@@ -55,6 +55,9 @@ export async function tickCodingJobs(
         for (const row of db
           .prepare("SELECT * FROM coding_jobs WHERE status='starting'")
           .all()) {
+          db.prepare(
+            "UPDATE coding_job_inputs SET status='failed',error='Roost restarted during launch. Inspect the existing session before retrying.' WHERE jobId=? AND status='launching'",
+          ).run(String(row.id));
           changeCodingJob(db, decodeCodingJob(row), {
             status: "blocked",
             error:
@@ -98,7 +101,7 @@ export async function tickCodingJobs(
           .all(Math.max(0, Math.min(4 - active, 4 - stops.length)));
         const monitoring = db
           .prepare(
-            "SELECT * FROM coding_jobs WHERE status IN ('running','blocked','review') AND cancelRequested=0 AND lastCheckedAt<? ORDER BY lastCheckedAt,createdAt LIMIT ?",
+            "SELECT * FROM coding_jobs WHERE status IN ('running','blocked','review') AND NOT (status='blocked' AND lastWorkerState='not_started') AND cancelRequested=0 AND lastCheckedAt<? ORDER BY lastCheckedAt,createdAt LIMIT ?",
           )
           .all(Date.now() - 4000, 4 - queued.length - stops.length);
         for (const row of [...stops, ...queued, ...monitoring]) {
@@ -106,6 +109,9 @@ export async function tickCodingJobs(
           const patch: CodingJobPatch = { lastCheckedAt: Date.now() };
           if (job.status === "queued") {
             Object.assign(patch, { status: "starting", launchOwner: owner });
+            db.prepare(
+              "UPDATE coding_job_inputs SET status='launching' WHERE jobId=? AND status='launch_queued'",
+            ).run(job.id);
           }
           // lastCheckedAt is housekeeping, so an idle poll must not invalidate the
           // review revision a user/coordinator has just read.
@@ -294,11 +300,20 @@ export async function tickCodingJobs(
           return;
         }
         if (job.status === "starting") {
+          const retries = await Effect.runPromise(
+            withAgentStore((db) =>
+              db
+                .prepare(
+                  "SELECT prompt FROM coding_job_inputs WHERE jobId=? AND status IN ('launching','launch_failed') ORDER BY createdAt,rowid",
+                )
+                .all(job.id),
+            ),
+          );
           const started = await adapter.startCodingWorker(job, {
             cwd: job.cwd,
             workerName: job.workerName,
             workerKind: job.workerKind,
-            brief: job.brief,
+            brief: `${job.brief}${retries.map((retry) => `\nFollow-up:\n${String(retry.prompt)}`).join("")}`,
             signal,
             beforeSend: () => checkSubmission(job),
           });
@@ -310,6 +325,9 @@ export async function tickCodingJobs(
                 if (!owns(db, owner) || signal.aborted) return;
                 const current = readCodingJob(db, job.agentId, job.id);
                 if (current?.status !== "starting") return;
+                db.prepare(
+                  "UPDATE coding_job_inputs SET status='sent',error='' WHERE jobId=? AND status IN ('launching','launch_failed')",
+                ).run(job.id);
                 changeCodingJob(db, current, {
                   status: started.state === "blocked" ? "blocked" : "running",
                   observedWorking: started.state === "working",
@@ -419,16 +437,42 @@ export async function tickCodingJobs(
         if (
           current &&
           !["completed", "cancelled", "failed"].includes(current.status)
-        )
+        ) {
+          const neverStarted =
+            original.status === "starting" &&
+            error instanceof HerdrError &&
+            error.stage === "prepare" &&
+            !error.uncertain &&
+            error.code !== "already_exists" &&
+            current.dispatchedAt === null &&
+            !current.observedWorking &&
+            !current.sessionIdentity &&
+            !current.nativeSessionId &&
+            !current.paneId;
+          if (original.status === "starting")
+            await Effect.runPromise(
+              withAgentStore((db) => {
+                if (!owns(db, owner) || signal.aborted) return;
+                db.prepare(
+                  "UPDATE coding_job_inputs SET status=?,error=? WHERE jobId=? AND status='launching'",
+                ).run(
+                  neverStarted ? "launch_failed" : "failed",
+                  message(error),
+                  job.id,
+                );
+              }),
+            );
           await persist(current, {
             status: "blocked",
             error: message(error),
+            ...(neverStarted ? { lastWorkerState: "not_started" } : {}),
             ...(current.cancelRequested &&
             error instanceof HerdrError &&
             error.code === "identity_changed"
               ? { cancelRequested: false }
               : {}),
           });
+        }
       }
     }),
   );

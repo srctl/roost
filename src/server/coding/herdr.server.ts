@@ -1,4 +1,7 @@
 import { execFile, spawn } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { homedir } from "node:os";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 // Grounded in Herdr's bundled protocol 22 schema and `agent start --help`.
@@ -51,6 +54,7 @@ export class HerdrError extends Error {
 export interface HerdrCommand {
   file: string;
   args: string[];
+  cwd?: string;
   timeoutMs: number;
   detached: boolean;
   signal?: AbortSignal;
@@ -90,6 +94,15 @@ const WORKER_KINDS = new Set([
 
 function environment() {
   const env = { ...process.env };
+  // System services do not inherit the user's login-shell PATH. Keep the
+  // packaged Node runtime and the standard per-user CLI directory available.
+  env.PATH = [
+    ...new Set([
+      dirname(process.execPath),
+      join(homedir(), ".local", "bin"),
+      ...(env.PATH ?? "").split(delimiter).filter(Boolean),
+    ]),
+  ].join(delimiter);
   // A Roost coordinator's private runtime must not become the worker's auth
   // home, nor may an inherited Herdr socket redirect a named-session request.
   for (const key of Object.keys(env)) {
@@ -117,6 +130,7 @@ const runCommand: HerdrCommandRunner = (command) =>
         detached: true,
         stdio: "ignore",
         env: environment(),
+        cwd: command.cwd,
       });
       child.once("error", reject);
       child.once("spawn", () => {
@@ -131,6 +145,7 @@ const runCommand: HerdrCommandRunner = (command) =>
       {
         encoding: "utf8",
         env: environment(),
+        cwd: command.cwd,
         timeout: command.timeoutMs,
         maxBuffer: MAX_OUTPUT,
         signal: command.signal,
@@ -224,6 +239,19 @@ function quote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+function projectTrust(cwd: string, remote: boolean) {
+  let projectPath = cwd;
+  if (!remote) {
+    try {
+      // Codex canonicalizes its cwd before looking up the trust entry.
+      projectPath = realpathSync(cwd);
+    } catch {
+      // Workspace creation remains the authority for inaccessible directories.
+    }
+  }
+  return `projects={${JSON.stringify(projectPath)}={trust_level="trusted"}}`;
+}
+
 function failure(error: unknown, stage: Stage, mutating: boolean) {
   if (error instanceof HerdrError) return error;
   const details = record(error);
@@ -237,7 +265,7 @@ function failure(error: unknown, stage: Stage, mutating: boolean) {
   const message =
     typeof serverError.message === "string"
       ? serverError.message.slice(0, 1500)
-      : code === "ENOENT"
+      : code === "ENOENT" || code === "127"
         ? "Herdr is not installed or is not on PATH"
         : code === "timeout"
           ? "Herdr timed out; inspect the existing worker before retrying"
@@ -318,6 +346,7 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
       raw?: boolean;
       timeoutMs?: number;
       detached?: boolean;
+      cwd?: string;
       signal?: AbortSignal;
     } = {},
   ) {
@@ -331,9 +360,11 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
       // SSH executes its command through a remote shell; quote each argument
       // independently and keep all shell syntax fixed, including daemon setup.
       const remote = ["herdr", ...argv].map(quote).join(" ");
-      const shell = detached
+      let shell = detached
         ? `nohup ${remote} </dev/null >/dev/null 2>&1 &`
         : remote;
+      if (options.cwd) shell = `cd -- ${quote(options.cwd)} && ${shell}`;
+      shell = `export PATH="$HOME/.local/bin:$PATH"; ${shell}`;
       file = "ssh";
       commandArgs = [
         "-o",
@@ -352,6 +383,7 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
         args: commandArgs,
         timeoutMs: options.timeoutMs ?? 15_000,
         detached,
+        cwd: target.remoteTarget ? undefined : options.cwd,
         signal: options.signal,
       });
       if (options.raw || options.detached) return { text: response.stdout };
@@ -514,6 +546,37 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
         "invalid_kind",
         "prepare",
       );
+    let projectCwd = options.cwd;
+    if (options.workerKind === "codex" && target.remoteTarget) {
+      // Resolve symlink spellings on the execution host before creating any
+      // workspace. Codex looks up trust using its physical working directory.
+      try {
+        const response = await runner({
+          file: "ssh",
+          args: [
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            "--",
+            target.remoteTarget,
+            `cd -- ${quote(options.cwd)} && pwd -P`,
+          ],
+          timeoutMs: 15_000,
+          detached: false,
+          signal: options.signal,
+        });
+        projectCwd = response.stdout.replace(/\r?\n$/, "");
+        if (!projectCwd.startsWith("/") || projectCwd.includes("\0"))
+          throw new HerdrError(
+            "The remote worker directory could not be resolved",
+            "invalid_cwd",
+            "prepare",
+          );
+      } catch (error) {
+        throw failure(error, "prepare", false);
+      }
+    }
     let listing: Record<string, unknown>;
     try {
       listing = await command(target, ["workspace", "list"], "prepare", {
@@ -524,6 +587,7 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
         throw error;
       await command(target, ["server"], "prepare", {
         detached: true,
+        cwd: options.cwd,
         mutating: true,
         signal: options.signal,
       });
@@ -599,6 +663,49 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
       "prepare",
     );
     await options.beforeSend?.();
+    const codexBinary = process.env.ROOST_CODEX_BINARY;
+    if (
+      options.workerKind === "codex" &&
+      !target.remoteTarget &&
+      codexBinary &&
+      isAbsolute(codexBinary)
+    ) {
+      // Interactive shell startup files can replace the server's PATH. Set it
+      // in this new, owned shell so packaged runs use their pinned Codex/Node.
+      const runtimePath = [
+        dirname(codexBinary),
+        dirname(process.execPath),
+      ].join(delimiter);
+      const ready = `roost-runtime-ready:${options.workerName}`;
+      await command(
+        target,
+        [
+          "pane",
+          "run",
+          paneId,
+          `export PATH=${quote(runtimePath)}:"$PATH"; hash -r; test "$(command -v codex)" = ${quote(codexBinary)} && printf '\\n%s\\n' ${quote(ready)}`,
+        ],
+        "prepare",
+        { mutating: true, raw: true, signal: options.signal },
+      );
+      await command(
+        target,
+        [
+          "pane",
+          "wait-output",
+          paneId,
+          "--regex",
+          `(?m)^${ready}$`,
+          "--source",
+          "recent-unwrapped",
+          "--timeout",
+          "10000",
+        ],
+        "prepare",
+        { raw: true, signal: options.signal },
+      );
+      await options.beforeSend?.();
+    }
     const launched = workerFrom(
       await command(
         target,
@@ -612,6 +719,19 @@ export function createHerdrAdapter(runner: HerdrCommandRunner = runCommand) {
           paneId,
           "--timeout",
           "30000",
+          ...(options.workerKind === "codex"
+            ? [
+                "--",
+                "--ask-for-approval",
+                "on-request",
+                "--sandbox",
+                "workspace-write",
+                "-c",
+                'approvals_reviewer="auto_review"',
+                "-c",
+                projectTrust(projectCwd, Boolean(target.remoteTarget)),
+              ]
+            : []),
         ],
         "launch",
         { mutating: true, timeoutMs: 40_000, signal: options.signal },

@@ -65,6 +65,9 @@ test("coding conversations retain soul tools, load edited configuration, and kee
     await send(coding.id, "Hi");
     const originalSoul = (await run(readSoul(coding.id))).content;
     const options = thread(coding.id).options;
+    assert.equal(options.approvalsReviewer, "auto_review");
+    assert.equal(options.approvalPolicy, "on-request");
+    assert.equal(options.sandbox, "workspace-write");
     assert.ok(
       options.dynamicTools.some(
         (tool: { name: string }) => tool.name === "roost_start_coding_job",

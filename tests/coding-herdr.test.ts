@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { homedir } from "node:os";
+import { delimiter, dirname, join } from "node:path";
 import { test } from "node:test";
 import {
   createHerdrAdapter,
@@ -86,6 +93,26 @@ test("starts a named worker without focusing and confirms activity after submiss
     name,
     "--no-focus",
   ]);
+  assert.deepEqual(adapter.commands[3]?.args.slice(2), [
+    "agent",
+    "start",
+    name,
+    "--kind",
+    "codex",
+    "--pane",
+    "pane-1",
+    "--timeout",
+    "30000",
+    "--",
+    "--ask-for-approval",
+    "on-request",
+    "--sandbox",
+    "workspace-write",
+    "-c",
+    'approvals_reviewer="auto_review"',
+    "-c",
+    `projects={${JSON.stringify(options.cwd)}={trust_level="trusted"}}`,
+  ]);
   assert.deepEqual(adapter.commands.at(-1)?.args.slice(2), [
     "agent",
     "prompt",
@@ -109,6 +136,7 @@ test("starts an owned headless server only for explicit server_not_running", asy
   ]);
   await adapter.startCodingWorker(target, options);
   assert.equal(adapter.commands[1]?.detached, true);
+  assert.equal(adapter.commands[1]?.cwd, options.cwd);
   assert.deepEqual(adapter.commands[1]?.args, [
     "--session",
     target.sessionName,
@@ -120,6 +148,106 @@ test("starts an owned headless server only for explicit server_not_running", asy
     code: "permission_denied",
   });
   assert.equal(denied.commands.length, 1);
+});
+
+test("remote server startup uses the assigned directory and the user's CLI path", async () => {
+  const adapter = mock([
+    { stdout: "/physical/project\n", stderr: "" },
+    serverError("server_not_running"),
+    { stdout: "", stderr: "" },
+    ...startup(),
+  ]);
+  await adapter.startCodingWorker(
+    { ...target, remoteTarget: "dev@workbox" },
+    { ...options, cwd: "/work/it's here" },
+  );
+  assert.equal(
+    adapter.commands[0]?.args.at(-1),
+    "cd -- '/work/it'\\''s here' && pwd -P",
+  );
+  const server = adapter.commands[2]!;
+  assert.equal(server.file, "ssh");
+  assert.equal(server.cwd, undefined);
+  assert.equal(server.detached, false);
+  assert.equal(
+    server.args.at(-1),
+    `export PATH="$HOME/.local/bin:$PATH"; cd -- '/work/it'\\''s here' && nohup 'herdr' '--session' '${target.sessionName}' 'server' </dev/null >/dev/null 2>&1 &`,
+  );
+  assert.ok(
+    adapter.commands[6]?.args
+      .at(-1)
+      ?.includes('projects={"/physical/project"={trust_level="trusted"}}'),
+  );
+});
+
+test("packaged Codex is selected inside the owned shell after shell startup", async () => {
+  const previous = process.env.ROOST_CODEX_BINARY;
+  process.env.ROOST_CODEX_BINARY = "/roost/release's/runtime/codex/bin/codex";
+  const steps = startup();
+  steps.splice(
+    3,
+    0,
+    { stdout: "", stderr: "" },
+    { stdout: `roost-runtime-ready:${name}\n`, stderr: "" },
+  );
+  const adapter = mock(steps);
+  try {
+    await adapter.startCodingWorker(target, options);
+    const setup = adapter.commands[3]!;
+    assert.deepEqual(setup.args.slice(2, 5), ["pane", "run", "pane-1"]);
+    assert.ok(
+      setup.args[5]?.startsWith(
+        "export PATH='/roost/release'\\''s/runtime/codex/bin:",
+      ),
+    );
+    assert.ok(setup.args[5]?.includes(dirname(process.execPath)));
+    assert.deepEqual(adapter.commands[4]?.args.slice(2), [
+      "pane",
+      "wait-output",
+      "pane-1",
+      "--regex",
+      `(?m)^roost-runtime-ready:${name}$`,
+      "--source",
+      "recent-unwrapped",
+      "--timeout",
+      "10000",
+    ]);
+    assert.equal(adapter.commands[5]?.args[3], "start");
+    assert.equal(adapter.steps.length, 0);
+  } finally {
+    if (previous === undefined) delete process.env.ROOST_CODEX_BINARY;
+    else process.env.ROOST_CODEX_BINARY = previous;
+  }
+});
+
+test("Codex project trust resolves local aliases to the assigned physical directory", async () => {
+  const directory = mkdtempSync("/tmp/roost-herdr-project-");
+  const alias = `${directory}-alias`;
+  symlinkSync(directory, alias);
+  try {
+    const adapter = mock(startup());
+    await adapter.startCodingWorker(target, { ...options, cwd: alias });
+    assert.equal(
+      adapter.commands[3]?.args.at(-1),
+      `projects={${JSON.stringify(realpathSync(directory))}={trust_level="trusted"}}`,
+    );
+  } finally {
+    rmSync(alias);
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Codex project trust is scoped to the exact assigned path and other workers keep native options", async () => {
+  const cwd = '/work/project.v1 with "quotes"';
+  const codex = mock(startup());
+  await codex.startCodingWorker(target, { ...options, cwd });
+  assert.equal(
+    codex.commands[3]?.args.at(-1),
+    'projects={"/work/project.v1 with \\"quotes\\""={trust_level="trusted"}}',
+  );
+  const other = mock(startup());
+  await other.startCodingWorker(target, { ...options, workerKind: "claude" });
+  assert.equal(other.commands[3]?.args.includes("--"), false);
 });
 
 test("existing job workspace or worker prevents duplicate launches and prompt delivery", async () => {
@@ -415,7 +543,7 @@ test("default command runner uses its binary override and removes coordinator se
     `#!/usr/bin/env node
 const args = process.argv.slice(2);
 if (args[2] !== 'agent' || !['get','read'].includes(args[3])) process.exit(99);
-if (args[3] === 'read') console.log(JSON.stringify({codexHome:process.env.CODEX_HOME,sqliteHome:process.env.CODEX_SQLITE_HOME,accessToken:process.env.CODEX_ACCESS_TOKEN,herdrSocket:process.env.HERDR_SOCKET_PATH,runId:process.env.ROOST_RUN_ID}));
+if (args[3] === 'read') console.log(JSON.stringify({codexHome:process.env.CODEX_HOME,sqliteHome:process.env.CODEX_SQLITE_HOME,accessToken:process.env.CODEX_ACCESS_TOKEN,herdrSocket:process.env.HERDR_SOCKET_PATH,runId:process.env.ROOST_RUN_ID,path:process.env.PATH}));
 else console.log(JSON.stringify({result:{type:'agent_info',agent:${JSON.stringify(agent())}}}));
 `,
     { mode: 0o755 },
@@ -427,6 +555,7 @@ else console.log(JSON.stringify({result:{type:'agent_info',agent:${JSON.stringif
     "CODEX_ACCESS_TOKEN",
     "HERDR_SOCKET_PATH",
     "ROOST_RUN_ID",
+    "PATH",
   ];
   const previous = keys.map((key) => process.env[key]);
   try {
@@ -436,8 +565,16 @@ else console.log(JSON.stringify({result:{type:'agent_info',agent:${JSON.stringif
     process.env.CODEX_ACCESS_TOKEN = "fixture-token";
     process.env.HERDR_SOCKET_PATH = "/focused/user-session.sock";
     process.env.ROOST_RUN_ID = "private-run";
+    process.env.PATH = "/usr/bin:/bin";
     const worker = await createHerdrAdapter().readCodingWorker(target, name);
-    assert.deepEqual(JSON.parse(worker.output), {});
+    assert.deepEqual(JSON.parse(worker.output), {
+      path: [
+        dirname(process.execPath),
+        join(homedir(), ".local", "bin"),
+        "/usr/bin",
+        "/bin",
+      ].join(delimiter),
+    });
   } finally {
     keys.forEach((key, index) => {
       if (previous[index] === undefined) delete process.env[key];

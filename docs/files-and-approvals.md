@@ -32,7 +32,22 @@ decision remain available from a notice in conversation history. Approving a
 request grants only that described action, and changed details require another
 decision. Requests already authorized by the user do not need another prompt.
 
-Native Codex command/file approvals and app choice prompts also appear here.
+Roost enables Codex's automatic reviewer for eligible native command, file,
+network, and app approval requests. Routine work can continue after review
+without a manual prompt. The sandbox and permission limits stay in place; an
+automatic review is not a blanket grant. This applies to new and resumed agent
+conversations, automated runs, and delegated work. Soul reflection remains
+read-only with native approvals disabled.
+
+If the reviewer denies an action, the agent receives the reason and must use a
+materially safer alternative or request your approval of the exact action and
+its consequences. A human decision authorizes only that action; any retry is
+still subject to automatic review and policy. Roost's explicit
+`roost_request_approval` tool and personal-input questions always wait for you.
+See [Codex auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review)
+for the review boundary and denial behavior.
+
+Native prompts that still require a person and app choice prompts also appear here.
 Only one-time grants are offered. Commands show the command, directory, and any
 requested network or additional permissions; file requests show the proposed
 changes. Requests without a reviewable action are declined. Simple MCP consent

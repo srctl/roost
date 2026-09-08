@@ -8,7 +8,10 @@ import {
   HerdrError,
   type HerdrWorker,
 } from "../src/server/coding/herdr.server";
-import { stopCodingJob } from "../src/server/coding/jobs.server";
+import {
+  continueCodingJob,
+  stopCodingJob,
+} from "../src/server/coding/jobs.server";
 import {
   createCodingJob,
   getCodingJob,
@@ -160,6 +163,149 @@ test("idle after a blocked launch is not proof that coding work happened", async
     await poll();
     await tickCodingJobs(owner, signal(), mock.adapter);
     assert.equal((await run(getCodingJob(agentId, job.id))).status, "review");
+  }));
+
+test("a missing executable can be fixed and the original launch retried without prompting a nonexistent worker", async () =>
+  fixture(async (agentId) => {
+    const job = await create(agentId);
+    const mock = mockAdapter();
+    mock.adapter.startCodingWorker = async () => {
+      mock.calls.starts++;
+      throw new HerdrError("Herdr is not on PATH", "ENOENT", "prepare");
+    };
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    const blocked = await run(getCodingJob(agentId, job.id));
+    assert.equal(blocked.lastWorkerState, "not_started");
+    assert.equal(blocked.dispatchedAt, null);
+    await poll();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(mock.calls.reads, 0);
+    assert.equal(mock.calls.starts, 1);
+    assert.equal(
+      (await run(getCodingJob(agentId, job.id))).error,
+      "Herdr is not on PATH",
+    );
+
+    const updateRun = await run(claimRun(owner));
+    assert.equal(updateRun?.kind, "coding");
+    const input = {
+      id: job.id,
+      requestId: randomUUID(),
+      prompt: "Herdr is installed. Resume and include run instructions.",
+    };
+    const receipt = await run(continueCodingJob(agentId, updateRun!.id, input));
+    assert.equal(receipt.status, "launch_queued");
+    assert.deepEqual(
+      await run(continueCodingJob(agentId, updateRun!.id, input)),
+      receipt,
+    );
+    assert.equal((await run(getCodingJob(agentId, job.id))).status, "queued");
+    // Another preparation failure must retain the previous unsent follow-up.
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(
+      (await run(getCodingJob(agentId, job.id))).lastWorkerState,
+      "not_started",
+    );
+    assert.equal(
+      (await run(continueCodingJob(agentId, updateRun!.id, input))).status,
+      "launch_failed",
+    );
+    const nextInput = {
+      id: job.id,
+      requestId: randomUUID(),
+      prompt: "The second dependency is fixed. Resume the assignment.",
+    };
+    await run(continueCodingJob(agentId, updateRun!.id, nextInput));
+    let brief = "";
+    mock.adapter.startCodingWorker = async (_target, options) => {
+      mock.calls.starts++;
+      brief = options.brief;
+      return mock.state.worker;
+    };
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    const started = await run(getCodingJob(agentId, job.id));
+    assert.equal(started.status, "running");
+    assert.equal(started.brief, job.brief);
+    assert.equal(
+      brief,
+      `${job.brief}\nFollow-up:\n${input.prompt}\nFollow-up:\n${nextInput.prompt}`,
+    );
+    assert.equal(mock.calls.starts, 3);
+    assert.equal(mock.calls.prompts, 0);
+    assert.equal(
+      (await run(continueCodingJob(agentId, updateRun!.id, input))).status,
+      "sent",
+    );
+    mock.state.worker = worker("done");
+    await poll();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal((await run(getCodingJob(agentId, job.id))).status, "review");
+    assert.equal(mock.calls.starts, 3);
+  }));
+
+test("an interrupted launch retry is inspected without replaying its follow-up", async () =>
+  fixture(async (agentId) => {
+    const job = await create(agentId);
+    const inputId = randomUUID();
+    await run(
+      withAgentStore((db) => {
+        db.prepare(
+          "UPDATE coding_jobs SET status='starting',launchOwner='previous-process' WHERE id=?",
+        ).run(job.id);
+        db.prepare(
+          "INSERT INTO coding_job_inputs(id,jobId,agentId,prompt,status,createdAt) VALUES(?,?,?,'Resume original assignment','launching',?)",
+        ).run(inputId, job.id, agentId, Date.now());
+      }),
+    );
+    const mock = mockAdapter();
+    mock.state.worker = worker("idle");
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(mock.calls.starts, 0);
+    assert.equal(mock.calls.prompts, 0);
+    assert.notEqual(
+      (await run(getCodingJob(agentId, job.id))).lastWorkerState,
+      "not_started",
+    );
+    assert.equal(
+      await run(
+        withAgentStore(
+          (db) =>
+            db
+              .prepare("SELECT status FROM coding_job_inputs WHERE id=?")
+              .get(inputId)?.status,
+        ),
+      ),
+      "failed",
+    );
+  }));
+
+test("existing workspaces and uncertain preparation failures never enable automatic relaunch", async () =>
+  fixture(async (agentId) => {
+    for (const failure of [
+      new HerdrError("An owned workspace exists", "already_exists", "prepare"),
+      new HerdrError(
+        "Workspace creation response lost",
+        "timeout",
+        "prepare",
+        true,
+      ),
+      new HerdrError("Worker launch response lost", "timeout", "launch", true),
+    ]) {
+      const job = await create(agentId);
+      const mock = mockAdapter();
+      mock.adapter.startCodingWorker = async () => {
+        throw failure;
+      };
+      await tickCodingJobs(owner, signal(), mock.adapter);
+      assert.equal(
+        (await run(getCodingJob(agentId, job.id))).status,
+        "blocked",
+      );
+      assert.notEqual(
+        (await run(getCodingJob(agentId, job.id))).lastWorkerState,
+        "not_started",
+      );
+    }
   }));
 
 test("uncertain launch failures and restarted launches are inspected without duplicate submission", async () =>
