@@ -1,0 +1,1 @@
+can we deploy the docs to probably railway? and lets make sure that we can make use of their CDN
