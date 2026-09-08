@@ -7,24 +7,55 @@ come back to. Connect Codex, create your agents, and give each one a job. Talk
 with them, schedule recurring tasks, and pick up where you left off from your
 computer or phone.
 
+[Get started](#get-started) · [Features](#what-you-can-do) · [Screenshots](#a-look-around) · [Documentation](docs/index.md)
+
+![Roost on desktop: Moss helps plan a balcony garden, with persistent agents in the sidebar and a conversation showing research and a scheduled follow-up.](docs/screenshots/conversation.png)
+
+*The real Roost interface, shown with fictional sample conversations and data.*
+
 ## What you can do
 
 - **Give every agent a role.** Choose a name, character, model, and instructions.
   Each agent keeps its own conversation, workspace, soul, and Codex memory.
-- **Keep work moving.** Schedule checks and recurring tasks, or let an agent
-  delegate part of your request to a specialist. Work continues when you close
-  the browser, while Roost and its host remain running.
+- **Put recurring work on autopilot.** Schedule briefings, checks, and follow-ups
+  in chat or the automation editor. Review runs, pause schedules, or run a task
+  now. Work continues with the browser closed while Roost and its host are running.
+- **Let agents work together.** An agent can delegate part of your request to a
+  specialist and bring the result back into the original conversation.
 - **Work with files.** Attach documents and images, receive downloadable results,
   and approve prepared actions in the conversation.
 - **Share a computer.** On a configured Linux desktop, watch an agent use the
   signed-in browser and take control when you need to.
-- **Keep useful results nearby.** Enable agent-maintained dashboards for notes,
-  tables, charts, and task lists. Add Roost to your phone's home screen and enable
-  push notifications for results or approvals.
+- **Turn conversations into dashboards.** Enable agent-maintained notes, metrics,
+  tables, charts, and task lists, with a conversation pane alongside your results.
+- **Take your agents with you.** Use the mobile layout in light or dark mode, add
+  Roost to your phone's home screen, and enable push notifications for results
+  or approvals.
 
 Roost is built for one person running their own agents. Conversations, settings,
 files, and agent memory are stored on your host. Agents use Codex and any
 connected services to do their work; this is not an offline model runner.
+
+## A look around
+
+### A workspace that grows with the conversation
+
+Ask an agent to keep a tracker, plan, or report up to date. Dashboards give that
+work a home, and the side-by-side chat keeps changes one conversation away.
+
+![Moss's dashboard showing a garden budget, a planting checklist, a shopping table, and a cost chart, with the conversation open alongside.](docs/screenshots/dashboard.png)
+
+### Scheduled work, wherever you are
+
+Create recurring tasks and choose whether to hear about every run or only when
+something needs attention. Pick up the same conversation on your phone.
+
+| Automations | Mobile · dark mode |
+| --- | --- |
+| <img src="docs/screenshots/automations.png" alt="Moss's automation settings with a weekday research brief and a Saturday garden check-in, including schedule, notification, edit, pause, and run-now controls." width="460"> | <img src="docs/screenshots/mobile.png" alt="Roost's mobile conversation in dark mode, showing Moss's garden recommendations and confirmation of a weekly check-in." width="305"> |
+
+Learn more about [dashboards](docs/dashboards.md), [automations](docs/automations.md),
+and [mobile access](docs/mobile.md).
 
 ## Get started
 
