@@ -33,6 +33,14 @@ Generated routes and Codex protocol types, SVG assets, and local agent/browser
 directories are excluded. Markdown and YAML are maintained manually; they are no
 longer covered by the formatter check.
 
+Run `pnpm exec playwright install chromium` once, then `pnpm test:composer` for
+isolated composer browser regression checks. Alternatively, set
+`COMPOSER_CHROME_PATH` to an existing Chrome executable. The fixture uses an
+ephemeral loopback port and a separate headless browser, with local send/stop
+callbacks and mocked uploads; it never starts the Roost worker. It checks desktop,
+mobile touch, and the standalone JavaScript path (not a physical installed PWA).
+Set `COMPOSER_ARTIFACTS` to a directory to save Send/Stop screenshots in each mode.
+
 For production:
 
 ```sh

@@ -1,0 +1,182 @@
+{
+  "browser": "152.0.7977.82",
+  "fixture": "tests/fixtures/composer",
+  "deviceScaleFactor": 1,
+  "colorScheme": "light",
+  "reducedMotion": "reduce",
+  "focused": false,
+  "evidence": [
+    {
+      "file": "desktop-running-text-before.png",
+      "version": "before",
+      "revision": "3f7bae287253e1c4c5449ea78521b2fcc072152d",
+      "mode": "desktop",
+      "state": "running-text",
+      "viewport": {
+        "width": 1280,
+        "height": 844
+      },
+      "sourceSha256": "cbd74e86dbf6ea2e620a62f28851df2525e4354e8995926f99733a63e3f6303f",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 28,
+          "height": 28,
+          "border": 0
+        },
+        {
+          "label": "Send message",
+          "width": 28,
+          "height": 28,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "desktop-running-empty-before.png",
+      "version": "before",
+      "revision": "3f7bae287253e1c4c5449ea78521b2fcc072152d",
+      "mode": "desktop",
+      "state": "running-empty",
+      "viewport": {
+        "width": 1280,
+        "height": 844
+      },
+      "sourceSha256": "cbd74e86dbf6ea2e620a62f28851df2525e4354e8995926f99733a63e3f6303f",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 28,
+          "height": 28,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "mobile-running-text-before.png",
+      "version": "before",
+      "revision": "3f7bae287253e1c4c5449ea78521b2fcc072152d",
+      "mode": "mobile",
+      "state": "running-text",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "sourceSha256": "cbd74e86dbf6ea2e620a62f28851df2525e4354e8995926f99733a63e3f6303f",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 44,
+          "height": 44,
+          "border": 0
+        },
+        {
+          "label": "Send message",
+          "width": 44,
+          "height": 44,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "mobile-running-empty-before.png",
+      "version": "before",
+      "revision": "3f7bae287253e1c4c5449ea78521b2fcc072152d",
+      "mode": "mobile",
+      "state": "running-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "sourceSha256": "cbd74e86dbf6ea2e620a62f28851df2525e4354e8995926f99733a63e3f6303f",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 44,
+          "height": 44,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "desktop-running-text-after.png",
+      "version": "after",
+      "revision": "47e0eaae9ad0733f3196cc92d2709f39b240a81f",
+      "mode": "desktop",
+      "state": "running-text",
+      "viewport": {
+        "width": 1280,
+        "height": 844
+      },
+      "sourceSha256": "9478621b989d5632636d3fe36c3219eea5fb8e770d0f2784422f8d326849cac5",
+      "buttons": [
+        {
+          "label": "Send message",
+          "width": 28,
+          "height": 28,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "desktop-running-empty-after.png",
+      "version": "after",
+      "revision": "47e0eaae9ad0733f3196cc92d2709f39b240a81f",
+      "mode": "desktop",
+      "state": "running-empty",
+      "viewport": {
+        "width": 1280,
+        "height": 844
+      },
+      "sourceSha256": "9478621b989d5632636d3fe36c3219eea5fb8e770d0f2784422f8d326849cac5",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 28,
+          "height": 28,
+          "border": 0
+        }
+      ]
+    },
+    {
+      "file": "mobile-running-text-after.png",
+      "version": "after",
+      "revision": "47e0eaae9ad0733f3196cc92d2709f39b240a81f",
+      "mode": "mobile",
+      "state": "running-text",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "sourceSha256": "9478621b989d5632636d3fe36c3219eea5fb8e770d0f2784422f8d326849cac5",
+      "buttons": [
+        {
+          "label": "Send message",
+          "width": 44,
+          "height": 44,
+          "border": 4
+        }
+      ]
+    },
+    {
+      "file": "mobile-running-empty-after.png",
+      "version": "after",
+      "revision": "47e0eaae9ad0733f3196cc92d2709f39b240a81f",
+      "mode": "mobile",
+      "state": "running-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "sourceSha256": "9478621b989d5632636d3fe36c3219eea5fb8e770d0f2784422f8d326849cac5",
+      "buttons": [
+        {
+          "label": "Stop response",
+          "width": 44,
+          "height": 44,
+          "border": 4
+        }
+      ]
+    }
+  ]
+}

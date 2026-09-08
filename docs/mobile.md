@@ -28,6 +28,16 @@ follows the visual viewport's height and top offset. On blur it removes those
 overrides, including when iOS retains a stale visual viewport size. The composer uses 16px text to avoid input zoom and
 removes the home-indicator inset while the keyboard occupies that space.
 
+The composer's Send and Stop circles are 36px on mobile (including home-screen
+apps), inside 44px touch targets. Desktop circles remain 28px. During a running
+turn, a draft containing non-whitespace text shows only Send. Clearing the draft
+restores Stop, as does a successful send if the turn is still running. Whitespace
+alone counts as empty, matching message sendability. Attachment-only drafts retain
+both Send and Stop; adding text hides Stop without changing attachment submission.
+Uploads, loading, and pending sends still disable Send. Failed sends retain the
+draft, and text edited while a send is pending is preserved. Idle turns keep their
+existing Send control, disabled until there is text or an attachment to send.
+
 Production builds register a service worker that caches immutable build assets,
 supports push notifications, and supplies an offline screen when a navigation
 cannot reach the server. It does not cache conversations, credentials, attachments,
