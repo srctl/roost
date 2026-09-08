@@ -1,5 +1,1 @@
-can we deploy the docs to probably railway? and lets make sure that we can make use of their CDN
-
----
-
-is the marketing site deployed too? Lets deploy that as well
+cool, can you commit and push these changes up to main
