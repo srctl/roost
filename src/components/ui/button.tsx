@@ -1,20 +1,34 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import * as stylex from "@stylexjs/stylex";
+import { useUpdateBlocked } from "../../features/updates/state";
 import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 
 // Adapted from shadcn/ui's Base UI button; see THIRD_PARTY_NOTICES.md.
 export function Button({
+  allowDuringUpdate = false,
+  blockDuringUpdate = false,
   xstyle,
   className,
   ...props
-}: ButtonPrimitive.Props & { xstyle?: stylex.StyleXStyles }) {
+}: ButtonPrimitive.Props & {
+  xstyle?: stylex.StyleXStyles;
+  allowDuringUpdate?: boolean;
+  blockDuringUpdate?: boolean;
+}) {
+  const updating = useUpdateBlocked();
   const base = stylex.props(styles.button, xstyle);
 
   return (
     <ButtonPrimitive
       data-slot="button"
       {...props}
+      disabled={
+        props.disabled ||
+        (updating &&
+          !allowDuringUpdate &&
+          (blockDuringUpdate || props.type === "submit"))
+      }
       className={(state) =>
         [
           base.className,

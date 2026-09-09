@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { App } from "../app";
+import { UpdateNotice } from "../components/update-notice";
 import { getAgents } from "../features/agents/functions";
 import { getComputerStatus } from "../features/computer/functions";
 import { getDashboardSetting } from "../features/dashboards/functions";
@@ -93,6 +94,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <ThemeMeta />
       </head>
       <body>
+        <UpdateNotice />
         {children}
         <Scripts />
       </body>
