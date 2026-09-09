@@ -3,6 +3,11 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Context, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { CODEX_SIGN_IN_REQUIRED } from "../../features/auth/schema";
+import {
+  type DeleteAgentInput,
+  deleteAgentRecords,
+} from "../agents/delete.server";
+import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { cancelApproval, waitForApproval } from "../approvals/store.server";
 import {
   handleNativeApproval,
@@ -352,10 +357,54 @@ type RuntimeEntry = {
 
 const globals = globalThis as typeof globalThis & {
   roostAgentRuntimes?: Map<string, RuntimeEntry>;
+  roostDeletingAgents?: Set<string>;
 };
 
 globals.roostAgentRuntimes ??= new Map<string, RuntimeEntry>();
 const runtimes = globals.roostAgentRuntimes;
+globals.roostDeletingAgents ??= new Set<string>();
+const deleting = globals.roostDeletingAgents;
+
+export const deleteAgent = (input: typeof DeleteAgentInput.Type) =>
+  Effect.tryPromise({
+    try: async () => {
+      const root = resolve(process.env.ROOST_DATA_DIR ?? ".roost");
+      const home = join(root, "agents", input.agentId, "codex");
+      const entry = runtimes.get(home);
+      if (deleting.has(home) || entry?.users)
+        throw new AgentStoreError({
+          message:
+            "This agent is busy. Stop any active turn and wait, then retry deletion.",
+        });
+      deleting.add(home);
+      try {
+        // Dispose idle native memory workers before reporting deletion success.
+        if (entry) {
+          clearTimeout(entry.idle);
+          await entry.runtime.dispose();
+          runtimes.delete(home);
+        }
+        const outcome = await Effect.runPromise(
+          deleteAgentRecords(input).pipe(
+            Effect.match({
+              onFailure: (error) => error,
+              onSuccess: () => null,
+            }),
+          ),
+        );
+        if (outcome) throw outcome;
+      } finally {
+        deleting.delete(home);
+      }
+    },
+    catch: (error) =>
+      new AgentStoreError({
+        message:
+          error instanceof AgentStoreError
+            ? error.message
+            : "Could not delete this agent. Reload its settings to check its state before retrying.",
+      }),
+  });
 
 export const closeAgentRuntimes = async () => {
   const entries = [...runtimes.values()];
@@ -390,6 +439,16 @@ export const openAgentServer = (
   Effect.gen(function* () {
     const entry = yield* Effect.acquireRelease(
       Effect.sync(() => {
+        if (deleting.has(codexHome))
+          throw new AgentStoreError({
+            message: "Agent deletion is in progress.",
+          });
+        Effect.runSync(
+          withAgentStore((db) => {
+            if (!db.prepare("SELECT id FROM agents WHERE id=?").get(agentId))
+              throw new AgentStoreError({ message: "Agent not found." });
+          }),
+        );
         let entry = runtimes.get(codexHome);
 
         if (!entry) {

@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 10)
+        if (version > 11)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -232,6 +232,48 @@ export function withAgentStore<A>(
             throw error;
           }
         }
+        if (version < 11) {
+          db.exec("BEGIN IMMEDIATE");
+          try {
+            db.exec(`CREATE TABLE IF NOT EXISTS deleted_agents (
+              id TEXT PRIMARY KEY, deletedAt INTEGER NOT NULL
+            )`);
+            // Fence late writes from requests that read the agent before deletion.
+            // Do not require foreign keys on historical/imported data.
+            for (const [table, columns] of Object.entries({
+              agents: ["id"],
+              conversations: ["agentId"],
+              agent_sessions: ["agentId"],
+              timeline: ["agentId"],
+              timeline_imports: ["agentId"],
+              soul_changes: ["agentId"],
+              automations: ["agentId"],
+              runs: ["agentId"],
+              files: ["agentId"],
+              approvals: ["agentId"],
+              dashboards: ["agentId"],
+              dashboard_datasets: ["agentId"],
+              agent_notifications: ["agentId"],
+              agent_reflections: ["agentId"],
+              coding_settings: ["agentId"],
+              coding_jobs: ["agentId"],
+              coding_job_inputs: ["agentId"],
+              coding_job_updates: ["agentId"],
+              delegations: ["sourceAgentId", "targetAgentId"],
+            })) {
+              for (const operation of ["INSERT", "UPDATE"]) {
+                db.exec(`CREATE TRIGGER IF NOT EXISTS deleted_${table}_${operation}
+                  BEFORE ${operation} ON ${table}
+                  WHEN ${columns.map((column) => `EXISTS (SELECT 1 FROM deleted_agents WHERE id=NEW.${column})`).join(" OR ")}
+                  BEGIN SELECT RAISE(ABORT, 'Agent was deleted.'); END`);
+              }
+            }
+            db.exec("PRAGMA user_version=11; COMMIT");
+          } catch (error) {
+            db.exec("ROLLBACK");
+            throw error;
+          }
+        }
         return run(db, directory);
       } finally {
         db.close();
@@ -261,6 +303,10 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
     const data = Schema.decodeUnknownSync(CreateAgentInput)(input);
     db.exec("BEGIN IMMEDIATE");
     try {
+      if (db.prepare("SELECT id FROM deleted_agents WHERE id=?").get(data.id))
+        throw new AgentStoreError({
+          message: "This agent was deleted. Create a new agent instead.",
+        });
       const existing = db
         .prepare("SELECT * FROM agents WHERE id = ?")
         .get(data.id);
