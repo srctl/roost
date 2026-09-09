@@ -771,3 +771,86 @@ test("a backlog over forty queued jobs cannot starve active monitoring or stop r
       "cancelled",
     );
   }));
+
+for (const dispatch of ["launch", "follow-up"] as const) {
+  test(`update admission closing during coding ${dispatch} preparation prevents submission and replay`, async () =>
+    fixture(async (agentId) => {
+      const job = await create(agentId);
+      const mock = mockAdapter();
+      if (dispatch === "follow-up") {
+        await tickCodingJobs(owner, signal(), mock.adapter);
+        await run(
+          withAgentStore((db) => {
+            db.prepare(
+              "INSERT INTO coding_job_inputs(id,jobId,agentId,prompt,createdAt) VALUES(?,?,?,?,?)",
+            ).run(
+              randomUUID(),
+              job.id,
+              agentId,
+              "Unsent follow-up",
+              Date.now(),
+            );
+          }),
+        );
+        await poll();
+      }
+      let entered!: () => void;
+      let release!: () => void;
+      const preparing = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const prepare = async (beforeSend: (() => Promise<void>) | undefined) => {
+        entered();
+        await ready;
+        assert.ok(beforeSend);
+        await beforeSend();
+        mock.calls.prompts++;
+        return worker();
+      };
+      if (dispatch === "launch") {
+        mock.adapter.startCodingWorker = async (_target, options) => {
+          mock.calls.starts++;
+          return prepare(options.beforeSend);
+        };
+      } else {
+        mock.adapter.promptCodingWorker = async (
+          _target,
+          _worker,
+          _prompt,
+          _identity,
+          _signal,
+          beforeSend,
+        ) => prepare(beforeSend);
+      }
+      const ticking = tickCodingJobs(owner, signal(), mock.adapter);
+      await preparing;
+      try {
+        await run(
+          withAgentStore((db) =>
+            db.exec("UPDATE runtime_control SET maintenance=1 WHERE id=1"),
+          ),
+        );
+      } finally {
+        release();
+        await ticking;
+      }
+      assert.equal(mock.calls.prompts, 0);
+      const blocked = await run(getCodingJob(agentId, job.id));
+      assert.equal(blocked.status, "blocked");
+      // Reopening admission is not fresh authorization to retry the interrupted
+      // dispatch. Existing identity is inspected and the prompt stays unsent.
+      await run(
+        withAgentStore((db) =>
+          db.exec("UPDATE runtime_control SET maintenance=0 WHERE id=1"),
+        ),
+      );
+      await poll();
+      mock.state.worker = worker("missing");
+      await tickCodingJobs(owner, signal(), mock.adapter);
+      assert.equal(mock.calls.starts, 1);
+      assert.equal(mock.calls.prompts, 0);
+    }));
+}
