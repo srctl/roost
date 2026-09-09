@@ -330,7 +330,7 @@ export const claimSteeringRun = (run: Run) =>
     (db) =>
       db
         .prepare(
-          "UPDATE runs SET status='steering',owner=?,startedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE id=(SELECT q.id FROM runs q WHERE q.agentId=? AND q.kind='chat' AND q.status='queued' AND q.cancelRequested=0 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=? AND r.owner=? AND r.status='running' AND r.kind IN ('chat','handoff') AND r.cancelRequested=0) AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) ORDER BY q.createdAt,q.rowid LIMIT 1) RETURNING *",
+          "UPDATE runs SET status='steering',owner=?,startedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE id=(SELECT q.id FROM runs q WHERE q.agentId=? AND q.kind='chat' AND q.status='queued' AND (SELECT maintenance FROM runtime_control WHERE id=1)=0 AND q.cancelRequested=0 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=? AND r.owner=? AND r.status='running' AND r.kind IN ('chat','handoff') AND r.cancelRequested=0) AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) ORDER BY q.createdAt,q.rowid LIMIT 1) RETURNING *",
         )
         .get(
           run.owner,

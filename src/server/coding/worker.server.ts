@@ -186,6 +186,7 @@ export async function tickCodingJobs(
         status: "blocked",
         error:
           "This terminal now belongs to a different worker. No input was sent; inspect it in Herdr.",
+        lastWorkerState: "unknown",
       });
     if (worker.state === "missing")
       return persist(job, {

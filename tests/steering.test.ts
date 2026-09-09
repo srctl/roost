@@ -200,6 +200,23 @@ test("finished turns leave pending messages queued; ownership and restart recove
       await run(claimSteeringRun({ ...first, owner: "foreign" })),
       undefined,
     );
+    await run(
+      withAgentStore((db) =>
+        db.prepare("UPDATE runtime_control SET maintenance=1 WHERE id=1").run(),
+      ),
+    );
+    assert.equal(await run(claimSteeringRun(first)), undefined);
+    assert.equal(
+      (await run(listRuns(agentId))).find(
+        (entry) => entry.id === second.messageId,
+      )?.status,
+      "queued",
+    );
+    await run(
+      withAgentStore((db) =>
+        db.prepare("UPDATE runtime_control SET maintenance=0 WHERE id=1").run(),
+      ),
+    );
     await run(finishRun(first, "completed", []));
     assert.equal(await run(claimSteeringRun(first)), undefined);
     const next = (await run(claimRun("owner")))!;

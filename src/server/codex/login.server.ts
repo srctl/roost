@@ -171,3 +171,6 @@ export async function closeLogin() {
   await state.starting;
   await state.cancel?.();
 }
+
+export const loginActive = () =>
+  Boolean(state.starting || state.value.status === "pending");

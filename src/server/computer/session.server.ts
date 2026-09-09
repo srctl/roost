@@ -147,3 +147,7 @@ export const endComputerAction = () => {
 export const releaseComputer = (agentId: string) => {
   if (state.agent === agentId) state.agent = undefined;
 };
+
+export const computerActivity = () =>
+  Number(state.acting) +
+  [...state.viewers.values()].filter((viewer) => viewer.connected).length;

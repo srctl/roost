@@ -64,7 +64,6 @@ export const removeExecutionProfile = createServerFn({ method: "POST" })
   );
 
 export const getCodingJobs = createServerFn({ method: "GET" })
-  .middleware([available])
   .validator(Schema.decodeUnknownSync(AgentInput))
   .handler(({ data }) => result(listCodingJobs(data.agentId)));
 

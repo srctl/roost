@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { Effect } from "effect";
 import type { ChatEvent, Message } from "../../features/chat/schema";
+import { appGate } from "../../updater/gate";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { CodexError } from "../codex/app-server.server";
 import {
@@ -201,7 +202,12 @@ export function startWorker() {
   }
   const current = worker;
   current.tick = async () => {
-    if (current.ticking || current.stopped) return;
+    if (
+      current.ticking ||
+      current.stopped ||
+      ["hold", "verify", "manual"].includes(appGate().mode)
+    )
+      return;
     current.ticking = true;
     try {
       const owns = await Effect.runPromise(schedulerTick(current.owner));
@@ -288,5 +294,13 @@ export function startWorker() {
       ),
     );
     workers.delete(root);
+  };
+}
+
+export function workerActivity() {
+  const current = workers.get(resolve(process.env.ROOST_DATA_DIR ?? ".roost"));
+  return {
+    initialized: !!current,
+    tasks: current ? current.tasks.size + Number(current.ticking) : 0,
   };
 }
