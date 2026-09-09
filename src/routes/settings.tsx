@@ -12,6 +12,7 @@ import { PasskeySetting } from "../components/passkey-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { ThemeSetting } from "../components/theme-setting";
 import { Button } from "../components/ui/button";
+import { UpdateSetting } from "../components/update-setting";
 import { getCodexAccount, getCodexLogin } from "../features/auth/functions";
 import { getPushSettings } from "../features/notifications/functions";
 import {
@@ -163,6 +164,9 @@ function SettingsPage() {
             )}
             <CodexConnection initial={connection} />
             <PasskeySetting />
+          </section>
+          <section hidden={!visible("updates")} aria-label="Software updates">
+            <UpdateSetting />
           </section>
           <p {...stylex.props(styles.agentHint)}>
             Looking for an agent’s model, instructions, or automations? Open
