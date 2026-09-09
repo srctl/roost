@@ -1,10 +1,13 @@
 const content = document.querySelector("#content");
 const status = document.querySelector("#status");
 let setup = null;
+// A fixed destination for updater reauthentication, never a supplied URL/path.
+const returnToUpdates =
+  new URLSearchParams(location.search).get("updates") === "1";
 function captureSetup() {
   const value = new URLSearchParams(location.hash.slice(1)).get("setup");
   if (value) setup = value;
-  history.replaceState(null, "", "/auth");
+  history.replaceState(null, "", returnToUpdates ? "/auth?updates=1" : "/auth");
 }
 captureSetup();
 window.addEventListener("hashchange", () => {
@@ -111,7 +114,15 @@ async function passkey(register, name, returnToSettings = false) {
     name,
   });
   setup = null;
-  location.assign((register && name) || returnToSettings ? "/auth" : "/");
+  location.assign(
+    register && name
+      ? "/auth"
+      : returnToUpdates
+        ? "/settings?group=updates"
+        : returnToSettings
+          ? "/auth"
+          : "/",
+  );
 }
 async function render() {
   const response = await fetch("/auth/api/state", { cache: "no-store" });
@@ -152,7 +163,7 @@ async function render() {
     return;
   }
   const back = element("a", "Back to Roost");
-  back.href = "/settings";
+  back.href = returnToUpdates ? "/settings?group=updates" : "/settings";
   content.append(
     back,
     element("h1", "Passkeys and sessions"),

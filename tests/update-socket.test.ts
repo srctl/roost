@@ -5,6 +5,7 @@ import { mkdtemp, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { updaterRequest } from "../src/updater/client";
 
 test("real private Unix transport bounds requests and routes responses through the credential-checking bridge", async () => {
@@ -28,17 +29,20 @@ test("real private Unix transport bounds requests and routes responses through t
       ready();
       return;
     }
-    child.stdin.write(
-      JSON.stringify({
-        id: frame.id,
-        result: {
-          value: {
-            seen: frame.message.action,
-            protocol: frame.message.protocol,
+    const reply = () =>
+      child.stdin.write(
+        `${JSON.stringify({
+          id: frame.id,
+          result: {
+            value: {
+              seen: frame.message.action,
+              protocol: frame.message.protocol,
+            },
           },
-        },
-      }) + "\n",
-    );
+        })}\n`,
+      );
+    if (frame.message.action === "repair") setTimeout(reply, 21000);
+    else reply();
   });
   try {
     await started;
@@ -54,6 +58,21 @@ test("real private Unix transport bounds requests and routes responses through t
       updaterRequest(root, { action: "status", payload: "x".repeat(9000) }),
       /too large/,
     );
+    // Exceeds both former 18-second broker and 20-second client limits. Status
+    // must still be observable while the same connection waits for repair.
+    const repair = updaterRequest(root, { action: "repair" });
+    await delay(100);
+    const observed = await Promise.race([
+      updaterRequest(root, { action: "status" }),
+      delay(5000).then(() => {
+        throw new Error("Status was blocked by the pending repair.");
+      }),
+    ]);
+    assert.deepEqual(observed, {
+      seen: "status",
+      protocol: 1,
+    });
+    assert.deepEqual(await repair, { seen: "repair", protocol: 1 });
   } finally {
     child.kill("SIGTERM");
     await once(child, "exit");

@@ -20,6 +20,33 @@ test("HTTP update authorization rechecks a native session after reading a slow r
       )
     ).json();
     assert.ok(status.csrf);
+    for (const query of [
+      "?key=short",
+      `?key=${"x".repeat(101)}`,
+      "?key=abcdefghijklmnop&key=abcdefghijklmnop",
+      "?path=/etc/passwd",
+    ]) {
+      assert.equal(
+        (
+          await updatesRequest(
+            new Request(`${origin}/api/updates${query}`, {
+              headers: { cookie },
+            }),
+          )
+        ).status,
+        400,
+      );
+    }
+    assert.equal(
+      (
+        await updatesRequest(
+          new Request(`${origin}/api/updates?key=abcdefghijklmnop`, {
+            headers: { cookie },
+          }),
+        )
+      ).status,
+      200,
+    );
     let controller!: ReadableStreamDefaultController<Uint8Array>;
     const body = new ReadableStream<Uint8Array>({
       start(c) {

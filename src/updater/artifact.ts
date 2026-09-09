@@ -14,6 +14,23 @@ import {
 } from "./releases";
 import { inspectData, requireHeadroom, syncTree } from "./snapshot";
 
+export function readSchemaVersions(root: string) {
+  const versions = [];
+  for (const name of ["roost.sqlite", "auth.sqlite"]) {
+    const db = new DatabaseSync(join(root, "data", name), { readOnly: true });
+    try {
+      // Staging runs while the serving app may still hold a write transaction.
+      db.exec("PRAGMA busy_timeout=5000");
+      versions.push(
+        Number(db.prepare("PRAGMA user_version").get()?.user_version),
+      );
+    } finally {
+      db.close();
+    }
+  }
+  return { app: versions[0]!, auth: versions[1]! };
+}
+
 export async function stageArtifact(
   root: string,
   offer: Offer,
@@ -120,20 +137,9 @@ export async function stageArtifact(
     JSON.parse(await readFile(join(unpacked, "compatibility.json"), "utf8")),
   );
   const old = await readRelease(join(root, "current"));
-  const versions: number[] = [];
-  for (const name of ["roost.sqlite", "auth.sqlite"]) {
-    const db = new DatabaseSync(join(root, "data", name), { readOnly: true });
-    try {
-      versions.push(
-        Number(db.prepare("PRAGMA user_version").get()?.user_version),
-      );
-    } finally {
-      db.close();
-    }
-  }
+  const versions = readSchemaVersions(root);
   assertCompatible(c, {
-    app: versions[0]!,
-    auth: versions[1]!,
+    ...versions,
     codex: old.codex,
   });
   if (c.codex !== next.codex)
@@ -142,7 +148,10 @@ export async function stageArtifact(
   const previousContract = JSON.parse(
     await readFile(join(root, "current", "compatibility.json"), "utf8"),
   );
-  compatibility(previousContract);
+  assertCompatible(previousContract, {
+    ...versions,
+    codex: old.codex,
+  });
   if (
     previousContract.startupGate !== 1 ||
     JSON.parse(await readFile(join(unpacked, "compatibility.json"), "utf8"))
@@ -153,7 +162,10 @@ export async function stageArtifact(
     if (!((await lstat(join(unpacked, file))).mode & 0o100))
       throw new Error("Runtime is not executable.");
     const output = await execute(join(unpacked, file), ["--version"], 15000);
-    if (!output.includes(file === "runtime/node" ? next.node : next.codex))
+    if (
+      output !==
+      (file === "runtime/node" ? `v${next.node}` : `codex-cli ${next.codex}`)
+    )
       throw new Error("Bundled runtime cannot execute.");
   }
   await mkdir(join(root, "releases"), { recursive: true, mode: 0o700 });

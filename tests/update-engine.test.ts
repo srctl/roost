@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import {
+import fs, {
   chmod,
   mkdir,
   mkdtemp,
@@ -9,9 +9,10 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { activate } from "../src/cli/releases";
 import { maintenance } from "../src/cli/state";
 import {
@@ -149,6 +150,14 @@ test("startup failure restores matching data/release and preserves failed eviden
     const accepted = await engine.accept(request());
     await engine.settled();
     assert.equal((await engine.status())?.phase, "rolled-back");
+    const diagnostic = JSON.parse(
+      await readFile(
+        join(root, "updates", accepted.id, "diagnostic.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(diagnostic.message, "bad startup");
+    assert.doesNotMatch((await engine.status())!.error!, /bad startup/);
     assert.equal(
       await realpath(join(root, "current")),
       join(root, "releases", "0.1.40"),
@@ -193,6 +202,7 @@ test("simulated power loss at intent and rename boundaries recovers deterministi
     "service-stopped",
     "snapshot-complete",
     "activating",
+    "pointer-renamed-before-sync",
     "pointer-renamed",
     "verifying",
     "service-started",
@@ -240,7 +250,15 @@ test("simulated power loss at intent and rename boundaries recovers deterministi
   }
 });
 test("interrupted rollback resumes rename boundaries without overwriting failed data", async () => {
-  for (const phase of ["failed-data-renamed", "restored-data-renamed"]) {
+  for (const phase of [
+    "failed-data-renamed-before-sync",
+    "failed-data-renamed",
+    "restored-data-renamed-before-sync",
+    "restored-data-renamed",
+    "rollback-pointer-renamed-before-sync",
+    "rollback-pointer-renamed",
+    "rollback-service-started",
+  ]) {
     await fixture(async (root, adapter, c) => {
       c.fail = true;
       let tripped = false;
@@ -305,6 +323,7 @@ test("enrollment policy grants only fixed-unit start/stop and pins helper outsid
   assert.match(files.unit, /releases\/0.2.0\/runtime\/node/);
   assert.doesNotMatch(files.unit, /current/);
   assert.match(files.dropin, /After=roost-1000-updater.service/);
+  assert.doesNotMatch(files.dropin, /EnvironmentFile|start.env/);
 });
 
 test("post-commit failure never restores data and repair only resumes the committed candidate", async () =>
@@ -325,6 +344,7 @@ test("post-commit failure never restores data and repair only resumes the commit
     adapter.probe = async () => {};
     await engine.repair(op.id, "resume", "0.2.0");
     assert.equal((await engine.status())?.phase, "succeeded");
+    assert.equal((await engine.status())?.error, undefined);
     assert.equal(
       await readFile(join(root, "data", "secret"), "utf8"),
       "new work after commit",
@@ -348,4 +368,210 @@ test("concurrent UI/CLI engine owners cannot both accept or stop work", async ()
     await winner.cancel(op!.id);
     await winner.settled();
     assert.equal(control.stops, 0);
+  }));
+
+test("storage failures preserve a recoverable pair and never claim a commit", async () => {
+  for (const fault of [
+    "bytes",
+    "inodes",
+    "snapshot-copy",
+    "snapshot-fsync",
+    "restore-copy",
+    "restore-fsync",
+  ])
+    await fixture(async (root, adapter, control) => {
+      let injected = 0;
+      control.fail = fault.startsWith("restore");
+      const cp = fs.cp;
+      const open = fs.open;
+      const statfs = fs.statfs;
+      if (fault === "bytes" || fault === "inodes")
+        mock.method(
+          fs,
+          "statfs",
+          async (...args: Parameters<typeof statfs>) => {
+            const result = await statfs(...args);
+            injected++;
+            return {
+              ...result,
+              ...(fault === "bytes" ? { bavail: 0n } : { ffree: 0n }),
+            };
+          },
+        );
+      if (fault.endsWith("copy"))
+        mock.method(fs, "cp", async (...args: Parameters<typeof cp>) => {
+          if (
+            String(args[1]).includes(
+              fault.startsWith("restore") ? "/restore" : "/snapshot/",
+            )
+          ) {
+            injected++;
+            throw Object.assign(new Error("Injected copy I/O failure"), {
+              code: "EIO",
+            });
+          }
+          return cp(...args);
+        });
+      if (fault.endsWith("fsync"))
+        mock.method(fs, "open", async (...args: Parameters<typeof open>) => {
+          const handle = await open(...args);
+          if (
+            String(args[0]).includes(
+              fault.startsWith("restore") ? "/restore/" : "/snapshot/",
+            )
+          )
+            handle.sync = async () => {
+              injected++;
+              throw Object.assign(new Error("Injected fsync I/O failure"), {
+                code: "EIO",
+              });
+            };
+          return handle;
+        });
+      syncBuiltinESMExports();
+      const engine = new UpdateEngine(root, adapter);
+      try {
+        await engine.accept(request());
+        await engine.settled();
+        assert.ok(injected > 0, `Fault must actually be reached: ${fault}`);
+        assert.equal((await engine.status())?.committed, false);
+        if (fault.startsWith("restore")) {
+          assert.equal((await engine.status())?.phase, "manual-recovery");
+          assert.equal(readGate(root).mode, "manual");
+          const operation = (await engine.status())!;
+          assert.equal(
+            await readFile(
+              join(root, "updates", operation.id, "snapshot", "secret"),
+              "utf8",
+            ),
+            "original",
+          );
+        } else {
+          assert.equal(
+            await realpath(join(root, "current")),
+            join(root, "releases", "0.1.40"),
+          );
+          assert.equal(
+            await readFile(join(root, "data", "secret"), "utf8"),
+            "original",
+          );
+        }
+      } finally {
+        mock.restoreAll();
+        syncBuiltinESMExports();
+      }
+      if (fault.startsWith("restore")) {
+        const operation = (await engine.status())!;
+        await engine.repair(operation.id, "restore", "0.1.40");
+        assert.equal((await engine.status())?.phase, "rolled-back");
+        assert.equal(
+          await readFile(join(root, "data", "secret"), "utf8"),
+          "original",
+        );
+      }
+    });
+});
+
+test("failed rollback startup holds the restored pair for explicit repair", async () =>
+  fixture(async (root, adapter) => {
+    const probe = adapter.probe;
+    adapter.probe = async () => {
+      throw new Error("Both releases fail their startup probes");
+    };
+    const engine = new UpdateEngine(root, adapter);
+    const operation = await engine.accept(request());
+    await engine.settled();
+    assert.equal((await engine.status())?.phase, "manual-recovery");
+    assert.equal(readGate(root).mode, "manual");
+    assert.equal(
+      await realpath(join(root, "current")),
+      join(root, "releases", "0.1.40"),
+    );
+    assert.equal(
+      await readFile(join(root, "data", "secret"), "utf8"),
+      "original",
+    );
+    adapter.probe = probe;
+    await engine.repair(operation.id, "restore", "0.1.40");
+    assert.equal((await engine.status())?.phase, "rolled-back");
+  }));
+
+test("interruption before durable acceptance does not acknowledge or invent an operation", async () =>
+  fixture(async (root, adapter, control) => {
+    let reached = false;
+    const engine = new UpdateEngine(root, adapter, 1000, async (phase) => {
+      if (phase === "before-journal-accepted") {
+        reached = true;
+        throw new SimulatedPowerLoss();
+      }
+    });
+    await assert.rejects(engine.accept(request()), SimulatedPowerLoss);
+    await engine.settled();
+    assert.equal(reached, true);
+    assert.equal((await engine.records()).length, 0);
+    await new UpdateEngine(root, adapter).recover();
+    assert.equal(control.stops, 0);
+    assert.equal(readGate(root).mode, "open");
+  }));
+
+test("acceptance fsync failure after rename is not acknowledged or left falsely running", async () =>
+  fixture(async (root, adapter, control) => {
+    const open = fs.open;
+    let injected = false;
+    mock.method(fs, "open", async (...args: Parameters<typeof open>) => {
+      const handle = await open(...args);
+      const path = String(args[0]);
+      if (!injected && /\/updates\/[a-f0-9-]{36}$/.test(path)) {
+        const sync = handle.sync.bind(handle);
+        handle.sync = async () => {
+          if (!injected) {
+            injected = true;
+            throw Object.assign(new Error("Injected directory fsync failure"), {
+              code: "EIO",
+            });
+          }
+          return sync();
+        };
+      }
+      return handle;
+    });
+    syncBuiltinESMExports();
+    try {
+      const engine = new UpdateEngine(root, adapter);
+      await assert.rejects(engine.accept(request()), /fsync failure/);
+      await engine.settled();
+      assert.equal(injected, true);
+      assert.equal((await engine.status())?.phase, "failed");
+      assert.equal(control.stops, 0);
+      assert.equal(
+        await realpath(join(root, "current")),
+        join(root, "releases", "0.1.40"),
+      );
+    } finally {
+      mock.restoreAll();
+      syncBuiltinESMExports();
+    }
+  }));
+
+test("work becoming uncertain during shutdown defers before snapshot or activation", async () =>
+  fixture(async (root, adapter, control) => {
+    const stop = adapter.stop;
+    adapter.stop = async () => {
+      await stop();
+      control.busy = true;
+    };
+    const engine = new UpdateEngine(root, adapter);
+    const operation = await engine.accept(request());
+    await engine.settled();
+    assert.equal((await engine.status())?.phase, "deferred");
+    assert.equal(control.running, true);
+    assert.equal((await engine.status())?.committed, false);
+    await assert.rejects(
+      readFile(join(root, "updates", operation.id, "snapshot.json")),
+    );
+    assert.equal(
+      await realpath(join(root, "current")),
+      join(root, "releases", "0.1.40"),
+    );
+    assert.equal(readGate(root).mode, "open");
   }));

@@ -21,8 +21,13 @@ if (!existsSync("/etc/roost-update-disposable") || process.getuid?.() !== 1000)
 const config = JSON.parse(await readFile(join(root, "config.json"), "utf8"));
 if (config.root !== root || config.user !== "ubuntu")
   throw new Error("Fixture installation mismatch.");
-const [version = "0.1.41", boundary = "none", mode = "run"] =
-  process.argv.slice(2);
+const [
+  version = "0.1.41",
+  boundary = "none",
+  mode = "run",
+  run = randomUUID(),
+  scenario = "normal",
+] = process.argv.slice(2);
 const adapter = systemdAdapter(config, join(root, "current", "cli"));
 const readyDeadline = Date.now() + 120000;
 while (true) {
@@ -48,13 +53,59 @@ while (true) {
 }
 // Artifacts are preinstalled copies of the built package in this lifecycle test.
 // Network pinning and hostile archive rejection have separate isolated tests.
-adapter.stage = async () => {};
-const engine = new UpdateEngine(root, adapter, 30000, async (phase) => {
-  if (phase !== boundary) return;
-  await durableJson(join(root, "boundary.json"), { phase, mode });
-  if (mode === "kill") process.kill(process.pid, "SIGKILL");
-  if (mode === "reboot") await new Promise(() => setInterval(() => {}, 1000));
-});
+adapter.stage = async () => {
+  if (scenario === "staging-failure")
+    throw new Error("Disposable staging failure");
+  if (scenario === "cancel") await delay(200);
+};
+if (scenario === "busy")
+  adapter.blockers = async () => ["Disposable uncertain worker"];
+if (scenario === "rollback-probe")
+  adapter.probe = async () => {
+    throw new Error("Disposable readiness failure");
+  };
+// Rollback-boundary cases inject the readiness failure; the independent native
+// browser and lifecycle suites exercise real bad-health detection and deadlines.
+if (
+  scenario === "candidate-probe-failure" ||
+  (scenario === "normal" &&
+    /restor|failed-data|rolled-back|rollback-/.test(boundary))
+) {
+  const probe = adapter.probe;
+  adapter.probe = async (target, id, token) => {
+    if (target === version)
+      throw new Error("Disposable candidate readiness failure");
+    return probe(target, id, token);
+  };
+}
+const engine = new UpdateEngine(
+  root,
+  adapter,
+  scenario === "busy" ? 50 : 30000,
+  async (phase) => {
+    if (phase !== boundary) return;
+    await durableJson(join(root, "boundary.json"), {
+      phase,
+      mode,
+      run,
+      version,
+      pid: process.pid,
+      boot: (await readFile("/proc/sys/kernel/random/boot_id", "utf8")).trim(),
+      operation: (await engine.status())?.id,
+      reachedAt: Date.now(),
+    });
+    if (mode === "pause") {
+      const deadline = Date.now() + 300000;
+      while (!existsSync(join(root, `continue-${run}`))) {
+        if (Date.now() > deadline)
+          throw new Error("Disposable boundary pause expired");
+        await delay(100);
+      }
+    }
+    if (mode === "kill") process.kill(process.pid, "SIGKILL");
+    if (mode === "reboot") await new Promise(() => setInterval(() => {}, 1000));
+  },
+);
 const offer = parseOffer(
   {
     id: 1,
@@ -81,5 +132,6 @@ const operation = await engine.accept({
   confirmedVersion: version,
 });
 await writeFile(join(root, "test-operation"), operation.id, { mode: 0o600 });
+if (scenario === "cancel") await engine.cancel(operation.id);
 await engine.settled();
 console.log(JSON.stringify(await engine.status()));

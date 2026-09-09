@@ -26,6 +26,7 @@ try {
       offline = false,
       unauthorized = false;
     let acceptedKey;
+    let historical;
     const status = {
       capability: {
         code: "supported",
@@ -62,6 +63,8 @@ try {
       if (offline) return route.abort("connectionrefused");
       if (unauthorized)
         return route.fulfill({ status: 401, json: { error: "Sign in" } });
+      if (new URL(request.url()).searchParams.has("key") && historical)
+        return route.fulfill({ json: { ...status, operation: historical } });
       return route.fulfill({ json: status });
     });
     const page = await context.newPage();
@@ -152,12 +155,72 @@ try {
       .waitFor({ timeout: 30000 });
     assert.equal(cancels, 1);
     assert.equal(posts, 1);
+    await other.close();
+    historical = { ...status.operation };
+    status.operation = {
+      ...status.operation,
+      id: "22222222-2222-4222-8222-222222222222",
+      requestKey: "later-request-key-1234",
+      phase: "draining",
+      cancellable: true,
+    };
+    await page.evaluate(
+      (key) =>
+        localStorage.setItem(
+          "roost-update-pending-v1",
+          JSON.stringify({ key, version: "0.1.41" }),
+        ),
+      acceptedKey,
+    );
+    await page.reload();
+    await page
+      .getByText("Earlier request: Update cancelled.", { exact: false })
+      .waitFor({ timeout: 15000 });
+    await page.getByText("Waiting for work", { exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        localStorage.getItem("roost-update-pending-v1"),
+      ),
+      null,
+    );
+    assert.equal(posts, 1);
     unauthorized = true;
     await page
       .getByText("Sign in again to read the durable update result.", {
         exact: false,
       })
       .waitFor({ timeout: 15000 });
+    if (process.env.UPDATE_SCREENSHOT_DIR) {
+      await page
+        .getByText("Sign in again to read the durable update result.", {
+          exact: false,
+        })
+        .evaluate((element) => {
+          for (
+            let node = element.parentElement;
+            node;
+            node = node.parentElement
+          )
+            if (node.scrollHeight > node.clientHeight)
+              node.scrollTop = node.scrollHeight;
+        });
+      await page.screenshot({
+        path: `${process.env.UPDATE_SCREENSHOT_DIR}/reauth-fixture-${viewport.width === 390 ? "mobile" : "desktop"}.png`,
+        fullPage: true,
+      });
+    }
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Sign in again", exact: true })
+        .getAttribute("href"),
+      "/auth?updates=1",
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Cancel update", exact: true })
+        .isDisabled(),
+      true,
+    );
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

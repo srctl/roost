@@ -96,6 +96,15 @@ export async function updatesRequest(request: Request) {
     if (facts.repository && checker?.repository !== facts.repository)
       checker = new ReleaseChecker(facts.repository);
     if (request.method === "GET" && match) {
+      const key = url.searchParams.get("key");
+      if (
+        [...url.searchParams.keys()].some((name) => name !== "key") ||
+        (key !== null &&
+          (match[1] ||
+            url.searchParams.getAll("key").length !== 1 ||
+            !/^[a-zA-Z0-9_-]{16,100}$/.test(key)))
+      )
+        return json({ error: "Invalid status lookup." }, 400);
       let helper:
         | {
             qualified: boolean;
@@ -108,7 +117,7 @@ export async function updatesRequest(request: Request) {
         try {
           helper = await updaterRequest(facts.root!, {
             action: "status",
-            ...(match[1] ? { id: match[1] } : {}),
+            ...(match[1] ? { id: match[1] } : key ? { key } : {}),
           });
         } catch {
           error =
@@ -118,13 +127,21 @@ export async function updatesRequest(request: Request) {
         capability:
           enrolled && detected.code === "setup-required"
             ? {
-                code: helper?.qualified
-                  ? "supported"
-                  : "qualification-required",
+                code: !session
+                  ? "native-auth-required"
+                  : !helper
+                    ? "updater-unavailable"
+                    : helper.qualified
+                      ? "supported"
+                      : "qualification-required",
                 canActivate: !!helper?.qualified,
-                reason: helper?.qualified
-                  ? "Enrolled supervised updater is ready."
-                  : "Updater is enrolled. Activation remains disabled until this helper build passes systemd and reboot qualification.",
+                reason: !session
+                  ? "Native passkey sign-in is required for UI updates."
+                  : !helper
+                    ? "The enrolled updater is unavailable. Inspect its service and durable status before retrying."
+                    : helper.qualified
+                      ? "Enrolled supervised updater is ready."
+                      : "Updater is enrolled. Activation remains disabled until this helper build passes systemd and reboot qualification.",
               }
             : detected,
         version: facts.packaged ? process.env.ROOST_RELEASE_VERSION : "dev",

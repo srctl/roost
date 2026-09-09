@@ -22,6 +22,7 @@ export function UpdateSetting() {
   const [version, setVersion] = useState("");
   const [sending, setSending] = useState(false);
   const [uncertain, setUncertain] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
   const newer =
     !!status?.latest &&
     stableVersion.test(status.version) &&
@@ -44,6 +45,7 @@ export function UpdateSetting() {
           signal: AbortSignal.timeout(10000),
         });
         if (response.status === 401) {
+          setNeedsAuth(true);
           setMessage(
             "Sign in again to read the durable update result. Do not resubmit the update.",
           );
@@ -52,6 +54,7 @@ export function UpdateSetting() {
         if (!response.ok) throw new Error();
         const value = (await response.json()) as UpdateStatus;
         if (stopped) return;
+        setNeedsAuth(false);
         setStatus(value);
         publishUpdate(value);
         if (!rememberResult(value.operation)) {
@@ -61,7 +64,34 @@ export function UpdateSetting() {
           return;
         }
         attempt = 0;
-        const pending = pendingAcceptance();
+        let pending = pendingAcceptance();
+        if (pending && pending.key !== value.operation?.requestKey) {
+          // Another browser may have completed a later operation while this
+          // browser was offline. Resolve this key without replacing live status
+          // or publishing historical admission state to the rest of the app.
+          const lookup = await fetch(
+            `/api/updates?key=${encodeURIComponent(pending.key)}`,
+            {
+              cache: "no-store",
+              signal: AbortSignal.timeout(10000),
+            },
+          );
+          if (!lookup.ok) throw new Error();
+          const historical = (await lookup.json()) as UpdateStatus;
+          if (stopped) return;
+          if (
+            historical.operation?.requestKey === pending.key &&
+            !isUpdateActive(historical.operation)
+          ) {
+            if (!rememberResult(historical.operation)) throw new Error();
+            pending = pendingAcceptance();
+            setUncertain(!!pending);
+            setMessage(
+              `Earlier request: ${phaseLabel[historical.operation.phase]}. Current installation status is shown below.`,
+            );
+            return;
+          }
+        }
         setUncertain(!!pending && pending.key !== value.operation?.requestKey);
         if (
           value.operation &&
@@ -194,6 +224,7 @@ export function UpdateSetting() {
             disabled={
               !status.canCheck ||
               checking ||
+              needsAuth ||
               !status.recent ||
               isUpdateActive(status.operation)
             }
@@ -207,11 +238,6 @@ export function UpdateSetting() {
               repository and native passkey sign-in.
             </p>
           )}
-          {!status.recent && status.canCheck && (
-            <p>
-              <a href="/auth">Sign in again</a> to confirm an update.
-            </p>
-          )}
           {status.latest && !newer && stableVersion.test(status.version) && (
             <p>No newer stable release was found.</p>
           )}
@@ -223,6 +249,7 @@ export function UpdateSetting() {
                 ref={confirmationTrigger}
                 disabled={
                   !status.recent ||
+                  needsAuth ||
                   uncertain ||
                   status.latest.expiresAt <= Date.now()
                 }
@@ -258,7 +285,12 @@ export function UpdateSetting() {
                 />
               </label>
               <Button
-                disabled={version !== status.latest?.version || sending}
+                disabled={
+                  version !== status.latest?.version ||
+                  sending ||
+                  needsAuth ||
+                  !status.recent
+                }
                 onClick={activate}
               >
                 Confirm update and outage
@@ -283,6 +315,7 @@ export function UpdateSetting() {
               {status.operation.cancellable && (
                 <Button
                   allowDuringUpdate
+                  disabled={needsAuth || !status.recent}
                   onClick={() => {
                     void post(
                       `/api/updates/${status.operation!.id}/cancel`,
@@ -343,6 +376,12 @@ export function UpdateSetting() {
       <p role="status" aria-live="polite">
         {message}
       </p>
+      {(needsAuth || (status && !status.recent && status.canCheck)) && (
+        <p>
+          <a href="/auth?updates=1">Sign in again</a> to return to Updates and
+          read the durable result before confirming another action.
+        </p>
+      )}
     </div>
   );
 }

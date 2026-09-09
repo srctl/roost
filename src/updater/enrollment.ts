@@ -9,9 +9,6 @@ import { withKernelLock } from "./lock";
 import { execute } from "./process";
 import { validateRepository } from "./releases";
 
-// Release qualification is a reviewed build decision, not a browser, environment,
-// enrollment flag, or same-user editable claim. Change only with recorded evidence.
-export const activationQualified = false;
 export const legacyFence =
   "Roost supervised updater enrolled: permanent legacy CLI fence. DO NOT DELETE.\n";
 export type Enrollment = {
@@ -20,7 +17,10 @@ export type Enrollment = {
   helperVersion: string;
   platform: "ubuntu-24.04-x64";
 };
-export async function validateInstallation(c: Installation) {
+export async function validateInstallation(
+  c: Installation,
+  recovering = false,
+) {
   validateRepository(c.repository ?? "");
   const user = userInfo();
   if (Buffer.byteLength(join(c.root, "updates/helper.sock")) > 100)
@@ -44,7 +44,7 @@ export async function validateInstallation(c: Installation) {
     throw new Error("Unsupported installation identity.");
   for (const path of [
     c.root,
-    join(c.root, "data"),
+    ...(recovering ? [] : [join(c.root, "data")]),
     join(c.root, "config.json"),
     join(c.root, "releases"),
   ]) {
@@ -78,15 +78,20 @@ export async function validateInstallation(c: Installation) {
     throw new Error(
       "Initial enrollment requires persistent local ext4 storage.",
     );
-  const release = await realpath(join(c.root, "current"));
-  if (
-    !release.startsWith(`${join(c.root, "releases")}/`) ||
-    release.split("/").at(-1)?.includes("..")
-  )
-    throw new Error("Invalid current release.");
-  compatibility(
-    JSON.parse(await readFile(join(release, "compatibility.json"), "utf8")),
-  );
+  // Recovery must start even between data renames or with an unreadable candidate
+  // contract. The durable transaction verifies the retained pair before opening
+  // admission. Enrollment and every new activation still require the full layout.
+  if (!recovering) {
+    const release = await realpath(join(c.root, "current"));
+    if (
+      !release.startsWith(`${join(c.root, "releases")}/`) ||
+      release.split("/").at(-1)?.includes("..")
+    )
+      throw new Error("Invalid current release.");
+    compatibility(
+      JSON.parse(await readFile(join(release, "compatibility.json"), "utf8")),
+    );
+  }
   await execute(
     "/usr/bin/python3",
     ["-c", "import socket; assert hasattr(socket, 'SO_PEERCRED')"],
@@ -138,7 +143,7 @@ export function enrollmentFiles(c: Installation, version: string) {
   return {
     helper,
     unit: `[Unit]\nDescription=Roost supervised updater (${c.user})\nAfter=network-online.target\nWants=network-online.target\nBefore=${unit}\n\n[Service]\nType=exec\nUser=${c.user}\nEnvironment=HOME=${c.home}\nEnvironment=ROOST_HOME=${c.root}\nExecStart=${pinned}/runtime/node ${pinned}/cli/roost.mjs updates serve\nRestart=on-failure\nRestartSec=3\nKillMode=control-group\nTimeoutStopSec=15\nUMask=0077\n\n[Install]\nWantedBy=multi-user.target\n`,
-    dropin: `[Unit]\nRequires=${helper}\nAfter=${helper}\n\n[Service]\nEnvironmentFile=-${c.root}/updates/start.env\n`,
+    dropin: `[Unit]\nRequires=${helper}\nAfter=${helper}\n`,
     policy: `# Only these two exact commands; no wildcard, restart, unit editing or shell.\n${c.user} ALL=(root) NOPASSWD: /usr/bin/systemctl start ${unit}, /usr/bin/systemctl stop ${unit}\n`,
   };
 }

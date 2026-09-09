@@ -1,10 +1,10 @@
 # UI self-updates
 
-This draft implements the supervised update path, enrollment, recovery engine,
-and UI. **Activation remains disabled in the shipped helper until the complete
-qualification matrix passes.** There is no environment variable, HTTP flag, or
-enrollment option that bypasses that build decision. Enrollment installs real
-service authority and is an explicit operator action, not an activation bypass.
+The supervised update path is enabled for the supported, explicitly enrolled
+installation contract below. Native passkey authorization, pinned compatible
+releases, fixed-unit authority, work quiescence and durable recovery checks remain
+mandatory. HTTP cannot enroll an installation or grant service-control privileges.
+Enrollment is an explicit operator action.
 
 The implementation starts from `7415789` (0.1.40), including its coding-job
 protection and recovery changes. It follows the
@@ -14,7 +14,7 @@ protection and recovery changes. It follows the
 ## Initial supported contract
 
 Only explicitly enrolled, packaged Linux x64 installations on Ubuntu 24.04,
-systemd and persistent local ext4 storage are candidates for qualification.
+systemd and persistent local ext4 storage are supported.
 The application unit must match Roost's generated unit, with only the updater
 startup drop-in. Custom hooks, additional overrides, noncanonical/shared writable
 installation paths (the installation root must be mode 0700), externally managed deployments and other service managers
@@ -56,7 +56,7 @@ operator sudo authorization and installs root-owned files:
 * `/etc/systemd/system/roost-UID-updater.service`, running as the installation
   user, pinned to the enrolled release's Node/CLI outside the app control group;
 * `/etc/systemd/system/roost-UID.service.d/updater.conf`, ordering startup after
-  the helper and supplying its fixed startup capability file;
+  the helper; the application CLI reads its private startup gate as the installation user;
 * `/etc/sudoers.d/roost-UID-updater`, allowing **only** noninteractive
   `/usr/bin/systemctl start roost-UID.service` and
   `/usr/bin/systemctl stop roost-UID.service`.
@@ -147,6 +147,10 @@ automatic recovery never restores old data or discards new work. Missing/corrupt
 evidence, an unexpected pointer or failed recovery keeps maintenance closed.
 Boot recovery runs in the pinned helper; the app also rejects startup without
 current-boot readiness and a valid open/verification gate.
+The helper validates stable installation ownership before recovery without
+requiring a readable candidate contract or an already-present `data` directory:
+those may be broken or between renames. Full layout and compatibility validation
+still applies to enrollment and every new activation.
 
 ## Status, reconnect and repair
 
@@ -157,6 +161,12 @@ reload while preserving the route. Polling backs off after disconnection. An
 unconfirmed response stays pending until its request key matches durable status
 or the operator explicitly dismisses it after inspection. A closed app cannot
 serve fresh progress; the browser says it is reconnecting.
+An expired or revoked session disables update actions and shows a sign-in link
+that returns to Updates after native passkey authentication. The return destination
+is fixed; this flow does not accept an arbitrary redirect URL.
+After native reauthentication, read-only key lookup can recover an earlier
+operation even if another tab has since completed a later update. Historical
+results never replace the current installation's admission state.
 
 Unsubmitted composer text and uploaded attachment references are retained in
 bounded browser-local storage, separately per tab and conversation. Sending
@@ -194,6 +204,11 @@ The helper rejects the wrong decision/version. Repair cannot bypass failed
 snapshot integrity or resurrect corrupt/missing journals; those require manual
 forensic recovery from independently verified backups with the app stopped.
 After commit, no automatic “restore previous data” option is offered.
+Repair can take several minutes while copying data or probing startup. Its
+private transport waits up to ten minutes; service start/stop waits up to two
+minutes. If the connection ends first, inspect `roost updates status --id ...`
+and the journal before repeating anything. A lost response does not cancel the
+helper's work. Status requests remain available while repair is running.
 
 Retention is conservative: **no automatic deletion** of operations, snapshots,
 failed data, or retained releases. Operators may archive old terminal operations
@@ -201,9 +216,19 @@ only during idle maintenance after keeping the last verified recovery pair and
 the helper's pinned release. Never reclaim the only recovery pair to make an
 update fit. Large installations may need operator-managed backup/update instead.
 
+Startup tokens are read from the private gate by the application CLI after it is
+running as the installation user. The systemd drop-in contains only dependency
+ordering; it does not make privileged systemd read a user-writable environment
+file. HTTP cannot choose a token, environment file, service unit or command.
+
+An operation's owner-only `diagnostic.json` retains a bounded failure reason for
+terminal inspection. Browser status exposes only sanitized recovery messages.
+If storage itself fails, diagnostics may be unavailable; retain the journal,
+snapshot and service logs rather than deleting evidence.
+
 ## Verification and qualification
 
 See [verification evidence](ui-self-update-evidence/README.md) for matched rendered
-screenshots, exact test results, disposable VM setup and remaining acceptance
-gaps. Unqualified activation remains disabled despite the implemented engine and
-UI. This is a safety gate pending evidence, not an HTTP-accessible override.
+screenshots, exact test results, disposable VM setup and scope limitations. The
+normal helper permits the qualified installation path; unsupported environments,
+missing enrollment/authentication and incompatible releases remain blocked.

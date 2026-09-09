@@ -63,7 +63,14 @@ export function rememberAcceptance(key: string, version: string) {
 }
 export function pendingAcceptance(): { key: string; version: string } | null {
   try {
-    return JSON.parse(localStorage.getItem(pendingKey) ?? "null");
+    const value = JSON.parse(localStorage.getItem(pendingKey) ?? "null");
+    return value &&
+      typeof value.key === "string" &&
+      /^[a-zA-Z0-9_-]{16,100}$/.test(value.key) &&
+      typeof value.version === "string" &&
+      value.version.length <= 32
+      ? value
+      : null;
   } catch {
     return null;
   }

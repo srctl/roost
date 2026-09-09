@@ -441,6 +441,11 @@ async function main() {
   const c = await config();
   if (operation === "run") {
     const release = await readRelease(bundle);
+    // Read verification credentials after systemd has switched to the app UID.
+    // Never ask privileged PID 1 to read a file in this user-writable directory.
+    const gate = readGate(root);
+    if (gate.mode === "verify") process.env.ROOST_UPDATE_TOKEN = gate.token;
+    else delete process.env.ROOST_UPDATE_TOKEN;
     startupGuard(root, release.version, process.env.ROOST_UPDATE_TOKEN);
     process.env.ROOST_PUBLIC_DIR = join(bundle, "app/public");
     process.env.HOST = "127.0.0.1";

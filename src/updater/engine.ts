@@ -188,7 +188,25 @@ export class UpdateEngine {
         cancelRequested: false,
         committed: false,
       };
-      await writeJournal(this.root, this.current);
+      await this.boundary("before-journal-accepted");
+      try {
+        await writeJournal(this.root, this.current);
+      } catch (error) {
+        await this.recordFailure(error);
+        // A rename may have succeeded before fsync failed. Never acknowledge or
+        // leave that operation looking like a running download: no work began.
+        try {
+          this.current = (await readJournal(this.root, id)) as Operation;
+          await this.checkpoint("failed", {
+            error: "Acceptance durability failed; no update was started.",
+          });
+        } catch {
+          // Keep partial evidence for the operator. If storage cannot persist
+          // even this gate, propagate the I/O failure; do not activate anything.
+          await this.gate("manual");
+        }
+        throw error;
+      }
       accept(this.current);
       await this.boundary("accepted");
       await this.run();
@@ -234,12 +252,20 @@ export class UpdateEngine {
     return this.current;
   }
   private async switchRelease(version: string) {
+    const rollback = version === this.current!.previous;
     const temporary = join(this.root, `.update-current-${this.current!.id}`);
     await rm(temporary, { force: true });
     await symlink(join(this.root, "releases", version), temporary);
     await rename(temporary, join(this.root, "current"));
+    await this.boundary(
+      rollback
+        ? "rollback-pointer-renamed-before-sync"
+        : "pointer-renamed-before-sync",
+    );
     await syncDirectory(this.root);
-    await this.boundary("pointer-renamed");
+    await this.boundary(
+      rollback ? "rollback-pointer-renamed" : "pointer-renamed",
+    );
   }
   private async gate(
     mode: "drain" | "hold" | "verify" | "manual",
@@ -254,20 +280,6 @@ export class UpdateEngine {
       version,
       token,
     });
-    // A root-owned systemd drop-in reads only this fixed environment file.
-    const { open } = await import("node:fs/promises");
-    const file = await open(
-      join(this.root, "updates", "start.env"),
-      "w",
-      0o600,
-    );
-    try {
-      await file.writeFile(`ROOST_UPDATE_TOKEN=${token ?? ""}\n`);
-      await file.sync();
-    } finally {
-      await file.close();
-    }
-    await syncDirectory(join(this.root, "updates"));
     return token!;
   }
   private async open() {
@@ -279,7 +291,11 @@ export class UpdateEngine {
     await this.adapter.admission(true);
     const token = await this.gate("verify", version);
     await this.adapter.start();
-    await this.boundary("service-started");
+    await this.boundary(
+      version === this.current!.previous
+        ? "rollback-service-started"
+        : "service-started",
+    );
     await this.adapter.probe(version, this.current!.id, token);
   }
   private async run() {
@@ -344,6 +360,19 @@ export class UpdateEngine {
       await this.checkpoint("stopping", { blockers: [] });
       await this.adapter.stop();
       await this.boundary("service-stopped");
+      const stoppedBlockers = await this.adapter.blockers(true);
+      if (stoppedBlockers.length) {
+        // Shutdown can outlive a previously fresh external-worker observation.
+        // Recheck after the service group is empty, before copying any data.
+        if (this.current!.wasRunning) await this.verify(this.current!.previous);
+        await this.checkpoint("deferred", {
+          blockers: stoppedBlockers,
+          error:
+            "Work could not be verified after shutdown; the previous release was preserved.",
+        });
+        await this.open();
+        return;
+      }
       const snapshotDigest = await createSnapshot(this.root, this.current!.id);
       await durableJson(
         join(this.root, "updates", this.current!.id, "config.json"),
@@ -360,6 +389,7 @@ export class UpdateEngine {
       await this.checkpoint("succeeded");
     } catch (error) {
       if (error instanceof SimulatedPowerLoss) throw error;
+      await this.recordFailure(error);
       // Re-read: fsync/ack failure may follow a durable commit. Never roll back
       // because a caller lost the successful commit response.
       this.current = (await readJournal(
@@ -393,6 +423,25 @@ export class UpdateEngine {
       await this.recoverCurrent();
     }
   }
+  private async recordFailure(error: unknown) {
+    if (!this.current) return;
+    try {
+      await durableJson(
+        join(this.root, "updates", this.current.id, "diagnostic.json"),
+        {
+          phase: this.current.phase,
+          recordedAt: Date.now(),
+          message: (error instanceof Error
+            ? error.message
+            : String(error)
+          ).slice(0, 4096),
+        },
+      );
+    } catch {
+      // A storage fault can prevent diagnostics too. Existing journal/snapshot
+      // evidence remains authoritative; logging must never interrupt recovery.
+    }
+  }
   private async manual() {
     await this.gate("manual");
     await this.checkpoint("manual-recovery", {
@@ -418,6 +467,7 @@ export class UpdateEngine {
       await verifyData(restore, j.snapshotDigest!);
       await syncTree(restore);
       await rename(join(this.root, "data"), failed);
+      await this.boundary("failed-data-renamed-before-sync");
       await syncDirectory(this.root);
       await syncDirectory(directory);
       await this.boundary("failed-data-renamed");
@@ -433,6 +483,7 @@ export class UpdateEngine {
       }
       await verifyData(restore, j.snapshotDigest!);
       await rename(restore, join(this.root, "data"));
+      await this.boundary("restored-data-renamed-before-sync");
       await syncDirectory(this.root);
       await syncDirectory(directory);
       await this.boundary("restored-data-renamed");
@@ -455,7 +506,7 @@ export class UpdateEngine {
         await this.verify(j.candidate);
         if (!j.wasRunning) await this.adapter.stop();
         await this.open();
-        await this.checkpoint("succeeded");
+        await this.checkpoint("succeeded", { error: undefined, blockers: [] });
         return;
       }
       await this.gate("hold");
@@ -476,6 +527,7 @@ export class UpdateEngine {
       await this.open();
     } catch (error) {
       if (error instanceof SimulatedPowerLoss) throw error;
+      await this.recordFailure(error);
       await this.manual();
     }
   }

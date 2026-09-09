@@ -3,11 +3,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { type Operation, terminal, UpdateEngine } from "./engine";
-import {
-  activationQualified,
-  readEnrollment,
-  validateInstallation,
-} from "./enrollment";
+import { readEnrollment, validateInstallation } from "./enrollment";
 import { openGate, readGate, writeGate } from "./gate";
 import { durableJson } from "./journal";
 import { withKernelLock } from "./lock";
@@ -52,7 +48,7 @@ export async function serveUpdater(root: string, support: string) {
 }
 async function supervise(root: string, support: string) {
   const enrollment = await readEnrollment(root);
-  await validateInstallation(enrollment.installation);
+  await validateInstallation(enrollment.installation, true);
   const tokenPath = join(root, "updates", "github-token");
   let token: string | undefined;
   try {
@@ -125,18 +121,21 @@ async function supervise(root: string, support: string) {
     )
       throw new Error("Unexpected updater request fields.");
     if (message.action === "status") {
+      // Authenticated owner reads may reconcile a key after native reauth.
+      // This grants no mutation authority; accept still checks the original actor.
       const record = message.key
         ? ((await engine.records()).find(
             (r) =>
               r.request.key === message.key &&
-              r.request.actor === message.actor,
+              (message.actor === undefined ||
+                r.request.actor === message.actor),
           ) ?? null)
         : await engine.status(
             typeof message.id === "string" ? message.id : undefined,
           );
       return {
         protocol: 1,
-        qualified: activationQualified,
+        qualified: true,
         latest: offer ?? null,
         operation: summary(record),
       };
@@ -147,10 +146,6 @@ async function supervise(root: string, support: string) {
       return offer;
     }
     if (message.action === "accept") {
-      if (!activationQualified)
-        throw new Error(
-          "This updater build is awaiting real systemd/reboot qualification. Activation is disabled.",
-        );
       const existing = (await engine.records()).find(
         (r) => r.request.key === message.key,
       );
@@ -235,7 +230,7 @@ async function supervise(root: string, support: string) {
         (value) => ({ value }),
         () => ({
           error:
-            "Updater request refused. Check enrollment, qualification, confirmation and durable status.",
+            "Updater request refused. Check enrollment, confirmation and durable status.",
         }),
       )
       .then((result) => {

@@ -1,9 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Effect } from "effect";
 import { appGate } from "../updater/gate";
 import { withAgentStore } from "./agents/store.server";
+import { verifyAuthReadiness } from "./auth/readiness.server";
 import { loginActive } from "./codex/login.server";
 import { computerActivity } from "./computer/session.server";
 import { workerActivity } from "./runs/worker.server";
@@ -65,10 +66,10 @@ export async function updateGateRequest(
         auth
           .prepare("PRAGMA integrity_check")
           .all()
-          .some((r) => r.integrity_check !== "ok") ||
-        !auth.prepare("SELECT value FROM config WHERE id=1").get()
+          .some((r) => r.integrity_check !== "ok")
       )
         throw new Error("Auth integrity failed.");
+      verifyAuthReadiness(auth);
     } finally {
       auth.close();
     }
@@ -84,10 +85,29 @@ export async function updateGateRequest(
       (await readFile(join(assets, "assets", style))).length
     );
     let shell = false;
+    let referencedAssets = false;
     if (renderShell) {
       const response = await renderShell();
       const { boundedBytes } = await import("../updater/releases");
       const html = (await boundedBytes(response, 2 * 1024 * 1024)).toString();
+      const references = [
+        ...new Set(html.match(/\/assets\/[^"'<>\s)]+\.(?:js|css)/g) ?? []),
+      ];
+      referencedAssets =
+        !!assets &&
+        references.some((p) => p.endsWith(".js")) &&
+        references.some((p) => p.endsWith(".css"));
+      for (const path of references) {
+        const name = path.slice("/assets/".length);
+        if (!/^[A-Za-z0-9_.-]+\.(?:js|css)$/.test(name)) {
+          referencedAssets = false;
+          break;
+        }
+        const info = await stat(join(assets!, "assets", name)).catch(
+          () => null,
+        );
+        if (!info?.isFile() || info.size === 0) referencedAssets = false;
+      }
       shell =
         response.ok &&
         response.headers.get("content-type")?.includes("text/html") === true &&
@@ -103,7 +123,7 @@ export async function updateGateRequest(
       integrity: true,
       appSchema,
       authSchema,
-      assets: healthyAssets,
+      assets: healthyAssets && referencedAssets,
       workerReady: workerActivity().initialized,
     });
   }

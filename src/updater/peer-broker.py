@@ -36,11 +36,18 @@ def client(connection):
             if len(data)>8192: return
         if data.count(b'\n')!=1 or data.split(b'\n',1)[1]: return
         message=json.loads(data)
+        if not isinstance(message,dict): return
+        # Fixed CLI-only service/repair budgets; clients cannot supply a timeout.
+        action=message.get('action')
+        wait=600 if action=='repair' else 120 if action in ('start','stop') else 18
         request_id=str(uuid.uuid4()); result=queue.Queue(1)
         with lock:
             pending[request_id]=result
             print(json.dumps({'id':request_id,'message':message}),flush=True)
-        answer=json.dumps(result.get(timeout=18)).encode()+b'\n'
+        try: response=result.get(timeout=wait)
+        except queue.Empty:
+            response={'error':'Updater response deadline exceeded. Check durable status before repeating an operation.'}
+        answer=json.dumps(response).encode()+b'\n'
         if len(answer)>65536: return
         connection.sendall(answer)
     except (ValueError,OSError,queue.Empty): pass
