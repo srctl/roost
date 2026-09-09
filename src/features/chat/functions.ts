@@ -3,9 +3,11 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 import { withAgentStore } from "../../server/agents/store.server";
 import { available } from "../../server/available";
+import { isMaintenance } from "../../server/maintenance.server";
 import { readConversationSnapshot } from "../../server/runs/conversation-snapshot.server";
 import { cancelRun, enqueueChat } from "../../server/runs/store.server";
 import { ensureTimeline, startWorker } from "../../server/runs/worker.server";
+import { appGate } from "../../updater/gate";
 import { SendMessage } from "./schema";
 
 const result = <A, E>(effect: Effect.Effect<A, E>) =>
@@ -33,7 +35,6 @@ export type InitialConversation = Awaited<
 >;
 
 export const getConversation = createServerFn({ method: "GET" })
-  .middleware([available])
   .validator(
     Schema.decodeUnknownSync(
       Schema.Struct({
@@ -43,7 +44,12 @@ export const getConversation = createServerFn({ method: "GET" })
       }),
     ),
   )
-  .handler(({ data }) => {
+  .handler(async ({ data }) => {
+    if (
+      appGate().mode === "drain" ||
+      (await Effect.runPromise(withAgentStore(isMaintenance)))
+    )
+      return result(readConversationSnapshot(data.agentId, data));
     startWorker();
 
     return result(
@@ -79,7 +85,6 @@ export const stopMessage = createServerFn({ method: "POST" })
   .handler(({ data }) => result(cancelRun(data.agentId, data.id)));
 
 export const getActivityOutput = createServerFn({ method: "GET" })
-  .middleware([available])
   .validator(
     Schema.decodeUnknownSync(
       Schema.Struct({ agentId: Schema.UUID, id: Schema.String }),

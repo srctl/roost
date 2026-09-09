@@ -21,6 +21,7 @@ import { closeAgentRuntimes } from "../src/server/codex/agent-runtime.server";
 import {
   cancelRun,
   claimRun,
+  claimSteeringRun,
   enqueueChat,
   finishRun,
   listRuns,
@@ -764,6 +765,116 @@ test("background work reserves capacity for user conversations", async () => {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("update admission fences queued claims and steering while observations finish; downtime catches up once", async () => {
+  const directory = mkdtempSync("/tmp/roost-update-admission-");
+  const old = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = directory;
+  try {
+    const agent = await create("Update admission");
+    const automation = await run(
+      saveAutomation({
+        agentId: agent.id,
+        id: randomUUID(),
+        name: "Due during outage",
+        prompt: "quiet",
+        schedule: { kind: "interval", minutes: 60 },
+        notification: "when-needed",
+      }),
+    );
+    await run(
+      enqueueChat({
+        agentId: agent.id,
+        messageId: randomUUID(),
+        text: "Accepted before drain",
+      }),
+    );
+    await run(schedulerTick("update-test"));
+    const active = (await run(claimRun("update-test")))!;
+    assert.ok(active);
+    await run(
+      enqueueChat({
+        agentId: agent.id,
+        messageId: randomUUID(),
+        text: "Queued before drain",
+      }),
+    );
+    const overdue = Date.now() - 10 * 3600000;
+    await run(
+      withAgentStore((db) => {
+        db.exec("UPDATE runtime_control SET maintenance=1 WHERE id=1");
+        db.prepare("UPDATE automations SET nextRunAt=? WHERE id=?").run(
+          overdue,
+          automation.id,
+        );
+      }),
+    );
+    assert.equal(await run(claimSteeringRun(active)), undefined);
+    assert.equal(await run(claimRun("update-test")), undefined);
+    await assert.rejects(
+      run(
+        enqueueChat({
+          agentId: agent.id,
+          messageId: randomUUID(),
+          text: "After drain",
+        }),
+      ),
+      /updating/,
+    );
+    await run(schedulerTick("update-test"));
+    await run(schedulerTick("update-test"));
+    assert.equal((await run(listAutomations(agent.id)))[0]!.nextRunAt, overdue);
+    assert.equal(
+      (await run(listRuns(agent.id))).filter((r) => r.kind === "automation")
+        .length,
+      0,
+    );
+    await run(
+      persistRun(active, [
+        {
+          id: "observed-during-drain",
+          role: "assistant",
+          text: "Existing work remains observable",
+        },
+      ]),
+    );
+    await run(
+      finishRun(active, "completed", [
+        {
+          id: "observed-during-drain",
+          role: "assistant",
+          text: "Existing work completed",
+        },
+      ]),
+    );
+    assert.equal(
+      (await run(listRuns(agent.id))).find((r) => r.id === active.id)?.status,
+      "completed",
+    );
+    assert.equal(await run(claimRun("update-test")), undefined);
+    await run(
+      withAgentStore((db) =>
+        db.exec("UPDATE runtime_control SET maintenance=0 WHERE id=1"),
+      ),
+    );
+    await run(schedulerTick("update-test"));
+    await run(schedulerTick("update-test"));
+    const runs = await run(listRuns(agent.id));
+    assert.equal(runs.filter((r) => r.kind === "automation").length, 1);
+    assert.ok(
+      (await run(listAutomations(agent.id)))[0]!.nextRunAt! > Date.now(),
+    );
+    assert.equal(runs.filter((r) => r.id === active.id).length, 1);
+    assert.equal(
+      (await run(claimRun("update-test")))?.prompt,
+      "Queued before drain",
+    );
+  } finally {
+    if (old === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = old;
     rmSync(directory, { recursive: true, force: true });
   }
 });
