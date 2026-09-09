@@ -12,6 +12,7 @@ import {
   trackUpdateRequest,
   updateGateRequest,
 } from "./server/update-gate.server";
+import { updatesRequest } from "./server/updates.server";
 
 const handler = createStartHandler(defaultStreamHandler);
 
@@ -31,6 +32,8 @@ export default createServerEntry({
     return trackUpdateRequest(async () => {
       const auth = await authGate(request, authPage);
       if (auth) return auth;
+      if (new URL(request.url).pathname.startsWith("/api/updates"))
+        return updatesRequest(request);
       const response = await followStartupRedirect(
         request,
         await handler(request, options),

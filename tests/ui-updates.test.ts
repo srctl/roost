@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { activeRuns, withLock } from "../src/cli/state";
+import { updatesRequest } from "../src/server/updates.server";
 import {
   assertCompatible,
   capability,
@@ -448,3 +449,33 @@ test("journal updates reject sequence reuse and rollback after commit", async ()
   }
 });
 
+test("source status is read-only and unauthenticated activation cannot reach any updater", async () => {
+  const directory = await mkdtemp("/tmp/ui-update-http-");
+  const old = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = directory;
+  try {
+    const response = await updatesRequest(
+      new Request("https://roost.example/api/updates"),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    const status = await response.json();
+    assert.equal(status.capability.canActivate, false);
+    assert.equal(status.version, "dev");
+    assert.equal(status.canCheck, false);
+    assert.equal(status.csrf, null);
+    for (const path of ["/api/updates", "/api/updates/check"]) {
+      const denied = await updatesRequest(
+        new Request(`https://roost.example${path}`, {
+          method: "POST",
+          body: JSON.stringify({ unit: "arbitrary.service" }),
+        }),
+      );
+      assert.equal(denied.status, 401);
+    }
+  } finally {
+    if (old === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = old;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
