@@ -108,7 +108,7 @@ edit only if its intended change remains valid. It must not replace the whole
 note to resolve a conflict. Tool version 13 refreshes existing persistent
 threads to include these tools.
 
-## Editor choice and validation
+## Editor choice and developer checks
 
 Tiptap 3.31.3 was selected over Lexical after reviewing both maintained projects.
 Both cores are MIT licensed ([Tiptap license](https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md),
@@ -127,31 +127,9 @@ input-rule extensions, not a claim that one framework guarantees accessibility.
 Roost owns labels, focus handling, live save status, touch targets, menu keyboard
 navigation, and safe link entry. Browser review covers these application details.
 
-Bundle measurement compares production client JavaScript assets against
-`origin/main` at `7415789` using raw and individually gzipped file sizes. The
-baseline contains 46 JavaScript files: 1,860,935 bytes raw and 564,989 bytes gzip.
-The final build contains 49 JavaScript files: 2,287,181 bytes raw and 699,096
-bytes gzip, an increase of **426,246 bytes raw / 134,107 bytes gzip**. The
-route-split Note asset accounts for 417,122 bytes raw / 130,670 bytes gzip.
-Measurements sum file sizes and Node's default `gzipSync` output for each
-`.output/public/**/*.js` file. This is a whole-application asset comparison,
-not an isolated editor benchmark.
-
 `tests/notes.test.ts` and `tests/notes-editor.test.ts` cover persistence, owner/run boundaries, stale writes,
 read-before-edit, exact targeted edits, instruction independence, retries,
 revision inspection, pagination/restore, content bounds, unsafe URLs, escaped
 server rendering, editor round trips, and three-way recovery. The production
 authentication check exercises every note server function without a session and
 with a foreign origin. Run `pnpm check` for the repository's complete validation.
-
-Browser validation used Chromium at desktop and mobile-emulated viewports. It
-covered every typing shortcut, slash keyboard/touch insertion, formatting and
-link focus, checkbox interaction, autosave/reload, hostile HTML paste and copied
-IDs, failed-save retry, owner-preserving agent edits, overlapping conflict
-rejection, safe different-block merge, offline draft recovery, revision
-inspection/restore, and remote adoption followed by Undo/Ctrl+Z. Remote adoption
-starts an empty local history, so Undo cannot remove the agent's change. Mobile
-axe checks found no violations; desktop retained three existing sidebar contrast
-findings (Agents, Create agent, Settings), outside the note surface. A reduced
-viewport simulated keyboard occlusion. Physical iOS/Android keyboards and screen
-readers have not been validated.
