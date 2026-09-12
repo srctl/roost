@@ -10,7 +10,7 @@ import {
   useEditor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   fromEditor,
   sanitizeNotePaste,
@@ -68,11 +68,13 @@ function apply(editor: Editor, index: number) {
 
 export function NoteEditor({
   blocks,
+  controls,
   onChange,
   onFocusChange,
   onError,
 }: {
   blocks: NoteSnapshot["blocks"];
+  controls: ReactNode;
   onChange: (blocks: NoteSnapshot["blocks"]) => void;
   onFocusChange: (focused: boolean) => void;
   onError: (message: string) => void;
@@ -300,6 +302,7 @@ export function NoteEditor({
         >
           + Block
         </NoteButton>
+        {controls}
       </div>
       {linkOpen && (
         <form
@@ -423,7 +426,7 @@ export function NoteEditor({
       )}
       <EditorContent editor={editor} />
       <p {...stylex.props(styles.help)}>
-        Type / for blocks · Select text to format · Markdown shortcuts work here
+        Type / for blocks · Markdown shortcuts supported
       </p>
     </div>
   );
@@ -440,11 +443,8 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     gap: 2,
-    paddingBlock: 8,
+    paddingBlock: 0,
     backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: colors.border,
   },
   tool: {
     backgroundColor: { default: "transparent", ":hover": colors.selected },
@@ -452,7 +452,7 @@ const styles = stylex.create({
     borderWidth: 0,
     borderRadius: 5,
     paddingInline: 10,
-    minHeight: { default: 36, "@media (max-width: 700px)": 44 },
+    minHeight: { default: 32, "@media (max-width: 700px)": 44 },
     fontSize: 12,
     cursor: "pointer",
     opacity: { default: 1, ":disabled": 0.45 },
@@ -482,7 +482,7 @@ const styles = stylex.create({
     display: "flex",
     justifyContent: "space-between",
     width: "100%",
-    minHeight: 40,
+    minHeight: { default: 36, "@media (max-width: 700px)": 44 },
     padding: 10,
     borderWidth: 0,
     borderRadius: 5,
@@ -493,7 +493,7 @@ const styles = stylex.create({
   },
   highlight: { backgroundColor: colors.selected },
   hint: { color: noteColors.secondary },
-  help: { fontSize: 11, color: noteColors.secondary, marginTop: 30 },
+  help: { fontSize: 11, color: noteColors.secondary, marginBlock: 4 },
   linkForm: {
     display: "flex",
     flexWrap: "wrap",
