@@ -1,0 +1,10 @@
+desktop: starting isolated browser fixture
+desktop: older-page anchors survive reopen/reload
+desktop: draft, focus, stream, unread and attachment reload passed
+desktop: sibling snapshot isolation passed
+desktop: drafts, attachments, focus, anchors/scroll, unread, runtime retrieval, queue/cancel passed
+mobile: starting isolated browser fixture
+mobile: older-page anchors survive reopen/reload
+mobile: draft, focus, stream, unread and attachment reload passed
+mobile: sibling snapshot isolation passed
+mobile: drafts, attachments, focus, anchors/scroll, unread, runtime retrieval, queue/cancel passed

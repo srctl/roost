@@ -1,10 +1,12 @@
 {
-  "scope": "Only these finalized files are approved for evidence handoff. All app data is local synthetic fixture data; no live Roost data. Browser: Linux Chrome; mobile viewport emulation, not physical devices.",
+  "baseCommit": "7415789bd5cc6af981e6fd12f817fc9fc7cdea35",
+  "implementationCommit": "c698d91fbb68f1401c762d8a444b08b7299d745a",
+  "scope": "Refreshed current-main evidence. Only listed finalized files. Synthetic local fixtures; Linux Chrome desktop/mobile viewport emulation, not physical devices. Replaces old-base historical media.",
   "artifacts": [
     {
       "file": "after-main-desktop.png",
-      "bytes": 33163,
-      "sha256": "aea8caabaa1c99df837d292aa0827be32d448879e7730240512c96d735a2d86b",
+      "bytes": 32491,
+      "sha256": "854c68efadc7326bff9c0e6485486ed393960de825d217cbb630406f15959210",
       "fixture": true,
       "width": 1440,
       "height": 1000,
@@ -12,8 +14,8 @@
     },
     {
       "file": "after-main-mobile.png",
-      "bytes": 24550,
-      "sha256": "6a81e454913623453529ea24592f955ed7cfbd6bfc5df4f52cdd6c08ceffed41",
+      "bytes": 23701,
+      "sha256": "c5acbada89c0c3d0cfe6350a000f5673a93d73cbf7bba6a160c16f39429541a5",
       "fixture": true,
       "width": 390,
       "height": 844,
@@ -21,8 +23,8 @@
     },
     {
       "file": "after-thread-desktop.png",
-      "bytes": 49519,
-      "sha256": "1ce05dcb89f6968b46876dbd46116d8f673ccd7f2e335feb0ab72267351da7d3",
+      "bytes": 48485,
+      "sha256": "1bf32533d4404909f0dc9e52f6d39e0ccb3d8210962363545c50625cd42cb03b",
       "fixture": true,
       "width": 1440,
       "height": 1000,
@@ -30,8 +32,8 @@
     },
     {
       "file": "after-thread-mobile.png",
-      "bytes": 22275,
-      "sha256": "52e1fc7497b447c7a1e5082f8eefabdc25b0a2db1ee4bf7920964dcb8cb3d823",
+      "bytes": 22420,
+      "sha256": "214a5aa8185a8aef4803f2d09cf1d3d5e40b7f2e52c16126af4fb54e6ab1f25f",
       "fixture": true,
       "width": 390,
       "height": 844,
@@ -39,8 +41,8 @@
     },
     {
       "file": "before-main-desktop.png",
-      "bytes": 30146,
-      "sha256": "3b06897e42660e8a1fef8492f225bbe1a55d68ee2735d5431b34578131c1c859",
+      "bytes": 30140,
+      "sha256": "ff5ca6438bd1d361c6252fcf0d07ffd6586e4c125658cad180e6e1012a01b4ad",
       "fixture": true,
       "width": 1440,
       "height": 1000,
@@ -48,8 +50,8 @@
     },
     {
       "file": "before-main-mobile.png",
-      "bytes": 21770,
-      "sha256": "dd1488c3d6aaf57a6a038b432d4bc2edf535f53fe42323ba046d5d3279d5f5fd",
+      "bytes": 21636,
+      "sha256": "1d862b23824effac8865de7e8452d6d94d228f01ec048f9628d5090a4c650516",
       "fixture": true,
       "width": 390,
       "height": 844,
@@ -57,47 +59,47 @@
     },
     {
       "file": "interactions-desktop-fixture.mp4",
-      "bytes": 313252,
-      "sha256": "ec061902136351ff40a0ef787b423c3cb79d9c0e98d395a918bea2cc74ad0e0e",
+      "bytes": 526597,
+      "sha256": "342d1db0825c443ef821ea6eb2e6ce8a04bf3dcbcee7a8ca5dff6907a78bc187",
       "fixture": true,
       "codec_name": "h264",
       "width": 1440,
       "height": 1000,
-      "durationSeconds": 10.84,
-      "kind": "actual browser recording; simulated provider explicitly labeled"
+      "durationSeconds": 18.4,
+      "kind": "actual browser recording; local provider simulation explicitly labeled"
     },
     {
       "file": "interactions-mobile-fixture.mp4",
-      "bytes": 487263,
-      "sha256": "90104c6ffac482c0f8248bf5d31fc691727ef4628b166a3b18ab63d38bb288e5",
+      "bytes": 276743,
+      "sha256": "7005f0b000801db69a212bbfc1084de71c48ceb9c29fe052e33c09c7cd7193f7",
       "fixture": true,
       "codec_name": "h264",
       "width": 390,
       "height": 844,
-      "durationSeconds": 9.12,
-      "kind": "actual browser recording; simulated provider explicitly labeled"
+      "durationSeconds": 14.84,
+      "kind": "actual browser recording; local provider simulation explicitly labeled"
     },
     {
       "file": "queue-active-desktop-fixture.mp4",
-      "bytes": 784155,
-      "sha256": "7260e30004544258f2feda6e2cc23d08eee6d7e3125137e9181f0c275d10494e",
+      "bytes": 229319,
+      "sha256": "9844277d3256568d5c719ea69efbc05e6f86ac032d6c8a197cc0c1bf240a9f92",
       "fixture": true,
       "codec_name": "h264",
       "width": 1440,
       "height": 1000,
-      "durationSeconds": 12.12,
-      "kind": "actual browser recording; simulated provider explicitly labeled"
+      "durationSeconds": 12.44,
+      "kind": "actual browser recording; local provider simulation explicitly labeled"
     },
     {
       "file": "queue-active-mobile-fixture.mp4",
-      "bytes": 320368,
-      "sha256": "a90c200b62706c7f4c84168d67441e09b5e2187ea38b3d4da2e6bc78ec0604b2",
+      "bytes": 137014,
+      "sha256": "e6a8ea36488a329a9a44965c6d318aefac90be0b2269815cad63d6f421b8b2d3",
       "fixture": true,
       "codec_name": "h264",
       "width": 390,
       "height": 844,
-      "durationSeconds": 10.24,
-      "kind": "actual browser recording; simulated provider explicitly labeled"
+      "durationSeconds": 8.92,
+      "kind": "actual browser recording; local provider simulation explicitly labeled"
     }
   ]
 }

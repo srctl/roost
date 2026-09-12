@@ -4,7 +4,7 @@ Actual rendered Roost UI and actual Chromium recordings using synthetic local da
 
 ## Matching main-conversation captures
 
-Same fixture messages, empty composer, light theme, scale 1. Desktop: 1440×1000. Mobile: 390×844.
+Baseline `7415789bd5cc6af981e6fd12f817fc9fc7cdea35`; implementation `c698d91fbb68f1401c762d8a444b08b7299d745a`. Same fixture messages, empty composer, light theme, scale 1. Desktop: 1440×1000. Mobile: 390×844.
 
 | Viewport | Before | After |
 | --- | --- | --- |
@@ -29,3 +29,7 @@ Download the MP4 files to play them. All use H.264 and retain their matching vie
 The [manifest](manifest.json) records dimensions, durations, sizes, and SHA-256 hashes. Failed and unfinalized capture attempts are excluded.
 
 Mobile is Linux Chromium viewport emulation. Physical devices, Safari/iOS keyboards, real screen-reader operation, and real push-service delivery were not tested. The browser harness checks keyboard focus, labels, and overflow; mobile controls use the existing 44-pixel button targets. Provider responses are simulated; runtime routing and tool calls execute through the actual application.
+
+## Verification
+
+[Full repository check](verification/repository-check.log): 168 repository tests, 6 docs tests, lint, typechecks, builds, and production authentication smoke passed. [Browser regression](verification/browser-regression.log): desktop and mobile passed.
