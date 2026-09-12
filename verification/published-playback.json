@@ -1,0 +1,34 @@
+[
+  {
+    "name": "interactions-desktop-fixture.mp4",
+    "duration": 18.4,
+    "currentTime": 0.970519,
+    "width": 1440,
+    "height": 1000,
+    "verifiedFromPublishedDownload": true
+  },
+  {
+    "name": "interactions-mobile-fixture.mp4",
+    "duration": 14.84,
+    "currentTime": 0.924992,
+    "width": 390,
+    "height": 844,
+    "verifiedFromPublishedDownload": true
+  },
+  {
+    "name": "queue-active-desktop-fixture.mp4",
+    "duration": 12.44,
+    "currentTime": 0.951465,
+    "width": 1440,
+    "height": 1000,
+    "verifiedFromPublishedDownload": true
+  },
+  {
+    "name": "queue-active-mobile-fixture.mp4",
+    "duration": 8.92,
+    "currentTime": 0.926086,
+    "width": 390,
+    "height": 844,
+    "verifiedFromPublishedDownload": true
+  }
+]
