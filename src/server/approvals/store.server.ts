@@ -9,6 +9,7 @@ import {
 } from "../../features/approvals/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { notifyAttention } from "../notifications/push.server";
+import { runConversationId } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 
@@ -34,23 +35,28 @@ function notice(db: DatabaseSync, row: Row) {
   const response = row.response
     ? (JSON.parse(row.response) as ApprovalResponse)
     : null;
-  putMessage(db, row.agentId, {
-    id: `approval:${row.id}`,
-    role: "notice",
-    noticeKind: "approval",
-    referenceId: row.id,
-    title: request.title,
-    text:
-      row.status === "pending"
-        ? "Waiting for you"
-        : row.status === "cancelled"
-          ? "Request expired; the run ended"
-          : response?.decision === "approve"
-            ? "Approved once"
-            : response?.decision === "decline"
-              ? "Declined"
-              : "Answered",
-  });
+  putMessage(
+    db,
+    row.agentId,
+    {
+      id: `approval:${row.id}`,
+      role: "notice",
+      noticeKind: "approval",
+      referenceId: row.id,
+      title: request.title,
+      text:
+        row.status === "pending"
+          ? "Waiting for you"
+          : row.status === "cancelled"
+            ? "Request expired; the run ended"
+            : response?.decision === "approve"
+              ? "Approved once"
+              : response?.decision === "decline"
+                ? "Declined"
+                : "Answered",
+    },
+    runConversationId(db, row.agentId, row.runId),
+  );
 }
 
 export function expireApprovals(db: DatabaseSync) {
@@ -154,6 +160,7 @@ export const readApprovals = (agentId: string, id?: string) =>
       (row): Approval => ({
         ...JSON.parse(row.request),
         id: row.id,
+        runId: row.runId,
         status: row.status,
         response: row.response ? JSON.parse(row.response) : null,
       }),

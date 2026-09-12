@@ -77,6 +77,12 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     // Recreate the previous schema with an existing saved automation.
     const db = new DatabaseSync(join(directory, "roost.sqlite"));
     db.exec(
+      readFileSync(
+        new URL("./fixtures/remove-thread-schema.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec(
       "ALTER TABLE automations DROP COLUMN model; PRAGMA user_version=8;",
     );
     db.close();
@@ -220,7 +226,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 12);
+      assert.equal(migrated.toolVersion, 13);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
