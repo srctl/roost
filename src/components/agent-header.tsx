@@ -26,7 +26,7 @@ export function AgentHeader({
         <Avatar character={agent.character} />
         <h1 {...stylex.props(styles.title)}>{agent.name}</h1>
       </div>
-      {(dashboard || dashboardsEnabled || agent.kind === "coding") && (
+      {
         <nav aria-label={`${agent.name} views`} {...stylex.props(styles.tabs)}>
           <Link
             to="/agents/$agentId"
@@ -35,7 +35,15 @@ export function AgentHeader({
             {...stylex.props(styles.tab)}
             activeProps={stylex.props(styles.tab, styles.active)}
           >
-            Conversation
+            Chat
+          </Link>
+          <Link
+            to="/agents/$agentId/note"
+            params={{ agentId: agent.id }}
+            {...stylex.props(styles.tab)}
+            activeProps={stylex.props(styles.tab, styles.active)}
+          >
+            Note
           </Link>
           {agent.kind === "coding" && (
             <Link
@@ -58,7 +66,7 @@ export function AgentHeader({
             </Link>
           )}
         </nav>
-      )}
+      }
       <div {...stylex.props(styles.actions)}>
         {children}
         <AgentSettings agent={agent} />
@@ -125,7 +133,7 @@ const styles = stylex.create({
     alignItems: "center",
     minHeight: { default: 44, "@media (max-width: 700px)": 36 },
     fontSize: 12,
-    color: { default: colors.muted, ":hover": colors.foreground },
+    color: colors.foreground,
     textDecoration: "none",
     borderBottomWidth: 2,
     borderBottomStyle: "solid",

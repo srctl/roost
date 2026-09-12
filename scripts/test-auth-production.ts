@@ -28,6 +28,8 @@ const child = spawn(process.execPath, [".output/server/index.mjs"], {
     ...process.env,
     HOST: "127.0.0.1",
     PORT: String(port),
+    NITRO_PORT: String(port),
+    NITRO_HOST: "127.0.0.1",
     ROOST_DATA_DIR: temp,
     ROOST_DESKTOP_DISPLAY: ":1",
     ROOST_DESKTOP_ORIGIN: origin,
@@ -46,6 +48,7 @@ async function request(
   headers = {},
 ) {
   const response = await fetch(`${origin}${path}`, {
+    signal: AbortSignal.timeout(10_000),
     method: data === undefined ? "GET" : "POST",
     redirect: "manual",
     headers: {
@@ -124,6 +127,37 @@ try {
     /"([a-f0-9]{64})":\s*\{\s*functionName: "openComputer_createServerFn_handler"/,
   )?.[1];
   assert.ok(id, "Find the built desktop server-function ID");
+  for (const name of [
+    "getNote",
+    "getNoteHistory",
+    "getNoteRevision",
+    "updateNote",
+    "updateNoteInstructions",
+    "restoreNoteRevision",
+  ]) {
+    const noteId = manifest.match(
+      new RegExp(
+        `"([a-f0-9]{64})":\\s*\\{\\s*functionName: "${name}_createServerFn_handler"`,
+      ),
+    )?.[1];
+    assert.ok(noteId, `Find built note function ${name}`);
+    assert.equal(
+      (await request(`/_serverFn/${noteId}`, undefined, false)).status,
+      401,
+    );
+    assert.equal(
+      (await request(`/_serverFn/${noteId}`, {}, false)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await request(`/_serverFn/${noteId}`, {}, true, {
+          Origin: "https://untrusted.example",
+        })
+      ).status,
+      403,
+    );
+  }
   assert.equal((await request(`/_serverFn/${id}`, {}, false)).status, 401);
   const ticketResponse = await fetch(`${origin}/_serverFn/${id}`, {
     method: "POST",
@@ -186,7 +220,8 @@ try {
 } finally {
   for (const socket of sockets) socket.destroy();
   child.kill("SIGKILL");
-  await once(child, "exit");
+  if (child.exitCode === null && child.signalCode === null)
+    await once(child, "exit");
   vnc.close();
   db.close();
   rmSync(temp, { recursive: true, force: true });
