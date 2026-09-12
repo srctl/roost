@@ -13,6 +13,7 @@ type Subscription = {
 };
 export type Attention = {
   agentId: string;
+  conversationId?: string;
   id: string;
   kind: "approval" | "completed" | "failed" | "agent";
   title?: string;
@@ -201,7 +202,7 @@ export function attentionPayload(attention: Attention, agentName = "Roost") {
     title: notificationText(`${agentName} · ${title}`, 100),
     body,
     tag: `roost:${attention.kind}:${attention.id}`,
-    url: `/agents/${encodeURIComponent(attention.agentId)}`,
+    url: `/agents/${encodeURIComponent(attention.agentId)}${attention.conversationId && attention.conversationId !== attention.agentId ? `?conversation=${encodeURIComponent(attention.conversationId)}` : ""}`,
   };
 }
 
@@ -231,7 +232,24 @@ export async function deliverAttention(
       const agent = db
         .prepare("SELECT name FROM agents WHERE id=?")
         .get(attention.agentId);
-      let content = attention;
+      const origin = db
+        .prepare(
+          "SELECT conversationId FROM runs WHERE agentId=? AND id=COALESCE((SELECT runId FROM approvals WHERE id=? AND agentId=?),(SELECT runId FROM agent_notifications WHERE id=? AND agentId=?),?)",
+        )
+        .get(
+          attention.agentId,
+          attention.id,
+          attention.agentId,
+          attention.id,
+          attention.agentId,
+          attention.id,
+        );
+      let content = {
+        ...attention,
+        conversationId:
+          attention.conversationId ??
+          (origin ? String(origin.conversationId) : undefined),
+      };
       if (attention.kind === "approval") {
         const approval = db
           .prepare("SELECT request FROM approvals WHERE id=? AND agentId=?")
@@ -242,7 +260,7 @@ export async function deliverAttention(
             details: string;
           };
           content = {
-            ...attention,
+            ...content,
             title: request.title,
             body: request.details,
           };
@@ -348,7 +366,7 @@ export const readRunAttention = (id: string, directory?: string) =>
   withAgentStore((db): Attention | null => {
     const row = db
       .prepare(
-        "SELECT agentId,kind,status,automationSnapshot,messages,error,prompt,hasAgentUpdate FROM runs WHERE id=?",
+        "SELECT agentId,conversationId,kind,status,automationSnapshot,messages,error,prompt,hasAgentUpdate FROM runs WHERE id=?",
       )
       .get(id);
     if (!row) return null;
@@ -381,6 +399,7 @@ export const readRunAttention = (id: string, directory?: string) =>
         : answer || `Finished: ${row.prompt}`;
     return {
       agentId: String(row.agentId),
+      conversationId: String(row.conversationId),
       id,
       kind,
       body: String(body),

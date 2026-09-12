@@ -13,10 +13,12 @@ export function ApprovalRequests({
   agentId,
   id,
   busy = true,
+  runId,
 }: {
   agentId: string;
   id?: string;
   busy?: boolean;
+  runId?: string;
 }) {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [error, setError] = useState<string>();
@@ -32,7 +34,11 @@ export function ApprovalRequests({
         const result = await getApprovals({ data: { agentId, id } });
         if (cancelled) return;
         if (result.ok) {
-          setApprovals(result.value);
+          setApprovals(
+            runId
+              ? result.value.filter((a) => a.runId === runId)
+              : result.value,
+          );
           setError(undefined);
         } else setError(result.error);
       } catch {
@@ -45,7 +51,7 @@ export function ApprovalRequests({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [agentId, id, busy]);
+  }, [agentId, id, busy, runId]);
   return (
     <div aria-live="polite" {...stylex.props(styles.list)}>
       {error && <p role="alert">{error}</p>}
