@@ -85,7 +85,7 @@ browser page errors. Desktop recording: 39 seconds; mobile recording: 33 seconds
 
 Both source branches are pushed and PRs #20 and #21 are open and mergeable.
 The task-owned implementation pane and fixture servers are stopped. Disposable
-build/dependency directories were selected for removal after verification.
+build/dependency directories have been removed after verification.
 The coordinator must remove the clean task worktree after this assignment exits:
 the active assignment Herdr/Codex processes still use that directory, so removing
 it during handoff would violate the no-active-worker cleanup condition. No merge,
