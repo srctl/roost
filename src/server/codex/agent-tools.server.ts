@@ -28,6 +28,7 @@ import {
   listDelegations,
 } from "../delegations/store.server";
 import { fileTools } from "../files/tools.server";
+import { handleNoteTool, noteTools } from "../notes/tools.server";
 import {
   NotifyAgent,
   notificationTools,
@@ -62,6 +63,7 @@ const DeleteAutomationTool = Schema.Struct({
 });
 
 export const agentTools: DynamicToolSpec[] = [
+  ...noteTools,
   ...approvalTools,
   ...fileTools,
   ...dashboardTools,
@@ -181,6 +183,14 @@ export function handleAgentTool(
       return yield* new CodexError({
         message: "Reflection can only read and update its own soul.",
       });
+    if (noteTools.some((spec) => spec.name === tool))
+      return yield* handleNoteTool(
+        agentId,
+        runId,
+        tool,
+        arguments_,
+        allowMutations === true,
+      );
     if (codingTools.some((spec) => spec.name === tool))
       return yield* handleCodingTool(agentId, runId, tool, arguments_);
     if (tool === "roost_notify")
