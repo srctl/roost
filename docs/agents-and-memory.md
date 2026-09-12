@@ -108,3 +108,10 @@ The installed service uses `~/.local/share/roost/data` by default. Back up the
 whole data directory to retain conversations, uploads, downloads, souls, and
 Codex memory together. See [Install and operate Roost](install.md) for updates
 and recovery.
+
+## Shared note
+
+The **Note** view is a persistent user-visible document for each agent, separate
+from soul, private memory, and message threads. Its maintenance instructions
+guide note upkeep without authorizing external actions. See
+[Shared agent note](shared-note.md) for editing, autosave, revisions, and recovery.

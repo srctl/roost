@@ -53,6 +53,7 @@ export function App() {
         (match) =>
           match.routeId === "/agents/$agentId" ||
           match.routeId === "/agents/$agentId_/dashboard" ||
+          match.routeId === "/agents/$agentId_/note" ||
           match.routeId === "/agents/$agentId_/jobs",
       ),
   });

@@ -18,6 +18,7 @@ import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 import { Route as AgentsAgentIdDashboardRouteImport } from './routes/agents.$agentId_.dashboard'
 import { Route as AgentsAgentIdJobsRouteImport } from './routes/agents.$agentId_.jobs'
+import { Route as AgentsAgentIdNoteRouteImport } from './routes/agents.$agentId_.note'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const AgentsAgentIdJobsRoute = AgentsAgentIdJobsRouteImport.update({
   path: '/agents/$agentId/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsAgentIdNoteRoute = AgentsAgentIdNoteRouteImport.update({
+  id: '/agents/$agentId_/note',
+  path: '/agents/$agentId/note',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/agents/$agentId/dashboard': typeof AgentsAgentIdDashboardRoute
   '/agents/$agentId/jobs': typeof AgentsAgentIdJobsRoute
+  '/agents/$agentId/note': typeof AgentsAgentIdNoteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/agents/$agentId/dashboard': typeof AgentsAgentIdDashboardRoute
   '/agents/$agentId/jobs': typeof AgentsAgentIdJobsRoute
+  '/agents/$agentId/note': typeof AgentsAgentIdNoteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/agents/$agentId_/dashboard': typeof AgentsAgentIdDashboardRoute
   '/agents/$agentId_/jobs': typeof AgentsAgentIdJobsRoute
+  '/agents/$agentId_/note': typeof AgentsAgentIdNoteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/agents/$agentId/dashboard'
     | '/agents/$agentId/jobs'
+    | '/agents/$agentId/note'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/agents/$agentId/dashboard'
     | '/agents/$agentId/jobs'
+    | '/agents/$agentId/note'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/agents/$agentId_/dashboard'
     | '/agents/$agentId_/jobs'
+    | '/agents/$agentId_/note'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   AgentsAgentIdDashboardRoute: typeof AgentsAgentIdDashboardRoute
   AgentsAgentIdJobsRoute: typeof AgentsAgentIdJobsRoute
+  AgentsAgentIdNoteRoute: typeof AgentsAgentIdNoteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsAgentIdJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents/$agentId_/note': {
+      id: '/agents/$agentId_/note'
+      path: '/agents/$agentId/note'
+      fullPath: '/agents/$agentId/note'
+      preLoaderRoute: typeof AgentsAgentIdNoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   AgentsAgentIdDashboardRoute: AgentsAgentIdDashboardRoute,
   AgentsAgentIdJobsRoute: AgentsAgentIdJobsRoute,
+  AgentsAgentIdNoteRoute: AgentsAgentIdNoteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
