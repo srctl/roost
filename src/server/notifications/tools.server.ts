@@ -4,6 +4,7 @@ import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
 import type { JsonValue } from "../codex/protocol/serde_json/JsonValue";
 import type { DynamicToolSpec } from "../codex/protocol/v2/DynamicToolSpec";
+import { runConversationId } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import { deliverAttention } from "./push.server";
@@ -82,12 +83,17 @@ export const notifyAgent = (
               data.body,
               Date.now(),
             );
-            putMessage(db, agentId, {
-              id: `notification:${id}`,
-              role: "notice",
-              title: data.title,
-              text: data.body,
-            });
+            putMessage(
+              db,
+              agentId,
+              {
+                id: `notification:${id}`,
+                role: "notice",
+                title: data.title,
+                text: data.body,
+              },
+              runConversationId(db, agentId, runId!),
+            );
           }
           return { id, recorded: true, duplicate: !!existing };
         }),
