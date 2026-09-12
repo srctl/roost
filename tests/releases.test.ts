@@ -188,7 +188,7 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 10);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
         assert.equal(
           db.prepare("SELECT kind FROM agents WHERE id='saved'").get()?.kind,
           "assistant",
@@ -199,6 +199,11 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           0,
         );
         db.exec(`ALTER TABLE automations DROP COLUMN model;
+          DROP TABLE provider_message_ids;
+          DROP TABLE conversation_sessions;
+          DROP TABLE conversation_records;
+          DROP TRIGGER runs_main_conversation;
+          ALTER TABLE runs DROP COLUMN conversationId;
           DROP TABLE coding_job_updates;
           DROP TABLE coding_job_inputs;
           DROP TABLE coding_jobs;
@@ -223,7 +228,8 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           DROP INDEX timeline_agent_revision;
           DROP INDEX runs_active_agent;
           DROP TABLE timeline_revision;
-          ALTER TABLE timeline DROP COLUMN revision;
+          DROP TABLE timeline;
+          CREATE TABLE timeline(position INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,agentId TEXT NOT NULL,message TEXT NOT NULL);
           PRAGMA user_version=1`);
       }, directory),
     );
@@ -237,7 +243,7 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
           db.prepare("SELECT name FROM agents WHERE id='saved'").get()?.name,
           "Scout",
         );
-        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 10);
+        assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
         assert.equal(
           db.prepare("SELECT enabled FROM dashboard_settings WHERE id=1").get()
             ?.enabled,
@@ -260,7 +266,7 @@ test("schema migration preserves legacy agents and refuses newer databases", asy
             needsAttention: true,
           },
         );
-        db.exec("PRAGMA user_version=11");
+        db.exec("PRAGMA user_version=99");
       }, directory),
     );
     await assert.rejects(

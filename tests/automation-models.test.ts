@@ -77,6 +77,12 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     // Recreate the previous schema with an existing saved automation.
     const db = new DatabaseSync(join(directory, "roost.sqlite"));
     db.exec(
+      readFileSync(
+        new URL("./fixtures/remove-thread-schema.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec(
       "ALTER TABLE automations DROP COLUMN model; PRAGMA user_version=8;",
     );
     db.close();
