@@ -379,31 +379,30 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
     }
   }
 
+  const controls = (
+    <div {...stylex.props(styles.controls)}>
+      <span role="status" aria-live="polite" {...stylex.props(styles.status)}>
+        {!online
+          ? "Offline · draft kept on this device"
+          : dirty && status === "Saved"
+            ? "Unsaved changes"
+            : status}
+      </span>
+      <NoteButton
+        type="button"
+        xstyle={styles.subtle}
+        onClick={() => (history ? setHistory(null) : void showHistory())}
+        aria-expanded={history !== null}
+      >
+        History
+      </NoteButton>
+    </div>
+  );
+
   return (
     <div {...stylex.props(styles.scroll)}>
-      <article {...stylex.props(styles.paper)}>
-        <div {...stylex.props(styles.eyebrow)}>SHARED WITH YOUR AGENT</div>
-        <div {...stylex.props(styles.titleRow)}>
-          <h2 {...stylex.props(styles.title)}>Note</h2>
-          <NoteButton
-            type="button"
-            xstyle={styles.subtle}
-            onClick={() => (history ? setHistory(null) : void showHistory())}
-            aria-expanded={history !== null}
-          >
-            History
-          </NoteButton>
-        </div>
-        <p {...stylex.props(styles.subtitle)}>
-          A lasting place for plans, details, and things to remember together.
-        </p>
-        <div role="status" aria-live="polite" {...stylex.props(styles.status)}>
-          {!online
-            ? "Offline · draft kept on this device"
-            : dirty && status === "Saved"
-              ? "Unsaved changes"
-              : status}
-        </div>
+      <article aria-label="Shared note" {...stylex.props(styles.paper)}>
+        {recovery && controls}
         {recovery && (
           <div {...stylex.props(styles.notice)}>
             <strong>Recover your unsaved draft</strong>
@@ -522,6 +521,7 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
           <NoteEditor
             key={version}
             blocks={blocks}
+            controls={controls}
             onChange={(value) => {
               setBlocks(value);
               setStatus("Unsaved changes");
@@ -591,82 +591,62 @@ const styles = stylex.create({
   },
   paper: {
     width: "100%",
-    maxWidth: 800,
+    maxWidth: 880,
     marginInline: "auto",
-    paddingInline: { default: 48, "@media (max-width: 700px)": 22 },
-    paddingTop: { default: 54, "@media (max-width: 700px)": 28 },
-    paddingBottom: 80,
+    paddingInline: { default: 32, "@media (max-width: 700px)": 16 },
+    paddingTop: { default: 12, "@media (max-width: 700px)": 8 },
+    paddingBottom: 32,
   },
-  eyebrow: {
-    color: noteColors.secondary,
-    fontSize: 10,
-    letterSpacing: "0.1em",
-    fontWeight: 600,
-  },
-  titleRow: {
+  controls: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginTop: 10,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: 600,
-    letterSpacing: "-0.04em",
-    margin: 0,
-    color: colors.foreground,
-  },
-  subtitle: {
-    color: noteColors.secondary,
-    fontSize: 13,
-    lineHeight: 1.6,
-    marginTop: 8,
-    marginBottom: 12,
+    justifyContent: "flex-end",
+    gap: 8,
+    marginLeft: "auto",
   },
   subtle: {
     color: colors.foreground,
     backgroundColor: { default: "transparent", ":hover": colors.selected },
     borderWidth: 0,
     borderRadius: 6,
-    minHeight: 36,
+    minHeight: { default: 32, "@media (max-width: 700px)": 44 },
     paddingInline: 10,
     fontSize: 12,
     cursor: "pointer",
     textAlign: "left",
   },
-  status: { fontSize: 11, color: noteColors.secondary, minHeight: 25 },
+  status: { fontSize: 11, color: noteColors.secondary, lineHeight: 1.5 },
   notice: {
-    padding: 14,
-    marginBlock: 12,
+    padding: 10,
+    marginBlock: 8,
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 4,
     backgroundColor: colors.surface,
     fontSize: 13,
     lineHeight: 1.6,
     overflowWrap: "anywhere",
   },
-  instructions: {
-    marginTop: 32,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.border,
-    paddingTop: 20,
-  },
+  instructions: { marginTop: 8 },
   summary: {
     cursor: "pointer",
-    fontSize: 13,
-    color: colors.foreground,
-    paddingBlock: 8,
+    fontSize: 12,
+    color: noteColors.secondary,
+    paddingBlock: 10,
+    minHeight: { default: 36, "@media (max-width: 700px)": 44 },
+    outline: {
+      default: "none",
+      ":focus-visible": `2px solid ${colors.foreground}`,
+    },
+    outlineOffset: 2,
   },
   optional: { marginLeft: 8, fontSize: 11, color: noteColors.secondary },
   description: { color: noteColors.secondary, fontSize: 12, lineHeight: 1.6 },
   textarea: {
     display: "block",
     width: "100%",
-    padding: 12,
+    padding: 8,
     marginTop: 8,
     resize: "vertical",
     borderRadius: 6,
@@ -675,7 +655,7 @@ const styles = stylex.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     color: colors.foreground,
-    fontSize: 14,
+    fontSize: { default: 14, "@media (max-width: 700px)": 16 },
     lineHeight: 1.6,
   },
 });
