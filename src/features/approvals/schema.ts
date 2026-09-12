@@ -23,6 +23,7 @@ export const ApprovalResponse = Schema.Struct({
 });
 export type ApprovalResponse = typeof ApprovalResponse.Type;
 export type Approval = ApprovalRequest & {
+  runId?: string;
   id: string;
   status: "pending" | "answered" | "cancelled";
   response: ApprovalResponse | null;
