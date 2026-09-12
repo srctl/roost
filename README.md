@@ -1,6 +1,8 @@
 # Shared agent note — rendered review evidence
 
-Fixture-only captures for the shared-agent-note PR stack in `srctl/roost`.
+Task Work summary and fixture-only captures for the shared-agent-note PR stack
+in `srctl/roost`: [backend #20](https://github.com/srctl/roost/pull/20), then
+[editor #21](https://github.com/srctl/roost/pull/21).
 No production agents, notes, accounts, or user data are shown. Capture helpers,
 raw logs, and recordings are kept out of the source PR branches.
 
@@ -74,3 +76,7 @@ application/CLI builds, site typecheck, 6 site tests, and site builds).
 The final check used `umask 022` and cleared the inherited `ROOST_CODEX_BINARY`
 for test fixtures. The auth harness now explicitly supplies its temporary Nitro
 port so it does not inherit the host application port.
+
+Final built-app smoke passed desktop and mobile, light and dark, with zero
+note-surface axe violations, no horizontal overflow, one main landmark, and no
+browser page errors. Desktop recording: 39 seconds; mobile recording: 33 seconds.
