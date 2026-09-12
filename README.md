@@ -80,3 +80,13 @@ port so it does not inherit the host application port.
 Final built-app smoke passed desktop and mobile, light and dark, with zero
 note-surface axe violations, no horizontal overflow, one main landmark, and no
 browser page errors. Desktop recording: 39 seconds; mobile recording: 33 seconds.
+
+## Handoff
+
+Both source branches are pushed and PRs #20 and #21 are open and mergeable.
+The task-owned implementation pane and fixture servers are stopped. Disposable
+build/dependency directories were selected for removal after verification.
+The coordinator must remove the clean task worktree after this assignment exits:
+the active assignment Herdr/Codex processes still use that directory, so removing
+it during handoff would violate the no-active-worker cleanup condition. No merge,
+deployment, Notion update, or Roost task update was performed.
