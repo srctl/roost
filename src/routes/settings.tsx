@@ -5,9 +5,11 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { CodexConnection } from "../components/codex-connection";
+import { CodingSetting } from "../components/coding-setting";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
+import { NoteSetting } from "../components/note-setting";
 import { PasskeySetting } from "../components/passkey-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { ThemeSetting } from "../components/theme-setting";
@@ -120,11 +122,7 @@ function SettingsPage() {
               : settingsGroups.find((item) => item.id === group)?.description}
           </p>
           <section
-            hidden={
-              !visible("theme") &&
-              !visible("conversation") &&
-              !visible("dashboards")
-            }
+            hidden={!visible("theme") && !visible("conversation")}
             aria-label="Appearance"
           >
             {searching && (
@@ -136,11 +134,27 @@ function SettingsPage() {
             <div hidden={!visible("conversation")}>
               <ConversationSettings />
             </div>
-            <div hidden={!visible("dashboards")}>
-              <DashboardSetting />
-            </div>
             <div hidden={searching || !visible("conversation")}>
               <ConversationPreview />
+            </div>
+          </section>
+          <section
+            hidden={
+              !visible("notes") && !visible("dashboards") && !visible("coding")
+            }
+            aria-label="Features"
+          >
+            {searching && (
+              <p {...stylex.props(styles.groupCaption)}>Features</p>
+            )}
+            <div hidden={!visible("coding")}>
+              <CodingSetting />
+            </div>
+            <div hidden={!visible("notes")}>
+              <NoteSetting />
+            </div>
+            <div hidden={!visible("dashboards")}>
+              <DashboardSetting />
             </div>
           </section>
           <section
@@ -164,10 +178,6 @@ function SettingsPage() {
             <CodexConnection initial={connection} />
             <PasskeySetting />
           </section>
-          <p {...stylex.props(styles.agentHint)}>
-            Looking for an agent’s model, instructions, or automations? Open
-            that agent to manage its settings.
-          </p>
         </div>
       </div>
     </section>
@@ -392,16 +402,6 @@ const styles = stylex.create({
     fontSize: 12,
     fontWeight: 500,
     color: colors.accent,
-  },
-  agentHint: {
-    marginTop: 32,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.border,
-    fontSize: 12,
-    lineHeight: 1.6,
-    color: colors.muted,
   },
   title: { marginTop: 0, fontSize: 26, fontWeight: 500, marginBottom: 8 },
   muted: { color: colors.muted },

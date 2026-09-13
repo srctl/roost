@@ -5,6 +5,16 @@ conversation in Roost. Create one for each project you care about, then use its
 conversation to start work, answer questions, and discuss results. Assign a
 Notion ticket or describe an ad hoc task; a ticket is optional.
 
+## Enable or disable coding
+
+Settings → Features → Coding controls coding for all agents and devices. It is
+on by default. Turning it off hides coding setup, prevents new coding agents,
+jobs, and follow-ups, and pauses queued launches and inputs. Work already
+submitted can finish; inspection, completion, and stop controls remain available.
+Saved agents, configuration, and job history stay intact. Turning coding back on
+resumes queued work. This switch controls Roost's managed coding jobs, not the
+underlying model's general ability to write code.
+
 ## Create and configure an agent
 
 Choose **Coding agent** under **Agent type** when creating an agent. Give it a

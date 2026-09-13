@@ -1,24 +1,24 @@
 import { Switch } from "@base-ui/react/switch";
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
-import { changeDashboardSetting } from "../features/dashboards/functions";
+import { changeNoteSetting } from "../features/notes/functions";
 import {
-  updateDashboardPreference,
-  useDashboardsEnabled,
-} from "../features/dashboards/preference";
+  updateNotePreference,
+  useNotesEnabled,
+} from "../features/notes/preference";
 import { colors } from "../styles/tokens.stylex";
 
-export function DashboardSetting() {
-  const enabled = useDashboardsEnabled();
+export function NoteSetting() {
+  const enabled = useNotesEnabled();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   async function change(value: boolean) {
     setSaving(true);
     setError(undefined);
     try {
-      const result = await changeDashboardSetting({ data: { enabled: value } });
+      const result = await changeNoteSetting({ data: { enabled: value } });
       if (!result.ok) throw new Error(result.error);
-      updateDashboardPreference(result.value.enabled);
+      updateNotePreference(result.value.enabled);
     } catch {
       setError("Could not save this setting. Try again.");
     } finally {
@@ -29,20 +29,20 @@ export function DashboardSetting() {
     <section {...stylex.props(styles.section)}>
       <div {...stylex.props(styles.row)}>
         <div>
-          <label htmlFor="dashboards-setting" {...stylex.props(styles.label)}>
-            Dashboards
+          <label htmlFor="notes-setting" {...stylex.props(styles.label)}>
+            Note
           </label>
-          <p id="dashboards-description" {...stylex.props(styles.description)}>
-            Trackers and project updates for your agents. Turning this off keeps
-            saved dashboards.
+          <p id="notes-description" {...stylex.props(styles.description)}>
+            Shared notes for you and your agents. Turning this off keeps saved
+            notes.
           </p>
         </div>
         <Switch.Root
-          id="dashboards-setting"
+          id="notes-setting"
           checked={enabled}
           disabled={saving}
           onCheckedChange={(value) => void change(value)}
-          aria-describedby="dashboards-description"
+          aria-describedby="notes-description"
           {...stylex.props(styles.switch, enabled && styles.checked)}
         >
           <Switch.Thumb

@@ -7,6 +7,7 @@ import {
   saveAgentReflection,
   saveAgentSoul,
 } from "../features/agents/functions";
+import { useCodingEnabled } from "../features/coding/preference";
 import { colors } from "../styles/tokens.stylex";
 import { AgentAutomationSettings } from "./agent-automation-settings";
 import { MessageContent } from "./conversation/message-content";
@@ -37,6 +38,7 @@ export function AgentIdentitySettings({
   agentId: string;
   coding?: boolean;
 }) {
+  const codingEnabled = useCodingEnabled();
   const [editing, setEditing] = useState(false);
   const [changeId, setChangeId] = useState<string>();
   const [identity, setIdentity] = useState<Identity>();
@@ -180,13 +182,13 @@ export function AgentIdentitySettings({
         <Tabs.Tab value="automations" {...stylex.props(styles.tab)}>
           Automations
         </Tabs.Tab>
-        {coding && (
+        {coding && codingEnabled && (
           <Tabs.Tab value="coding" {...stylex.props(styles.tab)}>
             Coding
           </Tabs.Tab>
         )}
       </Tabs.List>
-      {coding && (
+      {coding && codingEnabled && (
         <Tabs.Panel value="coding" {...stylex.props(styles.panel)}>
           <Suspense fallback={<p role="status">Loading coding settings…</p>}>
             <AgentCodingSettings agentId={agentId} />

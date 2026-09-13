@@ -2,7 +2,12 @@ export const settingsGroups = [
   {
     id: "appearance",
     label: "Appearance",
-    description: "Color themes, conversation display, and dashboards.",
+    description: "Color themes and conversation display.",
+  },
+  {
+    id: "features",
+    label: "Features",
+    description: "Choose which features are available in Roost.",
   },
   {
     id: "notifications",
@@ -38,8 +43,20 @@ export const settingsEntries = [
       "Response style Messages Codex conversation chat bubbles preview Show activity details tool inputs outputs calls thinking summaries compact rows browser",
   },
   {
+    id: "coding",
+    group: "features",
+    terms:
+      "Coding agents jobs development programming enabled disable workers queued",
+  },
+  {
+    id: "notes",
+    group: "features",
+    terms:
+      "Note shared notes editor agent instructions enabled disable all devices saved content",
+  },
+  {
     id: "dashboards",
-    group: "appearance",
+    group: "features",
     terms:
       "Dashboards trackers project updates trends enabled dashboard updates saved content all devices",
   },

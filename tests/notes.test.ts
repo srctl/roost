@@ -11,12 +11,15 @@ import {
 import { saveAgent } from "../src/server/agents/store.server";
 import { handleAgentTool } from "../src/server/codex/agent-tools.server";
 import {
+  getNotePreference,
   noteHistory,
   patchNote,
   readNote,
+  readNoteRevision,
   restoreNote,
   saveNote,
   saveNoteInstructions,
+  setNotePreference,
 } from "../src/server/notes/store.server";
 
 const block = (text: string) => ({
@@ -291,6 +294,67 @@ test("revision inspection, pagination and no-op saves preserve history and owner
       }),
     );
     assert.equal(removed.blocks.length, 1);
+  } finally {
+    if (previous === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("note setting persists, blocks reads and updates, and preserves content when re-enabled", async () => {
+  const directory = mkdtempSync("/tmp/roost-note-setting-");
+  const previous = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = directory;
+  try {
+    assert.deepEqual(await run(getNotePreference()), { enabled: true });
+    const agent = await run(
+      saveAgent({
+        id: randomUUID(),
+        name: "Notes",
+        instructions: "Help",
+        character: "moss",
+        model: "fake",
+      }),
+    );
+    const saved = await run(
+      saveNote(agent.id, {
+        requestId: randomUUID(),
+        revision: 0,
+        blocks: [block("Keep this note")],
+      }),
+    );
+    const token = await run(readNote(agent.id, "test-run"));
+    await run(setNotePreference(false));
+    assert.deepEqual(await run(getNotePreference()), { enabled: false });
+    for (const operation of [
+      readNote(agent.id),
+      noteHistory(agent.id),
+      readNoteRevision(agent.id, 1),
+      saveNote(agent.id, { requestId: randomUUID(), revision: 1, blocks: [] }),
+      saveNoteInstructions(agent.id, {
+        requestId: randomUUID(),
+        revision: 1,
+        instructions: "Changed",
+      }),
+      restoreNote(agent.id, {
+        requestId: randomUUID(),
+        revision: 1,
+        targetRevision: 0,
+      }),
+      patchNote(agent.id, "test-run", {
+        requestId: randomUUID(),
+        revision: 1,
+        readToken: token.readToken!,
+        edits: [
+          { id: saved.blocks[0]!.id, before: saved.blocks[0]!, after: null },
+        ],
+      }),
+    ])
+      await assert.rejects(run(operation), /Notes are off/);
+    await run(setNotePreference(true));
+    const restored = await run(readNote(agent.id));
+    assert.deepEqual(restored.blocks, saved.blocks);
+    assert.equal(restored.revision, saved.revision);
   } finally {
     if (previous === undefined) delete process.env.ROOST_DATA_DIR;
     else process.env.ROOST_DATA_DIR = previous;

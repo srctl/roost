@@ -18,8 +18,29 @@ function fail(message: string): never {
   throw new AgentStoreError({ message });
 }
 
+function notesEnabled(db: DatabaseSync) {
+  return (
+    db.prepare("SELECT enabled FROM note_settings WHERE id=1").get()
+      ?.enabled === 1
+  );
+}
+
+export const getNotePreference = () =>
+  withAgentStore((db) => ({ enabled: notesEnabled(db) }));
+
+export const setNotePreference = (value: boolean) =>
+  withAgentStore((db) => {
+    assertAvailable(db);
+    db.prepare("UPDATE note_settings SET enabled=? WHERE id=1").run(
+      Number(value),
+    );
+    return { enabled: value };
+  });
+
 function current(db: DatabaseSync, agentId: string): NoteSnapshot {
   assertAvailable(db);
+  if (!notesEnabled(db))
+    fail("Notes are off. Enable them in Settings to access this note.");
   requireAgent(db, agentId);
   const row = db
     .prepare("SELECT * FROM agent_notes WHERE agentId=?")

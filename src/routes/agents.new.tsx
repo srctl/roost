@@ -7,6 +7,7 @@ import { Avatar } from "../components/ui/primitives";
 import { createAgent, getConnection } from "../features/agents/functions";
 import { Character } from "../features/agents/schema";
 import { agentStyles as styles } from "../features/agents/styles";
+import { useCodingEnabled } from "../features/coding/preference";
 
 export const Route = createFileRoute("/agents/new")({
   loader: () => getConnection(),
@@ -18,6 +19,7 @@ function CreateAgentPage() {
   const router = useRouter();
   const navigate = Route.useNavigate();
   const [busy, setBusy] = useState(false);
+  const codingEnabled = useCodingEnabled();
   const [kind, setKind] = useState<"assistant" | "coding">("assistant");
   const [error, setError] = useState<string>();
   const attempt = useRef<{ key: string; id: string } | null>(null);
@@ -119,7 +121,7 @@ function CreateAgentPage() {
               {...stylex.props(styles.input)}
             >
               <option value="assistant">General assistant</option>
-              <option value="coding">Coding agent</option>
+              {codingEnabled && <option value="coding">Coding agent</option>}
             </select>
             {kind === "coding" && (
               <span {...stylex.props(styles.muted)}>

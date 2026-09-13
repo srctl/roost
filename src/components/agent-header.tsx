@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useDashboardsEnabled } from "../features/dashboards/preference";
+import { useNotesEnabled } from "../features/notes/preference";
 import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { AgentSettings } from "./agent-settings";
@@ -18,6 +19,7 @@ export function AgentHeader({
   dashboard?: boolean;
   children?: ReactNode;
 }) {
+  const notesEnabled = useNotesEnabled();
   const dashboardsEnabled = useDashboardsEnabled();
   return (
     <header {...stylex.props(styles.header)}>
@@ -37,14 +39,16 @@ export function AgentHeader({
           >
             Chat
           </Link>
-          <Link
-            to="/agents/$agentId/note"
-            params={{ agentId: agent.id }}
-            {...stylex.props(styles.tab)}
-            activeProps={stylex.props(styles.tab, styles.active)}
-          >
-            Note
-          </Link>
+          {notesEnabled && (
+            <Link
+              to="/agents/$agentId/note"
+              params={{ agentId: agent.id }}
+              {...stylex.props(styles.tab)}
+              activeProps={stylex.props(styles.tab, styles.active)}
+            >
+              Note
+            </Link>
+          )}
           {agent.kind === "coding" && (
             <Link
               to="/agents/$agentId/jobs"
