@@ -14,7 +14,7 @@ export const Character = Schema.Literal(
   "nimbus",
   "acorn",
 );
-const Name = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(60));
+export const Name = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(60));
 
 const Instructions = Schema.Trim.pipe(
   Schema.minLength(1),
