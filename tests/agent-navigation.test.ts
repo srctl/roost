@@ -25,10 +25,24 @@ import { migrateAgentNavigation } from "../src/server/agents/navigation-migratio
 import { listAgents, saveAgent } from "../src/server/agents/store.server";
 
 import { createCodingJob } from "../src/server/coding/store.server";
+import {
+  readNote,
+  saveNote,
+  saveNoteInstructions,
+} from "../src/server/notes/store.server";
+
+const noteTables = [
+  "agent_notes",
+  "note_revisions",
+  "note_requests",
+  "note_reads",
+];
+const dropNavigation =
+  "DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;";
 
 const run = Effect.runPromise;
 
-test("rename and sections persist without changing associated records, private files, IDs or ordering", async () => {
+test("core14 navigation installation, rename and sections preserve actual Notes, associated records, private files, IDs and ordering", async () => {
   const directory = mkdtempSync(join(tmpdir(), "roost-navigation-"));
   try {
     const agent = await run(
@@ -62,6 +76,27 @@ test("rename and sections persist without changing associated records, private f
           workerKind: "codex",
         }),
       );
+      const note = await run(
+        saveNote(agent.id, {
+          requestId: randomUUID(),
+          revision: 0,
+          blocks: [
+            {
+              id: randomUUID(),
+              type: "paragraph",
+              content: [{ text: "Keep actual Notes" }],
+            },
+          ],
+        }),
+      );
+      await run(
+        saveNoteInstructions(agent.id, {
+          requestId: randomUUID(),
+          revision: note.revision,
+          instructions: "Keep Notes instructions",
+        }),
+      );
+      await run(readNote(agent.id, "preserved-run"));
     } finally {
       if (previous === undefined) delete process.env.ROOST_DATA_DIR;
       else process.env.ROOST_DATA_DIR = previous;
@@ -139,7 +174,14 @@ test("rename and sections persist without changing associated records, private f
           ]),
       );
     const coreVersion = db.prepare("PRAGMA user_version").get()?.user_version;
+    assert.equal(coreVersion, 14);
+    for (const table of noteTables)
+      assert.ok(
+        Number(db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get()?.n) > 0,
+        `${table} contains actual Notes data`,
+      );
     const before = snapshot();
+    db.exec(dropNavigation);
     const section = randomUUID(),
       other = randomUUID();
     assert.deepEqual(await run(readAgentNavigation(directory)), {
@@ -298,7 +340,9 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
     );
     const db = new DatabaseSync(join(directory, "roost.sqlite"));
     db.exec(
-      "DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions; PRAGMA user_version=13",
+      dropNavigation +
+        noteTables.map((table) => `DROP TABLE "${table}";`).join("") +
+        "PRAGMA user_version=13",
     );
     const legacyRows = db.prepare("SELECT * FROM agents").all();
     db.exec("BEGIN IMMEDIATE");
@@ -315,8 +359,31 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
     assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
     db.exec("BEGIN IMMEDIATE");
     migrateAgentNavigation(db);
-    db.exec("PRAGMA user_version=14; COMMIT");
+    db.exec("COMMIT");
+    // The navigation feature does not advance core's version or install Notes.
+    assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
+    db.exec("INSERT INTO agent_navigation_versions VALUES(2)");
+    await assert.rejects(
+      run(readAgentNavigation(directory)),
+      /Agent navigation needs a newer version of Roost/,
+    );
+    // A late navigation failure must roll back Notes and core14 together.
+    assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
+    for (const table of noteTables)
+      assert.equal(
+        db.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table),
+        undefined,
+      );
+    db.exec(
+      "DELETE FROM agent_navigation_versions WHERE version=2;" + dropNavigation,
+    );
+    assert.deepEqual(await run(readAgentNavigation(directory)), {
+      sections: [],
+      memberships: {},
+    });
     assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 14);
+    for (const table of noteTables)
+      assert.equal(db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get()?.n, 0);
     assert.deepEqual(db.prepare("SELECT * FROM agents").all(), legacyRows);
     assert.equal(
       db.prepare("SELECT name FROM agents WHERE id=?").get(legacyAgent.id)
@@ -344,6 +411,13 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
         )
         .get(),
       undefined,
+    );
+    db.exec(
+      "DELETE FROM agent_navigation_versions WHERE version=2; DROP TABLE note_reads",
+    );
+    await assert.rejects(
+      run(readAgentNavigation(directory)),
+      /Unsupported database shape \(partial Notes\)/,
     );
     db.close();
   } finally {
