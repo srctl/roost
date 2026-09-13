@@ -1,16 +1,14 @@
-# Latest refinement
+# Message-bound reply icon refinement
 
-[Updated message-bound placement and 40 matched screenshots](refinement/README.md). The original trailing-row approach below is superseded.
+Addresses feedback `735a4d87-ac18-482d-9f9b-6a481db384b3`: anchor the icon inside the bottom-right of the assistant message, not in a row below or at the conversation edge.
 
-# Reply action visual evidence
+Before: PR35 `1fdb56cc446d8d88de2d83ffb983bcc4de2f5940`. After: `1601ac227b6ca39841fbe5af1d3561107b91ae43`.
 
-Actual rendered Chromium screenshots using only a local synthetic Roost fixture and fake provider. No live user data. Before: origin/main ed3ca2e. After: fix/thread-reply-action.
+40 actual rendered screenshots from matched synthetic local fixtures. Desktop1440×1000: rest/hover/keyboard focus. Mobile touch390×844: rest/keyboard focus. Document and bubble modes, light and dark. No real providers or user data.
 
-Matched desktop viewport: 1440 × 1000. Matched mobile touch viewport: 390 × 844. Desktop states: rest, hover, keyboard focus. Light and dark themes; default document and Messages/bubble presentation.
+The button is a 40×40 target, 4px inside its article’s bottom/right edges. Internal horizontal clearance protects text/code/tables/files. Short document messages fit their contents; long ones remain capped at available width. The icon remains mounted as a create/reopen control for stable keyboard focus. Historical counts/unread navigation remain separate. There is no trailing action row.
 
-The assistant creation icon uses a reserved trailing-right row to preserve full message width and avoid hover/focus layout shifts. Historical user and assistant thread counts remain visible.
-
-| Presentation / theme / state | Before | After |
+| State | Before refinement | After refinement |
 | --- | --- | --- |
 | desktop-dark-focus | ![Before: desktop-dark-focus](before-desktop-dark-focus.png) | ![After: desktop-dark-focus](after-desktop-dark-focus.png) |
 | desktop-dark-hover | ![Before: desktop-dark-hover](before-desktop-dark-hover.png) | ![After: desktop-dark-hover](after-desktop-dark-hover.png) |
@@ -24,7 +22,11 @@ The assistant creation icon uses a reserved trailing-right row to preserve full 
 | messages-desktop-light-focus | ![Before: messages-desktop-light-focus](before-messages-desktop-light-focus.png) | ![After: messages-desktop-light-focus](after-messages-desktop-light-focus.png) |
 | messages-desktop-light-hover | ![Before: messages-desktop-light-hover](before-messages-desktop-light-hover.png) | ![After: messages-desktop-light-hover](after-messages-desktop-light-hover.png) |
 | messages-desktop-light-rest | ![Before: messages-desktop-light-rest](before-messages-desktop-light-rest.png) | ![After: messages-desktop-light-rest](after-messages-desktop-light-rest.png) |
+| messages-mobile-touch-dark-focus | ![Before: messages-mobile-touch-dark-focus](before-messages-mobile-touch-dark-focus.png) | ![After: messages-mobile-touch-dark-focus](after-messages-mobile-touch-dark-focus.png) |
 | messages-mobile-touch-dark-rest | ![Before: messages-mobile-touch-dark-rest](before-messages-mobile-touch-dark-rest.png) | ![After: messages-mobile-touch-dark-rest](after-messages-mobile-touch-dark-rest.png) |
+| messages-mobile-touch-light-focus | ![Before: messages-mobile-touch-light-focus](before-messages-mobile-touch-light-focus.png) | ![After: messages-mobile-touch-light-focus](after-messages-mobile-touch-light-focus.png) |
 | messages-mobile-touch-light-rest | ![Before: messages-mobile-touch-light-rest](before-messages-mobile-touch-light-rest.png) | ![After: messages-mobile-touch-light-rest](after-messages-mobile-touch-light-rest.png) |
+| mobile-touch-dark-focus | ![Before: mobile-touch-dark-focus](before-mobile-touch-dark-focus.png) | ![After: mobile-touch-dark-focus](after-mobile-touch-dark-focus.png) |
 | mobile-touch-dark-rest | ![Before: mobile-touch-dark-rest](before-mobile-touch-dark-rest.png) | ![After: mobile-touch-dark-rest](after-mobile-touch-dark-rest.png) |
+| mobile-touch-light-focus | ![Before: mobile-touch-light-focus](before-mobile-touch-light-focus.png) | ![After: mobile-touch-light-focus](after-mobile-touch-light-focus.png) |
 | mobile-touch-light-rest | ![Before: mobile-touch-light-rest](before-mobile-touch-light-rest.png) | ![After: mobile-touch-light-rest](after-mobile-touch-light-rest.png) |
