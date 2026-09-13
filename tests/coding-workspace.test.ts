@@ -406,7 +406,7 @@ test("review CTA requires explicit verification, preserves integration distincti
         assert.equal(
           db.prepare("SELECT count(*) n FROM coding_workspace_versions").get()!
             .n,
-          1,
+          2,
         );
       }),
     );

@@ -266,6 +266,9 @@ export const createCodingJob = (input: CreateCodingJob) =>
       db.prepare(
         `INSERT INTO coding_jobs(${fields.join(",")},request) VALUES(${fields.map(() => "?").join(",")},?)`,
       ).run(...Object.values(job).map(sqlValue), request);
+      db.prepare(
+        "INSERT INTO conversation_records(id,agentId,createdAt) VALUES(?,?,?)",
+      ).run(job.id, job.agentId, job.createdAt);
       return job;
     }),
   );

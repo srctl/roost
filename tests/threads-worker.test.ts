@@ -92,7 +92,7 @@ test("worker resume and native-session rollover preserve imported assistant/acti
     await run(
       withAgentStore((db) =>
         db
-          .prepare("UPDATE agent_tool_versions SET version=10 WHERE threadId=?")
+          .prepare("UPDATE agent_tool_versions SET version=13 WHERE threadId=?")
           .run(session.threadId!),
       ),
     );

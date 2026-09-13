@@ -13,23 +13,39 @@ labeled ready for PR review.
 availability, workflow (`working`, `feedback`, `review`), latest changes, PR links,
 verification evidence and independent integration verification. Execution remains
 in `coding_jobs`. Stopped or unavailable previews never complete/cancel jobs.
-Availability is a timestamped report, not a health check; the app does not fetch
-arbitrary preview URLs or start/stop preview infrastructure. HTTP(S) links reject
-embedded credentials and executable schemes.
+Availability is a timestamped report with a **15-minute lease**, not a health
+check. Only `roost_report_coding_workspace` renews `previewReportedAt` and
+`previewExpiresAt`; unrelated workflow writes do not. Missing, future-dated,
+overlong or expired leases display **Unknown** and lose the running primary
+CTA. A clearly labeled **Try last preview** link preserves discovery. The UI
+rechecks time every second even if refresh fails; returning to a tab rechecks it.
+Known offline state suspends route refresh so the app’s auth revalidation cannot
+replace the workspace with a network error. Failed job reads retain the last
+loaded list with an error; this is not an offline mutation queue.
+The workspace read API also returns the effective `previewStatus`. No arbitrary
+URL fetching, auth bypass, background model polling or preview infrastructure
+control is introduced. HTTP(S) links reject embedded credentials and executable
+schemes. A preview can fail before its lease expires; “Reported running” is not
+an uptime guarantee. A later confirmed report restores that indication.
 
 The coding coordinator reads `roost_get_coding_workspace` and writes
 `roost_report_coding_workspace` within the existing active-run/job authorization.
 A feedback pause requires an idle/review worker with no pending input. Worker
 polls preserve the separate pause, and autonomous coding-result runs cannot
-continue, complete or clear that pause. A newer explicit user conversation or
-Jobs continuation can resume. A review report requires PR URLs and nonempty
+continue, complete or clear that pause. A newer explicit user turn in that job discussion or
+Jobs continuation can resume. An unrelated main/sibling turn cannot release it. A review report requires PR URLs and nonempty
 verification evidence; this is a coordinator assertion, not a CI attestation.
 
 Saved feedback is an existing timeline notice, linked through
 `coding_job_feedback` (IDs, preview revision, timestamp, delivery association).
 Saving does not enqueue a chat run, steer a conversation or send worker input.
-The detail view lists these job-linked notices; feedback remains visible in the
-agent conversation too. Content is not duplicated in a new discussion store.
+Saved feedback lives only in the job's conversation. “Worker feedback” keeps
+selection and delivery receipts compact; “Talk to agent” uses the existing
+`Conversation` component, scoped chat API, native session and run queue. That
+chat can discuss the task without submitting saved feedback automatically.
+Replies, workspace updates and notifications stay in the job conversation;
+notification URLs reopen it using the existing conversation query. No parallel
+message store or new agent identity is introduced.
 
 Explicit continuation sends selected, previously unsent feedback through the
 existing `coding_job_inputs` dispatch path. The transaction checks agent/job
@@ -45,24 +61,49 @@ receipts remain durable after that browser state is gone.
 
 ## Thread and migration boundaries
 
-Read-only inspection used the unmerged #22 → #23 → #24 interfaces at `ee30154`:
-`conversation_records`, `openReplyThread`, `runConversationId`, conversation-scoped
-sends/timeline and tombstones. This implementation uses the main-conversation ID
-(agent UUID) as the bounded v10 adapter. It does not copy thread code or manufacture
-parent messages. Dedicated child-thread creation, scoped coordinator replies,
-notifications and child-origin jobs remain dependent on that stack. The current
-workspace discussion is saved feedback plus job updates, not a separate live
-assistant thread. #20 → #21 Notes and execution settings remain outside scope.
+Remote inspection on 2026-09-13 confirmed #22 → #23 → #24 remain open, at
+`d88cc45`, `4ed0831`, and `ee30154`. The integration branch explicitly combines
+that inspected dependency with Jobs #27 → #28. Original branches are preserved;
+no thread migration was copied and nothing was merged to main. Review the
+bounded integration commit separately from its dependency merge, then verify the
+aggregate. This layer requires the thread stack and cannot ship independently.
+#20 → #21 Notes and execution settings remain out of scope and are not part of
+this verified aggregate.
 
-The additive migration has its own `coding_workspace_versions` marker. It creates
-only feature-owned tables/indexes and does not consume numeric versions 11–13,
-alter thread/note schemas or rewrite jobs/runs/history. Core `user_version` remains
-10. This is standalone compatibility, not permission to open a thread-stack
-schema with this older core: the existing newer-core-version fence remains.
-When integrating the stacks, retain this additive migration and reconcile the
-shared `jobs.server.ts`, server functions and core store changes. Do not run an
-older worker against a paused-workspace database: older code does not enforce
-feedback pauses. Full aggregate thread/note integration is not yet verified.
+Each job owns a `conversation_records` entry keyed by its existing job UUID,
+without a manufactured parent message. This is a job conversation, not a nested
+reply thread. The original `sourceRunId`, assignment, request, workspace and
+worker/native-session identity remain unchanged, including for jobs originating
+in reply threads. New coding-report runs and notices target the job UUID;
+completed historical reports retain their old provenance. New job sessions get
+the assignment and bounded same-agent context as quoted context, and use
+`roost_read_conversations` for main/sibling awareness. A job conversation cannot
+launch another job, modify execution settings or act on a different job.
+
+Capability version 14 refreshes native coordinator sessions from thread-stack
+v13 so the workspace tools are available; archived messages keep their IDs.
+This is independent of schema versions and never replaces a coding worker.
+
+Core migrations 11–13 are the dependency's original migrations. Feature-keyed
+`coding_workspace_versions` v2 runs after them: it creates conversation records,
+moves only known saved-feedback messages and queued report notices, reroutes
+queued report runs, and binds workspace metadata. It preserves message IDs,
+positions, feedback delivery associations, job/run/worker identities and
+historical results. Upgrade refuses an active old coding-report turn with an
+actionable error; finish or stop those turns on the old runtime before retrying.
+The feature transaction rolls back on collision or failure. Never run old and
+new workers against the same upgraded store or downgrade this database.
+Tombstones fence new feedback/chat/continuation and suppress new report wakeups;
+worker state and the user's Stop control remain available without resurrecting
+the discussion.
+
+`tests/coding-discussion.test.ts` exercises actual chat-worker replies and
+notification routing with the local fake provider, shared-context retrieval,
+same-job pause release, tombstones, bounded report expiry and repeatable
+core-v10/v13 + workspace-v1 upgrades. It also tests the active-report upgrade
+fence and queued routing without replay. Existing thread migration, routing,
+provider/session, notification and coding identity regressions run in the same
+aggregate. All test stores are disposable, with no live data or real workers.
 
 ## Isolated real-app feedback preview
 
