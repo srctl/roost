@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
 import {
+  assertCodingWorkspaceUpgradeReady,
   CodingWorkspaceMigrationError,
   migrateCodingWorkspace,
 } from "../coding/workspace-migration.server";
@@ -29,6 +30,7 @@ export function withAgentStore<A>(
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
+        assertCodingWorkspaceUpgradeReady(db);
         if (version === 0) {
           db.exec("BEGIN IMMEDIATE");
           try {

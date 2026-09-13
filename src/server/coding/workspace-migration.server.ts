@@ -41,16 +41,7 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       CREATE INDEX IF NOT EXISTS coding_feedback_job ON coding_job_feedback(jobId,createdAt);
       INSERT OR IGNORE INTO coding_workspace_versions VALUES(1);
     `);
-    if (
-      db
-        .prepare(
-          "SELECT r.id FROM runs r JOIN coding_job_updates u ON u.runId=r.id WHERE r.status='running' AND r.conversationId!=u.jobId",
-        )
-        .get()
-    )
-      throw new CodingWorkspaceMigrationError(
-        "Finish or stop active coding report turns before upgrading job discussions.",
-      );
+    assertCodingWorkspaceUpgradeReady(db);
     db.exec(`
       INSERT INTO conversation_records(id,agentId,createdAt)
         SELECT id,agentId,createdAt FROM coding_jobs;
@@ -67,4 +58,36 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+// Preflight before *core* migrations too: a refused v10 upgrade must remain
+// readable by its old runtime so that the in-flight turn can be settled there.
+export function assertCodingWorkspaceUpgradeReady(db: DatabaseSync) {
+  const exists = (table: string) =>
+    !!db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+      .get(table);
+  if (!exists("runs") || !exists("coding_job_updates")) return;
+  if (
+    exists("coding_workspace_versions") &&
+    Number(
+      db.prepare("SELECT MAX(version) v FROM coding_workspace_versions").get()
+        ?.v ?? 0,
+    ) >= 2
+  )
+    return;
+  const scoped = db
+    .prepare("PRAGMA table_info(runs)")
+    .all()
+    .some((column) => column.name === "conversationId");
+  if (
+    db
+      .prepare(
+        `SELECT r.id FROM runs r JOIN coding_job_updates u ON u.runId=r.id WHERE r.status='running'${scoped ? " AND r.conversationId!=u.jobId" : ""}`,
+      )
+      .get()
+  )
+    throw new CodingWorkspaceMigrationError(
+      "Finish or stop active coding report turns before upgrading job discussions.",
+    );
 }
