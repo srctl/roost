@@ -25,7 +25,7 @@ export const fixtures: Job[] = [
     update: "Compact list and a workspace for each job are ready to try.",
     age: "2m",
     preview: "Running",
-    revision: "03",
+    revision: "04",
     task: "Redesign coding Jobs around ongoing work, live previews, feedback and eventual PRs. Keep the list compact and preserve the original assignment and worker when continuing. Start with an interactive preview for feedback.",
     changes: [
       "A compact list puts the latest update beside each task.",
