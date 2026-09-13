@@ -348,6 +348,9 @@ for (const core of [10, 13])
             "UPDATE coding_job_workspaces SET conversationId=agentId WHERE jobId=?",
           ).run(id);
           db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
+          db.exec(
+            `DROP TABLE agent_notes; DROP TABLE note_revisions; DROP TABLE note_requests; DROP TABLE note_reads; PRAGMA user_version=${core}`,
+          );
           if (core === 10)
             db.exec(
               `${readFileSync(
@@ -355,8 +358,10 @@ for (const core of [10, 13])
                 "utf8",
               )};PRAGMA user_version=10`,
             );
-          else
+          else {
+            db.exec("PRAGMA user_version=13");
             db.prepare("DELETE FROM conversation_records WHERE id=?").run(id);
+          }
         }),
       );
       for (let i = 0; i < 2; i++) {
@@ -376,7 +381,7 @@ for (const core of [10, 13])
           withAgentStore((db) => {
             assert.equal(
               db.prepare("PRAGMA user_version").get()!.user_version,
-              13,
+              14,
             );
             assert.equal(
               db
@@ -421,6 +426,9 @@ for (const core of [10, 13])
           });
           db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
           db.prepare("DELETE FROM conversation_records WHERE id=?").run(id);
+          db.exec(
+            `DROP TABLE agent_notes; DROP TABLE note_revisions; DROP TABLE note_requests; DROP TABLE note_reads; PRAGMA user_version=${core}`,
+          );
           if (core === 10)
             db.exec(
               `${readFileSync(new URL("./fixtures/remove-thread-schema.sql", import.meta.url), "utf8")};PRAGMA user_version=10`,

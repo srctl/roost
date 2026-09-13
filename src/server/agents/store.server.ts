@@ -8,6 +8,11 @@ import {
   CodingWorkspaceMigrationError,
   migrateCodingWorkspace,
 } from "../coding/workspace-migration.server";
+import {
+  FeatureMigrationError,
+  inspectFeatureShape,
+  migrateNotes,
+} from "./feature-migration.server";
 
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
@@ -26,15 +31,18 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 13)
+        if (version > 14)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
-        assertCodingWorkspaceUpgradeReady(db);
-        if (version === 0) {
-          db.exec("BEGIN IMMEDIATE");
-          try {
-            db.exec(`
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          const shape = inspectFeatureShape(db, version);
+          assertCodingWorkspaceUpgradeReady(db);
+          if (version === 0) {
+            db.exec("SAVEPOINT core_step");
+            try {
+              db.exec(`
           CREATE TABLE IF NOT EXISTS agents (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, instructions TEXT NOT NULL,
             character TEXT NOT NULL, model TEXT NOT NULL, createdAt TEXT NOT NULL
@@ -80,14 +88,14 @@ export function withAgentStore<A>(
           INSERT OR IGNORE INTO runtime_control (id,maintenance) VALUES (1,0);
           PRAGMA user_version = 1;
           `);
-            db.exec("COMMIT");
-          } catch (error) {
-            db.exec("ROLLBACK");
-            throw error;
+              db.exec("RELEASE core_step");
+            } catch (error) {
+              db.exec("ROLLBACK TO core_step");
+              throw error;
+            }
           }
-        }
-        if (version < 2) {
-          db.exec(`BEGIN IMMEDIATE;
+          if (version < 2) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE IF NOT EXISTS delegations (
               id TEXT PRIMARY KEY, sourceAgentId TEXT NOT NULL,
               sourceRunId TEXT NOT NULL, targetAgentId TEXT NOT NULL,
@@ -95,10 +103,10 @@ export function withAgentStore<A>(
             );
             CREATE INDEX IF NOT EXISTS delegations_source ON delegations(sourceAgentId);
             PRAGMA user_version = 2;
-            COMMIT;`);
-        }
-        if (version < 3) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 3) {
+            db.exec(`SAVEPOINT core_step;
             ALTER TABLE timeline ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;
             CREATE TABLE timeline_revision (id INTEGER PRIMARY KEY, value INTEGER NOT NULL);
             INSERT INTO timeline_revision VALUES (1, 0);
@@ -114,10 +122,10 @@ export function withAgentStore<A>(
               UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
             END;
             PRAGMA user_version = 3;
-            COMMIT;`);
-        }
-        if (version < 4) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 4) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE files (
               id TEXT PRIMARY KEY, agentId TEXT NOT NULL, runId TEXT,
               name TEXT NOT NULL, mimeType TEXT NOT NULL, size INTEGER NOT NULL,
@@ -136,10 +144,10 @@ export function withAgentStore<A>(
               endpoint TEXT PRIMARY KEY, subscription TEXT NOT NULL, createdAt INTEGER NOT NULL
             );
             PRAGMA user_version = 4;
-            COMMIT;`);
-        }
-        if (version < 5) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 5) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE dashboard_settings (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 0);
             INSERT INTO dashboard_settings(id,enabled) VALUES(1,0);
             CREATE TABLE dashboards (
@@ -148,10 +156,10 @@ export function withAgentStore<A>(
               PRIMARY KEY(agentId,key)
             );
             PRAGMA user_version = 5;
-            COMMIT;`);
-        }
-        if (version < 6) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 6) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE notification_settings (id INTEGER PRIMARY KEY CHECK(id=1), preferences TEXT NOT NULL);
             INSERT INTO notification_settings(id,preferences) VALUES(1,'{"enabled":true,"turnCompleted":true,"agentUpdates":true,"needsAttention":true}');
             CREATE TABLE agent_notifications (
@@ -161,20 +169,20 @@ export function withAgentStore<A>(
             );
             ALTER TABLE runs ADD COLUMN hasAgentUpdate INTEGER NOT NULL DEFAULT 0;
             PRAGMA user_version = 6;
-            COMMIT;`);
-        }
-        if (version < 7) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 7) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE agent_reflections (
               agentId TEXT PRIMARY KEY, intervalMinutes INTEGER NOT NULL DEFAULT 360,
               nextRunAt INTEGER, lastActivityAt INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX runs_agent_kind_finished ON runs(agentId,kind,finishedAt);
             PRAGMA user_version = 7;
-            COMMIT;`);
-        }
-        if (version < 8) {
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (version < 8) {
+            db.exec(`SAVEPOINT core_step;
             ALTER TABLE agents ADD COLUMN kind TEXT NOT NULL DEFAULT 'assistant' CHECK(kind IN ('assistant','coding'));
             CREATE TABLE coding_settings (
               agentId TEXT PRIMARY KEY, repository TEXT NOT NULL,
@@ -217,29 +225,31 @@ export function withAgentStore<A>(
               runId TEXT PRIMARY KEY, jobId TEXT NOT NULL, agentId TEXT NOT NULL
             );
             PRAGMA user_version = 8;
-            COMMIT;`);
-        }
-        if (version < 10) {
-          // Both feature previews used schema 9. Complete either shape without
-          // replacing saved datasets or an existing automation model selection.
-          db.exec("BEGIN IMMEDIATE");
-          try {
-            db.exec(`CREATE TABLE IF NOT EXISTS dashboard_datasets (
+            RELEASE core_step;`);
+          }
+          if (version < 10) {
+            // Both feature previews used schema 9. Complete either shape without
+            // replacing saved datasets or an existing automation model selection.
+            db.exec("SAVEPOINT core_step");
+            try {
+              db.exec(`CREATE TABLE IF NOT EXISTS dashboard_datasets (
               agentId TEXT NOT NULL, key TEXT NOT NULL, content TEXT NOT NULL,
               revision INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
               PRIMARY KEY(agentId,key)
             )`);
-            const columns = db.prepare("PRAGMA table_info(automations)").all();
-            if (!columns.some((column) => column.name === "model"))
-              db.exec("ALTER TABLE automations ADD COLUMN model TEXT");
-            db.exec("PRAGMA user_version = 10; COMMIT");
-          } catch (error) {
-            db.exec("ROLLBACK");
-            throw error;
+              const columns = db
+                .prepare("PRAGMA table_info(automations)")
+                .all();
+              if (!columns.some((column) => column.name === "model"))
+                db.exec("ALTER TABLE automations ADD COLUMN model TEXT");
+              db.exec("PRAGMA user_version = 10; RELEASE core_step");
+            } catch (error) {
+              db.exec("ROLLBACK TO core_step");
+              throw error;
+            }
           }
-        }
-        if (version < 11) {
-          db.exec(`BEGIN IMMEDIATE;
+          if (!shape.threads) {
+            db.exec(`SAVEPOINT core_step;
             CREATE TABLE conversation_records (
               id TEXT PRIMARY KEY, agentId TEXT NOT NULL,
               parentConversationId TEXT, parentMessageId TEXT, parent TEXT,
@@ -282,28 +292,35 @@ export function withAgentStore<A>(
               UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
             END;
             PRAGMA user_version = 11;
-            COMMIT;`);
-        }
-        if (version < 12)
-          db.exec(`BEGIN IMMEDIATE;
+            RELEASE core_step;`);
+          }
+          if (!shape.sessionModels)
+            db.exec(`SAVEPOINT core_step;
           ALTER TABLE conversation_sessions ADD COLUMN provider TEXT NOT NULL DEFAULT 'codex';
           ALTER TABLE conversation_sessions ADD COLUMN model TEXT;
           UPDATE conversation_sessions SET model=(SELECT model FROM agents WHERE agents.id=conversation_sessions.agentId);
           PRAGMA user_version=12;
-          COMMIT;`);
-        if (version < 13)
-          db.exec(`BEGIN IMMEDIATE;
+          RELEASE core_step;`);
+          if (!shape.messageIds)
+            db.exec(`SAVEPOINT core_step;
           CREATE TABLE provider_message_ids(agentId TEXT NOT NULL,conversationId TEXT NOT NULL,threadId TEXT NOT NULL,nativeId TEXT NOT NULL,messageId TEXT NOT NULL,PRIMARY KEY(agentId,conversationId,threadId,nativeId));
           INSERT OR IGNORE INTO provider_message_ids SELECT t.agentId,t.conversationId,COALESCE(s.threadId,c.threadId),t.id,t.id FROM timeline t LEFT JOIN conversation_sessions s ON s.conversationId=t.conversationId LEFT JOIN conversations c ON c.agentId=t.agentId WHERE COALESCE(s.threadId,c.threadId) IS NOT NULL AND json_extract(t.message,'$.role') IN ('assistant','activity');
-          PRAGMA user_version=13; COMMIT;`);
-        migrateCodingWorkspace(db);
+          PRAGMA user_version=13; RELEASE core_step;`);
+          migrateNotes(db);
+          migrateCodingWorkspace(db);
+          db.exec("PRAGMA user_version=14; COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
         return run(db, directory);
       } finally {
         db.close();
       }
     },
     catch: (error) =>
-      error instanceof CodingWorkspaceMigrationError
+      error instanceof CodingWorkspaceMigrationError ||
+      error instanceof FeatureMigrationError
         ? new AgentStoreError({ message: error.message })
         : error instanceof AgentStoreError
           ? error
@@ -440,7 +457,7 @@ export const saveConversationThread = (
         "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
       ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,14)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,15)",
     ).run(threadId);
   });
 

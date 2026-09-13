@@ -26,7 +26,7 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       .get()?.version ?? 0,
   );
   if (version >= 2) return;
-  db.exec("BEGIN IMMEDIATE");
+  db.exec("SAVEPOINT coding_workspace_upgrade");
   try {
     if (version < 1)
       db.exec(`
@@ -52,10 +52,12 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       UPDATE runs SET conversationId=(SELECT jobId FROM coding_job_updates WHERE runId=runs.id) WHERE status='queued' AND EXISTS(SELECT 1 FROM coding_job_updates WHERE runId=runs.id);
       UPDATE coding_job_workspaces SET conversationId=jobId;
       INSERT INTO coding_workspace_versions VALUES(2);
-      COMMIT;
+      RELEASE coding_workspace_upgrade;
     `);
   } catch (error) {
-    db.exec("ROLLBACK");
+    db.exec(
+      "ROLLBACK TO coding_workspace_upgrade; RELEASE coding_workspace_upgrade",
+    );
     throw error;
   }
 }
