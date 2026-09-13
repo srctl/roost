@@ -395,3 +395,63 @@ test("new user requests during coding updates keep their own conversation permis
       ),
     );
   }));
+
+test("delayed coding outcomes retain the originating child after other conversations run", async () =>
+  fixture(async (agentId, runId) => {
+    const { putMessage, readTimeline } = await import(
+      "../src/server/runs/timeline.server"
+    );
+    const { openReplyThread } = await import(
+      "../src/server/runs/threads.server"
+    );
+    await run(
+      withAgentStore((db) =>
+        putMessage(db, agentId, {
+          id: "coding-parent",
+          role: "user",
+          text: "Review this work",
+        }),
+      ),
+    );
+    const child = await run(openReplyThread(agentId, "coding-parent"));
+    await run(
+      withAgentStore((db) =>
+        db
+          .prepare("UPDATE runs SET conversationId=? WHERE id=?")
+          .run(child.id, runId),
+      ),
+    );
+    const job = await run(startCodingJob(agentId, runId, startInput()));
+    await run(
+      withAgentStore((db) => {
+        db.prepare("UPDATE runs SET status='completed' WHERE id=?").run(runId);
+        db.prepare(
+          "INSERT INTO runs(id,agentId,kind,prompt,status,createdAt) VALUES (?,?,'chat','New main work','running',?)",
+        ).run(randomUUID(), agentId, Date.now());
+        changeCodingJob(db, job, {
+          status: "review",
+          output: "Delayed verified result",
+        });
+      }),
+    );
+    await run(
+      withAgentStore((db) =>
+        assert.equal(
+          db
+            .prepare("SELECT conversationId FROM runs WHERE kind='coding'")
+            .get()!.conversationId,
+          child.id,
+        ),
+      ),
+    );
+    assert.ok(
+      (await run(readTimeline(agentId, child.id))).some((m) =>
+        m.title?.includes("ready to review"),
+      ),
+    );
+    assert.ok(
+      !(await run(readTimeline(agentId))).some((m) =>
+        m.title?.includes("ready to review"),
+      ),
+    );
+  }));

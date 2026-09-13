@@ -18,7 +18,7 @@ import {
   type Run,
   schedulerTick,
 } from "./store.server";
-import { putMessage, readTimeline } from "./timeline.server";
+import { providerMessageId, putMessage, readTimeline } from "./timeline.server";
 
 export const ensureTimeline = (agentId: string) =>
   Effect.gen(function* () {
@@ -40,10 +40,12 @@ export const ensureTimeline = (agentId: string) =>
         ) {
           const pending = db
             .prepare(
-              "SELECT message FROM timeline WHERE agentId=? ORDER BY position",
+              "SELECT message FROM timeline WHERE agentId=? AND conversationId=agentId ORDER BY position",
             )
             .all(agentId);
-          db.prepare("DELETE FROM timeline WHERE agentId=?").run(agentId);
+          db.prepare(
+            "DELETE FROM timeline WHERE agentId=? AND conversationId=agentId",
+          ).run(agentId);
           for (const message of history.messages)
             putMessage(db, agentId, message);
           for (const row of pending)
@@ -94,15 +96,55 @@ async function execute(run: Run, signal: AbortSignal) {
   let error: string | undefined;
   try {
     await Effect.runPromise(ensureTimeline(run.agentId), { signal });
-    const timeline = await Effect.runPromise(readTimeline(run.agentId));
+    const timeline = await Effect.runPromise(
+      readTimeline(run.agentId, run.conversationId),
+    );
     const oldIds = new Set(timeline.map((m) => m.id));
     const taskNotice = timeline.find(
       (m) => m.id === run.id && m.role === "notice",
     );
     oldIds.delete(run.id);
 
-    const emit = (event: ChatEvent) => {
-      messages = mergeEvent(messages, event)
+    const emit = (event: ChatEvent, nativeThreadId?: string) => {
+      const mapped = Effect.runSync(
+        withAgentStore((db) => {
+          const mapMessage = (message: Message): Message =>
+            message.role === "user" ||
+            message.role === "notice" ||
+            !(message.nativeThreadId ?? nativeThreadId)
+              ? message
+              : {
+                  ...message,
+                  id: providerMessageId(
+                    db,
+                    run.agentId,
+                    run.conversationId,
+                    message.nativeThreadId ?? nativeThreadId!,
+                    message.id,
+                  ),
+                };
+          if (event.type === "history")
+            return { ...event, messages: event.messages.map(mapMessage) };
+          if (event.type === "message")
+            return { ...event, message: mapMessage(event.message) };
+          if (
+            (event.type === "delta" || event.type === "activityDelta") &&
+            nativeThreadId
+          )
+            return {
+              ...event,
+              id: providerMessageId(
+                db,
+                run.agentId,
+                run.conversationId,
+                nativeThreadId,
+                event.id,
+              ),
+            };
+          return event;
+        }),
+      );
+      messages = mergeEvent(messages, mapped)
         .filter((message) => !oldIds.has(message.id))
         .map((message) =>
           taskNotice && message.id === run.id ? taskNotice : message,
@@ -118,7 +160,12 @@ async function execute(run: Run, signal: AbortSignal) {
 
     await Effect.runPromise(
       sendConversation(
-        { agentId: run.agentId, messageId: run.id, text: run.prompt },
+        {
+          agentId: run.agentId,
+          conversationId: run.conversationId,
+          messageId: run.id,
+          text: run.prompt,
+        },
         emit,
         run.automationSnapshot ? JSON.parse(run.automationSnapshot) : undefined,
         run.kind,
@@ -128,6 +175,7 @@ async function execute(run: Run, signal: AbortSignal) {
           oldIds.delete(next.id);
           return {
             agentId: next.agentId,
+            conversationId: next.conversationId,
             messageId: next.id,
             text: next.prompt,
           };

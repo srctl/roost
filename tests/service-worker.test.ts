@@ -144,3 +144,43 @@ test("PWA navigation uses preloaded network responses and provides an uncached o
   assert.match(await offline!.text(), /You're offline/);
   assert.equal(sw.entries.size, 0);
 });
+
+test("notification links accept only same-origin agent and conversation UUIDs", async () => {
+  const listeners = new Map<string, (event: unknown) => void>();
+  const opened: string[] = [];
+  runInNewContext(source, {
+    URL,
+    Response,
+    self: {
+      location: { origin: "https://roost.test" },
+      addEventListener: (name: string, fn: (event: unknown) => void) =>
+        listeners.set(name, fn),
+      clients: {
+        matchAll: async () => [],
+        openWindow: async (url: string) => opened.push(url),
+      },
+    },
+  });
+  const agent = "11111111-1111-4111-8111-111111111111";
+  const child = "22222222-2222-4222-8222-222222222222";
+  for (const [url, expected] of [
+    [`/agents/${agent}`, `/agents/${agent}`],
+    [
+      `/agents/${agent}?conversation=${child}`,
+      `/agents/${agent}?conversation=${child}`,
+    ],
+    [`https://evil.test/agents/${agent}`, "/"],
+    [`/agents/${agent}?conversation=${child}&admin=true`, "/"],
+    [`/agents/${agent}?conversation=${child}&conversation=${child}`, "/"],
+    [`/agents/${agent}?conversation=bad`, "/"],
+    [`/agents/${agent}#unsupported`, "/"],
+  ]) {
+    let pending: Promise<unknown> | undefined;
+    listeners.get("notificationclick")!({
+      notification: { close() {}, data: { url } },
+      waitUntil: (p: Promise<unknown>) => (pending = p),
+    });
+    await pending;
+    assert.equal(opened.at(-1), `https://roost.test${expected}`);
+  }
+});

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { test } from "node:test";
 import { Effect, JSONSchema, Schema } from "effect";
 import { chartDataError } from "../src/features/dashboards/chart-data";
@@ -335,7 +335,12 @@ test("v8 migration preserves legacy boards and disabled preference", () =>
     await run(setDashboardPreference(false));
     await run(
       withAgentStore((db) =>
-        db.exec("DROP TABLE dashboard_datasets; PRAGMA user_version=8"),
+        db.exec(
+          `${readFileSync(
+            new URL("./fixtures/remove-thread-schema.sql", import.meta.url),
+            "utf8",
+          )}DROP TABLE dashboard_datasets; PRAGMA user_version=8`,
+        ),
       ),
     );
     await assert.rejects(run(listDatasets(owner)), /Dashboards are off/);
