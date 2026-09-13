@@ -424,3 +424,96 @@ test("deleted threads retain origin and parent snapshots, fence sends and never 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("thread timestamps come from stored rows and survive streaming updates", async () => {
+  const root = mkdtempSync(join(tmpdir(), "roost-thread-times-"));
+  const previous = process.env.ROOST_DATA_DIR;
+  process.env.ROOST_DATA_DIR = root;
+  try {
+    const agent = await Effect.runPromise(
+      saveAgent({
+        id: randomUUID(),
+        name: "Moss",
+        instructions: "Help",
+        character: "moss",
+        model: "fake",
+      }),
+    );
+    await Effect.runPromise(
+      withAgentStore((db) => {
+        putMessage(db, agent.id, {
+          id: "parent",
+          role: "user",
+          text: "Parent",
+        });
+        db.prepare("UPDATE timeline SET createdAt=? WHERE agentId=?").run(
+          1700000000000,
+          agent.id,
+        );
+      }),
+    );
+    const thread = await Effect.runPromise(openReplyThread(agent.id, "parent"));
+    await Effect.runPromise(
+      withAgentStore((db) => {
+        putMessage(
+          db,
+          agent.id,
+          { id: "reply", role: "assistant", text: "Partial" },
+          thread.id,
+        );
+        putMessage(
+          db,
+          agent.id,
+          { id: "legacy", role: "user", text: "Unknown time" },
+          thread.id,
+        );
+        db.prepare(
+          "UPDATE timeline SET createdAt=? WHERE agentId=? AND id='reply'",
+        ).run(1700000005000, agent.id);
+        db.prepare(
+          "UPDATE timeline SET createdAt=0 WHERE agentId=? AND id='legacy'",
+        ).run(agent.id);
+      }),
+    );
+    const before = await Effect.runPromise(
+      readConversationSnapshot(agent.id, { conversationId: thread.id }),
+    );
+    assert.equal(before.threads[0]?.parent.createdAt, 1700000000000);
+    assert.equal(
+      before.entries.find((e) => e.message.id === "reply")?.message.createdAt,
+      1700000005000,
+    );
+    assert.equal(
+      before.entries.find((e) => e.message.id === "legacy")?.message.createdAt,
+      undefined,
+    );
+    await Effect.runPromise(
+      withAgentStore((db) =>
+        putMessage(
+          db,
+          agent.id,
+          { id: "reply", role: "assistant", text: "Completed" },
+          thread.id,
+        ),
+      ),
+    );
+    const after = await Effect.runPromise(
+      readConversationSnapshot(agent.id, {
+        conversationId: thread.id,
+        since: before.revision,
+      }),
+    );
+    assert.equal(
+      after.entries.find((e) => e.message.id === "reply")?.message.createdAt,
+      1700000005000,
+    );
+    assert.equal(
+      after.entries.find((e) => e.message.id === "reply")?.message.text,
+      "Completed",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.ROOST_DATA_DIR;
+    else process.env.ROOST_DATA_DIR = previous;
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -27,6 +27,7 @@ import { ApprovalRequests } from "./approval-requests";
 import { Composer } from "./conversation/composer";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { ConversationNotice } from "./conversation/notice";
+import { ThreadMessage } from "./conversation/thread-message";
 import { ToolActivity } from "./conversation/tool-activity";
 import { TypingIndicator } from "./conversation/typing-indicator";
 import { Appear } from "./ui/appear";
@@ -420,20 +421,20 @@ export function Conversation({
             )}
           >
             {parent && (
-              <div {...stylex.props(styles.parent)}>
-                <p {...stylex.props(styles.parentAuthor)}>
-                  {parent.role === "user" ? "You" : agent.name}
-                </p>
-                {parent.role === "user" ? (
-                  <UserMessage compact files={parent.files}>
-                    {parent.text}
-                  </UserMessage>
-                ) : (
-                  <AgentMessage compact name={agent.name} files={parent.files}>
-                    {parent.text}
-                  </AgentMessage>
-                )}
-              </div>
+              <>
+                <ThreadMessage agent={agent} message={parent} />
+                <div {...stylex.props(styles.replySeparator)}>
+                  <span>
+                    {threads.find((thread) => thread.id === conversationId)
+                      ?.replyCount ?? 0}{" "}
+                    {threads.find((thread) => thread.id === conversationId)
+                      ?.replyCount === 1
+                      ? "reply"
+                      : "replies"}
+                  </span>
+                  <span {...stylex.props(styles.replyRule)} />
+                </div>
+              </>
             )}
             {loading && showLoading && (
               <p role="status">Loading conversation… You can start typing.</p>
@@ -469,16 +470,23 @@ export function Conversation({
               </div>
             )}
             {threadError && <p role="alert">{threadError}</p>}
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
                 key={message.id}
                 id={message.id}
                 data-message-id={message.id}
               >
-                {message.role === "user" ? (
+                {parent &&
+                (message.role === "user" || message.role === "assistant") ? (
+                  <ThreadMessage
+                    agent={agent}
+                    message={message}
+                    previous={messages[index - 1]}
+                    entering={entering.has(message.id)}
+                  />
+                ) : message.role === "user" ? (
                   <UserMessage
                     files={message.files}
-                    compact={!!parent}
                     entering={entering.has(message.id)}
                   >
                     {message.text}
@@ -497,7 +505,6 @@ export function Conversation({
                     name={agent.name}
                     title={message.title}
                     files={message.files}
-                    compact={!!parent}
                     entering={entering.has(message.id)}
                   >
                     {message.text}
@@ -658,13 +665,15 @@ const fadeIn = stylex.keyframes({
 });
 
 const styles = stylex.create({
-  parent: {
-    borderBottom: `1px solid ${colors.border}`,
-    paddingBottom: 12,
-    marginBottom: 12,
-    overflowWrap: "anywhere",
+  replySeparator: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBlock: 16,
+    color: colors.muted,
+    fontSize: 12,
   },
-  parentAuthor: { margin: 0, color: colors.muted, fontWeight: 500 },
+  replyRule: { height: 1, flex: 1, backgroundColor: colors.border },
   threadHistory: { paddingBlock: 8, paddingLeft: 0 },
   conversation: {
     display: "flex",

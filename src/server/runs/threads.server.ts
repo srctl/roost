@@ -94,6 +94,7 @@ export const openReplyThread = (
 export function threadSummaries(db: DatabaseSync, agentId: string) {
   return db
     .prepare(`SELECT c.id,c.parentMessageId,COALESCE((SELECT message FROM timeline p WHERE p.agentId=c.agentId AND p.conversationId=c.parentConversationId AND p.id=c.parentMessageId),c.parent) AS parent,c.createdAt,
+    (SELECT createdAt FROM timeline p WHERE p.agentId=c.agentId AND p.conversationId=c.parentConversationId AND p.id=c.parentMessageId) AS parentCreatedAt,
     (SELECT COUNT(*) FROM timeline t WHERE t.agentId=c.agentId AND t.conversationId=c.id AND json_extract(t.message,'$.role') IN ('user','assistant')) AS replyCount,
     COALESCE((SELECT MAX(revision) FROM timeline t WHERE t.agentId=c.agentId AND t.conversationId=c.id),0) AS activity,
     (SELECT status FROM runs r WHERE r.agentId=c.agentId AND r.conversationId=c.id AND status IN ('running','queued') ORDER BY status DESC LIMIT 1) AS status
@@ -102,7 +103,12 @@ export function threadSummaries(db: DatabaseSync, agentId: string) {
     .map((row) => ({
       id: String(row.id),
       parentMessageId: String(row.parentMessageId),
-      parent: JSON.parse(String(row.parent)) as Message,
+      parent: {
+        ...(JSON.parse(String(row.parent)) as Message),
+        ...(Number(row.parentCreatedAt) > 0
+          ? { createdAt: Number(row.parentCreatedAt) }
+          : {}),
+      },
       replyCount: Number(row.replyCount),
       activity: Number(row.activity),
       status: row.status ? String(row.status) : null,
