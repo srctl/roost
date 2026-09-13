@@ -61,10 +61,31 @@ async function verifyReplyActions(browser: Browser, base: string) {
               role: "assistant" as const,
               text:
                 "A full width response with a long link: https://example.test/" +
-                "long-path-".repeat(40),
+                "long-path-".repeat(12) +
+                "\n\n```text\n" +
+                "wide-code-".repeat(40) +
+                "\n```\n\n" +
+                "| Check | Result |\n| --- | --- |\n| " +
+                "wide-cell-".repeat(30) +
+                " | Ready |",
+              files: [
+                {
+                  id: "fixture-file",
+                  name: "release-checklist-with-a-long-name.txt",
+                  mimeType: "text/plain",
+                  size: 48,
+                  kind: "attachment" as const,
+                  url: "/api/files/fixture-file",
+                },
+              ],
             },
           ])
             putMessage(db, id, message);
+          putMessage(db, id, {
+            id: "short-assistant",
+            role: "assistant",
+            text: "Ready.",
+          });
           if (hasTouch)
             putMessage(db, id, {
               id: "touch-assistant",
@@ -105,7 +126,35 @@ async function verifyReplyActions(browser: Browser, base: string) {
       const main = page.getByRole("region", {
         name: "Conversation with Reply actions",
         exact: true,
+        includeHidden: true,
       });
+      const shortRow = main.locator('[data-message-id="short-assistant"]');
+      await shortRow.waitFor();
+      const shortBounds = (await shortRow.boundingBox())!;
+      const shortArticle = (await shortRow.locator("article").boundingBox())!;
+      const shortAction = (await shortRow
+        .getByRole("button", { name: "Reply in thread", exact: true })
+        .boundingBox())!;
+      assert.ok(
+        shortArticle.x + shortArticle.width <
+          shortBounds.x + shortBounds.width - 40,
+        "short response shrinks to its content in either display mode",
+      );
+      assert.equal(
+        shortArticle.x + shortArticle.width - shortAction.x - shortAction.width,
+        4,
+      );
+      assert.equal(
+        shortArticle.y +
+          shortArticle.height -
+          shortAction.y -
+          shortAction.height,
+        4,
+      );
+      assert.ok(
+        shortAction.x >= shortArticle.x && shortAction.y >= shortArticle.y,
+      );
+      assert.ok(shortAction.width >= 40 && shortAction.height >= 40);
       const row = main.locator('[data-message-id="new-assistant"]');
       const action = row.getByRole("button", {
         name: "Reply in thread",
@@ -141,12 +190,70 @@ async function verifyReplyActions(browser: Browser, base: string) {
             .toJSON(),
         }));
       const rest = await geometry();
-      const target = (await action.boundingBox())!;
-      assert.ok(target.width >= 40 && target.height >= 40);
       assert.ok(
-        target.y >= rest.content.bottom,
-        "action does not overlap content",
+        rest.content.width <=
+          rest.row.width * (responseStyle === "messages" ? 0.88 : 1) + 0.02,
       );
+      assert.ok(
+        await row
+          .locator("article")
+          .evaluate((el) => el.scrollWidth <= el.clientWidth),
+      );
+      const target = (await action.boundingBox())!;
+      const assertInsideArticle = async () => {
+        const bounds = (await row.locator("article").boundingBox())!;
+        const button = (await action.boundingBox())!;
+        assert.ok(button.width >= 40 && button.height >= 40);
+        assert.ok(button.x >= bounds.x && button.y >= bounds.y);
+        assert.equal(bounds.x + bounds.width - button.x - button.width, 4);
+        assert.equal(bounds.y + bounds.height - button.y - button.height, 4);
+      };
+      await assertInsideArticle();
+      assert.equal(
+        rest.row.bottom,
+        rest.content.bottom,
+        "no trailing action row",
+      );
+      assert.ok(target.y < rest.content.bottom);
+      const assertContentClearance = async () => {
+        const overlaps = await row.locator("article").evaluate((article) => {
+          const target = article
+            .querySelector("button")!
+            .getBoundingClientRect();
+          // These boxes bound visible text, links and clipped code/table content.
+          return [
+            ...article.querySelectorAll(
+              'p, a, pre, [aria-label="Table"], [aria-label="Files"]',
+            ),
+          ]
+            .filter((el) =>
+              [...el.getClientRects()].some(
+                (rect) =>
+                  rect.left < target.right &&
+                  rect.right > target.left &&
+                  rect.top < target.bottom &&
+                  rect.bottom > target.top,
+              ),
+            )
+            .map((el) => el.tagName);
+        });
+        assert.deepEqual(
+          overlaps,
+          [],
+          "text, links, code, table and files clear the target",
+        );
+      };
+      await assertContentClearance();
+      assert.equal(await row.locator("pre").count(), 1);
+      assert.equal(await row.getByRole("region", { name: "Table" }).count(), 1);
+      assert.equal(
+        await row.getByRole("link", { name: /release-checklist/ }).count(),
+        1,
+      );
+      await row.locator('pre, [aria-label="Table"]').evaluateAll((elements) => {
+        for (const el of elements) el.scrollLeft = el.scrollWidth;
+      });
+      await assertContentClearance();
       if (!hasTouch) {
         await row.hover();
         await page.waitForTimeout(200);
@@ -159,7 +266,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
       }
       await page.mouse.move(0, 0);
       // Reach the action by Tab from the preceding link, including when invisible.
-      await row.getByRole("link").focus();
+      await row.getByRole("link").last().focus();
       await page.keyboard.press("Tab");
       assert.ok(await action.evaluate((el) => el === document.activeElement));
       await page.waitForTimeout(200);
@@ -173,6 +280,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
         await action.evaluate((el) => getComputedStyle(el).outlineStyle),
         "solid",
       );
+      const originalAction = await action.elementHandle();
       await page.keyboard.press("Enter");
       const panel = page.getByRole("region", {
         name: "Reply thread",
@@ -181,18 +289,35 @@ async function verifyReplyActions(browser: Browser, base: string) {
       await panel.getByRole("textbox").waitFor();
       const created = new URL(page.url()).searchParams.get("conversation");
       assert.ok(created && ![...threads.values()].includes(created));
+      await row
+        .getByRole("button", { name: /0 replies/, includeHidden: true })
+        .waitFor({ state: "attached" });
+      assert.ok(await originalAction!.evaluate((el) => el.isConnected));
       await page.keyboard.press("Escape");
       await panel.waitFor({ state: "detached" });
       assert.ok(
-        await row
-          .getByRole("button")
-          .evaluate((el) => el === document.activeElement),
+        await originalAction!.evaluate(
+          (el) => el.isConnected && el === document.activeElement,
+        ),
       );
+      await assertInsideArticle();
+      await assertContentClearance();
+      const refreshed = await geometry();
+      assert.equal(refreshed.content.width, rest.content.width);
+      assert.equal(refreshed.content.height, rest.content.height);
+      await page.keyboard.press("Enter");
+      await panel.getByRole("textbox").waitFor();
+      assert.equal(
+        new URL(page.url()).searchParams.get("conversation"),
+        created,
+      );
+      await page.keyboard.press("Escape");
+      await panel.waitFor({ state: "detached" });
       // Counts remain visible and open every historical root, even empty user threads.
       for (const [root, child] of threads) {
         const nav = main
           .locator(`[data-message-id="${root}"]`)
-          .getByRole("button");
+          .getByRole("button", { name: /^Reply in thread: / });
         await nav.scrollIntoViewIfNeeded();
         await page.mouse.move(0, 0);
         assert.equal(
@@ -224,8 +349,27 @@ async function verifyReplyActions(browser: Browser, base: string) {
           await touchAction.evaluate((el) => getComputedStyle(el).opacity),
           "1",
         );
+        const originalTouchAction = await touchAction.elementHandle();
+        const touchBounds = (await touchRow.locator("article").boundingBox())!;
+        const touchTarget = (await touchAction.boundingBox())!;
+        assert.equal(
+          touchBounds.x + touchBounds.width - touchTarget.x - touchTarget.width,
+          4,
+        );
+        assert.equal(
+          touchBounds.y +
+            touchBounds.height -
+            touchTarget.y -
+            touchTarget.height,
+          4,
+        );
+        assert.ok(touchTarget.width >= 40 && touchTarget.height >= 40);
         await touchAction.tap();
         await panel.getByRole("textbox").waitFor();
+        await touchRow
+          .getByRole("button", { name: /0 replies/, includeHidden: true })
+          .waitFor({ state: "attached" });
+        assert.ok(await originalTouchAction!.evaluate((el) => el.isConnected));
         const touchCreated = new URL(page.url()).searchParams.get(
           "conversation",
         );
@@ -238,7 +382,12 @@ async function verifyReplyActions(browser: Browser, base: string) {
           .getByRole("button", { name: "Close thread", exact: true })
           .tap();
         await panel.waitFor({ state: "detached" });
-        await touchRow.getByRole("button", { name: /0 replies/ }).tap();
+        assert.ok(
+          await originalTouchAction!.evaluate(
+            (el) => el.isConnected && el === document.activeElement,
+          ),
+        );
+        await touchAction.tap();
         await panel.getByRole("textbox").waitFor();
         assert.equal(
           new URL(page.url()).searchParams.get("conversation"),

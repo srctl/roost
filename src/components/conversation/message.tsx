@@ -39,6 +39,7 @@ export function UserMessage({
 
 export function AgentMessage({
   name,
+  action,
   title,
   files,
   children,
@@ -46,6 +47,7 @@ export function AgentMessage({
   compact = false,
 }: {
   name: string;
+  action?: ReactNode;
   title?: string;
   files?: readonly FileAttachment[];
   children: string;
@@ -62,12 +64,16 @@ export function AgentMessage({
         styles.message,
         responseStyle === "messages" && styles.incoming,
         compact && styles.compactAgent,
+        !!action && styles.withAction,
+        !!action && responseStyle !== "messages" && styles.documentWithAction,
+        !!action && stylex.defaultMarker(),
         entering && styles.received,
       )}
     >
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
       {children && <MessageContent>{children}</MessageContent>}
       <FileLinks files={files} />
+      {action}
     </article>
   );
 }
@@ -98,6 +104,14 @@ const styles = stylex.create({
     lineHeight: 1.65,
   },
   message: { marginTop: 20, overflowWrap: "anywhere", lineHeight: 1.75 },
+  // Keep the 40px action and its focus ring inside the article, beside content.
+  // The gutter also constrains scrollable code/tables and attachment links.
+  documentWithAction: { width: "fit-content", maxWidth: "100%" },
+  withAction: {
+    position: "relative",
+    minHeight: 48,
+    paddingInlineEnd: 56,
+  },
   incoming: {
     width: "fit-content",
     maxWidth: "88%",

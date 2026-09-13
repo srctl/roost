@@ -482,12 +482,45 @@ export function Conversation({
               const existingThread = threads.find(
                 (thread) => thread.parentMessageId === message.id,
               );
+              const openReply = async () => {
+                if (!onOpenThread) return;
+                if (existingThread) {
+                  setThreadError(undefined);
+                  onOpenThread(existingThread.id);
+                  return;
+                }
+                try {
+                  const result = await openThread({
+                    data: {
+                      agentId: agent.id,
+                      parentMessageId: message.id,
+                    },
+                  });
+                  if (result.ok) {
+                    setThreadError(undefined);
+                    onOpenThread(result.value.id);
+                  } else setThreadError(result.error);
+                } catch {
+                  setThreadError("Could not open this thread. Please retry.");
+                }
+              };
+
+              const replyAction = onOpenThread &&
+                message.role === "assistant" && (
+                  <Button
+                    xstyle={styles.replyAction}
+                    title="Reply in thread"
+                    aria-label="Reply in thread"
+                    onClick={openReply}
+                  >
+                    <Icon name="reply" />
+                  </Button>
+                );
               return (
                 <div
                   key={message.id}
                   id={message.id}
                   data-message-id={message.id}
-                  {...stylex.props(stylex.defaultMarker())}
                 >
                   {parent &&
                   (message.role === "user" || message.role === "assistant") ? (
@@ -515,6 +548,7 @@ export function Conversation({
                     />
                   ) : (
                     <AgentMessage
+                      action={replyAction}
                       name={agent.name}
                       title={message.title}
                       files={message.files}
@@ -523,47 +557,15 @@ export function Conversation({
                       {message.text}
                     </AgentMessage>
                   )}
-                  {onOpenThread &&
-                    (existingThread || message.role === "assistant") && (
-                      <Button
-                        xstyle={!existingThread && styles.replyAction}
-                        title="Reply in thread"
-                        aria-label={
-                          existingThread
-                            ? `Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`
-                            : "Reply in thread"
-                        }
-                        onClick={async () => {
-                          if (existingThread) {
-                            setThreadError(undefined);
-                            onOpenThread(existingThread.id);
-                            return;
-                          }
-                          try {
-                            const result = await openThread({
-                              data: {
-                                agentId: agent.id,
-                                parentMessageId: message.id,
-                              },
-                            });
-                            if (result.ok) {
-                              setThreadError(undefined);
-                              onOpenThread(result.value.id);
-                            } else setThreadError(result.error);
-                          } catch {
-                            setThreadError(
-                              "Could not open this thread. Please retry.",
-                            );
-                          }
-                        }}
-                      >
-                        {existingThread ? (
-                          replyLabel(message.id)
-                        ) : (
-                          <Icon name="reply" />
-                        )}
-                      </Button>
-                    )}
+                  {onOpenThread && existingThread && (
+                    <Button
+                      title="Reply in thread"
+                      aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
+                      onClick={openReply}
+                    >
+                      {replyLabel(message.id)}
+                    </Button>
+                  )}
                   {computerEnabled &&
                     computerOpen &&
                     message.id === computerAnchor && (
@@ -688,8 +690,6 @@ const fadeIn = stylex.keyframes({
 });
 
 const styles = stylex.create({
-  // Reserve a trailing action row so revealing the icon never narrows or covers
-  // message content (including code, tables and attachments).
   replyAction: {
     display: "flex",
     width: 40,
@@ -697,8 +697,9 @@ const styles = stylex.create({
     minWidth: 40,
     minHeight: 40,
     padding: 0,
-    marginLeft: "auto",
-    marginRight: 4,
+    position: "absolute",
+    insetInlineEnd: 4,
+    bottom: 4,
     opacity: {
       default: 1,
       "@media (hover: hover)": {
