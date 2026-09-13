@@ -10,6 +10,7 @@ import {
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { assertAvailable } from "../maintenance.server";
 import { writeTransaction } from "../transaction.server";
+import { requireCodingEnabled } from "./preference.server";
 
 export function requireCodingAgent(db: DatabaseSync, agentId: string) {
   const agent = db.prepare("SELECT kind FROM agents WHERE id=?").get(agentId);
@@ -47,6 +48,7 @@ export const saveCodingSettings = (input: CodingSettings) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
       assertAvailable(db);
+      requireCodingEnabled(db);
       const data = Schema.decodeUnknownSync(CodingSettings)(input);
       requireCodingAgent(db, data.agentId);
       const existing = readSettings(db, data.agentId);
@@ -99,6 +101,7 @@ export const saveExecutionProfile = (input: ExecutionProfile) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
       assertAvailable(db);
+      requireCodingEnabled(db);
       const decoded = Schema.decodeUnknownSync(ExecutionProfile)(input);
       const data = {
         ...decoded,
@@ -141,6 +144,7 @@ export const deleteExecutionProfile = (id: string, revision: number) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
       assertAvailable(db);
+      requireCodingEnabled(db);
       const removed = db
         .prepare("DELETE FROM coding_profiles WHERE id=? AND revision=?")
         .run(id, revision);
@@ -202,6 +206,7 @@ export const createCodingJob = (input: CreateCodingJob) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
       assertAvailable(db);
+      requireCodingEnabled(db);
       const data = Schema.decodeUnknownSync(CreateCodingJob)(input);
       requireCodingAgent(db, data.agentId);
       const request = JSON.stringify(data, Object.keys(data).sort());

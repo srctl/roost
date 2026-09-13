@@ -5,6 +5,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { CodexConnection } from "../components/codex-connection";
+import { CodingSetting } from "../components/coding-setting";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
@@ -138,12 +139,17 @@ function SettingsPage() {
             </div>
           </section>
           <section
-            hidden={!visible("notes") && !visible("dashboards")}
+            hidden={
+              !visible("notes") && !visible("dashboards") && !visible("coding")
+            }
             aria-label="Features"
           >
             {searching && (
               <p {...stylex.props(styles.groupCaption)}>Features</p>
             )}
+            <div hidden={!visible("coding")}>
+              <CodingSetting />
+            </div>
             <div hidden={!visible("notes")}>
               <NoteSetting />
             </div>
@@ -172,10 +178,6 @@ function SettingsPage() {
             <CodexConnection initial={connection} />
             <PasskeySetting />
           </section>
-          <p {...stylex.props(styles.agentHint)}>
-            Looking for an agent’s model, instructions, or automations? Open
-            that agent to manage its settings.
-          </p>
         </div>
       </div>
     </section>
@@ -400,12 +402,6 @@ const styles = stylex.create({
     fontSize: 12,
     fontWeight: 500,
     color: colors.accent,
-  },
-  agentHint: {
-    marginTop: 24,
-    fontSize: 12,
-    lineHeight: 1.6,
-    color: colors.muted,
   },
   title: { marginTop: 0, fontSize: 26, fontWeight: 500, marginBottom: 8 },
   muted: { color: colors.muted },

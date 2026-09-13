@@ -162,7 +162,7 @@ export function handleCodingTool(
       );
     const { id } = yield* Schema.decodeUnknown(JobId)(args);
     yield* withAgentStore((db) =>
-      requireCodingRun(db, agentId, runId, "continue", id),
+      requireCodingRun(db, agentId, runId, "manage", id),
     );
     return yield* stopCodingJob(agentId, id);
   });

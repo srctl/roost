@@ -3,6 +3,10 @@ import { Effect, Schema } from "effect";
 import { available } from "../../server/available";
 import { stopCodingJob as requestCodingStop } from "../../server/coding/jobs.server";
 import {
+  getCodingPreference,
+  setCodingPreference,
+} from "../../server/coding/preference.server";
+import {
   deleteExecutionProfile,
   getCodingSettings,
   listCodingJobs,
@@ -75,3 +79,13 @@ export const stopCodingJob = createServerFn({ method: "POST" })
     ),
   )
   .handler(({ data }) => result(requestCodingStop(data.agentId, data.id)));
+
+export const getCodingSetting = createServerFn({ method: "GET" })
+  .middleware([available])
+  .handler(() => result(getCodingPreference()));
+export const changeCodingSetting = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(Schema.Struct({ enabled: Schema.Boolean })),
+  )
+  .handler(({ data }) => result(setCodingPreference(data.enabled)));

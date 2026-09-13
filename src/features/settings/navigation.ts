@@ -43,6 +43,12 @@ export const settingsEntries = [
       "Response style Messages Codex conversation chat bubbles preview Show activity details tool inputs outputs calls thinking summaries compact rows browser",
   },
   {
+    id: "coding",
+    group: "features",
+    terms:
+      "Coding agents jobs development programming enabled disable workers queued",
+  },
+  {
     id: "notes",
     group: "features",
     terms:

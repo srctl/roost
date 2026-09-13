@@ -10,8 +10,13 @@ import {
 } from "../src/server/coding/herdr.server";
 import {
   continueCodingJob,
+  startCodingJob,
   stopCodingJob,
 } from "../src/server/coding/jobs.server";
+import {
+  getCodingPreference,
+  setCodingPreference,
+} from "../src/server/coding/preference.server";
 import {
   createCodingJob,
   getCodingJob,
@@ -770,4 +775,91 @@ test("a backlog over forty queued jobs cannot starve active monitoring or stop r
       (await run(getCodingJob(agentId, stop.id))).status,
       "cancelled",
     );
+  }));
+
+test("disabled coding preserves jobs and pauses queued launches and follow-ups", async () =>
+  fixture(async (agentId) => {
+    assert.deepEqual(await run(getCodingPreference()), { enabled: true });
+    const active = await create(agentId);
+    const mock = mockAdapter();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    const queued = await create(agentId);
+    const inputId = randomUUID();
+    await run(
+      withAgentStore((db) => {
+        db.exec("UPDATE coding_feature_settings SET enabled=0 WHERE id=1");
+        db.prepare(
+          "INSERT INTO coding_job_inputs(id,jobId,agentId,prompt,createdAt) VALUES(?,?,?,?,?)",
+        ).run(inputId, active.id, agentId, "Continue", Date.now());
+      }),
+    );
+    mock.state.worker = worker("idle");
+    await poll();
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(
+      (await run(getCodingJob(agentId, active.id))).status,
+      "review",
+    );
+    assert.equal(
+      (await run(getCodingJob(agentId, queued.id))).status,
+      "queued",
+    );
+    assert.equal(mock.calls.starts, 1);
+    assert.equal(mock.calls.prompts, 0);
+    assert.equal(mock.calls.reads, 1);
+    assert.equal(
+      await run(
+        withAgentStore(
+          (db) =>
+            db
+              .prepare("SELECT status FROM coding_job_inputs WHERE id=?")
+              .get(inputId)?.status,
+        ),
+      ),
+      "queued",
+    );
+    assert.deepEqual(await run(getCodingPreference()), { enabled: false });
+    await assert.rejects(create(agentId), /Coding is off/);
+    await assert.rejects(
+      run(
+        saveAgent({
+          id: randomUUID(),
+          name: "Disabled",
+          kind: "coding",
+          character: "moss",
+          instructions: "Help",
+          model: "test",
+        }),
+      ),
+      /Coding is off/,
+    );
+    await assert.rejects(
+      run(
+        continueCodingJob(agentId, undefined, {
+          id: active.id,
+          requestId: randomUUID(),
+          prompt: "Continue",
+        }),
+      ),
+      /Coding is off/,
+    );
+    await assert.rejects(
+      run(
+        startCodingJob(agentId, undefined, {
+          requestId: randomUUID(),
+          title: "Disabled",
+          cwd: "/tmp/worktree",
+          workerKind: "codex",
+          profileId: null,
+          brief: "Do work",
+        }),
+      ),
+      /Coding is off/,
+    );
+    await run(stopCodingJob(agentId, active.id));
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(mock.calls.stops, 1);
+    await run(setCodingPreference(true));
+    await tickCodingJobs(owner, signal(), mock.adapter);
+    assert.equal(mock.calls.starts, 2);
   }));

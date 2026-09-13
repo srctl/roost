@@ -3,6 +3,7 @@ import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
+import { getCodingSetting } from "../features/coding/functions";
 import { getComputerStatus } from "../features/computer/functions";
 import { getDashboardSetting } from "../features/dashboards/functions";
 import { getNoteSetting } from "../features/notes/functions";
@@ -63,6 +64,7 @@ export const Route = createRootRoute({
       displayPreferences,
       dashboards,
       notes,
+      coding,
       computer,
     ] = await Promise.all([
       getAgents(),
@@ -70,6 +72,7 @@ export const Route = createRootRoute({
       getDisplayPreferences(),
       getDashboardSetting().catch(() => null),
       getNoteSetting().catch(() => null),
+      getCodingSetting().catch(() => null),
       getComputerStatus().catch(() => null),
     ]);
     return {
@@ -78,6 +81,7 @@ export const Route = createRootRoute({
       displayPreferences,
       dashboardsEnabled: dashboards?.ok ? dashboards.value.enabled : false,
       notesEnabled: notes?.ok ? notes.value.enabled : false,
+      codingEnabled: coding?.ok ? coding.value.enabled : false,
       computerEnabled: computer?.enabled ?? false,
     };
   },

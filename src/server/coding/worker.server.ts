@@ -12,6 +12,7 @@ import {
   stopCodingWorker,
 } from "./herdr.server";
 import { changeCodingJob } from "./jobs.server";
+import { codingEnabled } from "./preference.server";
 import {
   decodeCodingJob,
   readCodingJob,
@@ -100,7 +101,7 @@ export async function tickCodingJobs(
             "SELECT * FROM coding_jobs WHERE status='queued' ORDER BY createdAt LIMIT ?",
           )
           .all(
-            maintaining
+            maintaining || !codingEnabled(db)
               ? 0
               : Math.max(0, Math.min(4 - active, 4 - stops.length)),
           );
@@ -161,6 +162,7 @@ export async function tickCodingJobs(
           !signal.aborted &&
           owns(db, owner) &&
           !isMaintenance(db) &&
+          codingEnabled(db) &&
           current &&
           !current.cancelRequested &&
           !["completed", "cancelled", "failed"].includes(current.status)
@@ -354,7 +356,12 @@ export async function tickCodingJobs(
         const input = await Effect.runPromise(
           withAgentStore((db) =>
             writeTransaction(db, () => {
-              if (!owns(db, owner) || signal.aborted || isMaintenance(db))
+              if (
+                !owns(db, owner) ||
+                signal.aborted ||
+                isMaintenance(db) ||
+                !codingEnabled(db)
+              )
                 return undefined;
               const current = readCodingJob(db, job.agentId, job.id);
               if (!current || current.cancelRequested) return undefined;

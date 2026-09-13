@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 12)
+        if (version > 13)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -248,6 +248,13 @@ export function withAgentStore<A>(
             PRAGMA user_version = 12;
             COMMIT;`);
         }
+        if (version < 13) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS coding_feature_settings (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 1);
+            INSERT OR IGNORE INTO coding_feature_settings(id,enabled) VALUES(1,1);
+            PRAGMA user_version = 13;
+            COMMIT;`);
+        }
         return run(db, directory);
       } finally {
         db.close();
@@ -298,6 +305,16 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
 
         return agent;
       }
+      if (
+        data.kind === "coding" &&
+        db
+          .prepare("SELECT enabled FROM coding_feature_settings WHERE id=1")
+          .get()?.enabled !== 1
+      )
+        throw new AgentStoreError({
+          message:
+            "Coding is off. Enable it in Settings to create a coding agent.",
+        });
       const agent = {
         ...data,
         kind: data.kind ?? "assistant",
