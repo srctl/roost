@@ -1,0 +1,803 @@
+
+> roost@0.1.41 check /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:auth:production && pnpm check:sites
+
+
+> roost@0.1.41 lint /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> biome check --error-on-warnings .
+
+tests/agent-navigation.test.ts:378:7 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Template literals are preferred over string concatenation.
+  
+    376 │       );
+    377 │     db.exec(
+  > 378 │       "DELETE FROM agent_navigation_versions WHERE version=2;" + dropNavigation,
+        │       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    379 │     );
+    380 │     assert.deepEqual(await run(readAgentNavigation(directory)), {
+  
+  i Unsafe fix: Use a template literal.
+  
+    376 376 │         );
+    377 377 │       db.exec(
+    378     │ - ······"DELETE·FROM·agent_navigation_versions·WHERE·version=2;"·+·dropNavigation,
+        378 │ + ······`DELETE·FROM·agent_navigation_versions·WHERE·version=2;${dropNavigation}`,
+    379 379 │       );
+    380 380 │       assert.deepEqual(await run(readAgentNavigation(directory)), {
+  
+
+Checked 280 files in 375ms. No fixes applied.
+Found 1 info.
+
+> roost@0.1.41 typecheck /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> tsc --noEmit
+
+
+> roost@0.1.41 test /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> node --import tsx --test tests/*.test.ts
+
+✔ core14 navigation installation, rename and sections preserve actual Notes, associated records, private files, IDs and ordering (396.996964ms)
+✔ shared schemas and storage reject invalid names, UUIDs, missing agents/sections atomically (228.497611ms)
+✔ feature migration upgrades legacy core13, composes with outer core14 transaction, and refuses future versions (121.670143ms)
+✔ agent updates preserve useful conversation content and concurrent retries submit only once (167.517376ms)
+✔ updates require the active agent's uncancelled run and cannot bypass delegation routing (290.680402ms)
+✔ retrying an update in a later run sends neither the event nor a completion notification (147.373511ms)
+✔ muting all notifications or agent updates preserves the notice without submitting a push (110.109249ms)
+✔ background runs can use the notification tool and blank or oversized messages are rejected (81.81548ms)
+✔ push failures leave the recorded update intact and retries do not resend it (102.899324ms)
+✔ a failed conversation write rolls back the event so a retry can still submit it (87.646443ms)
+✔ agents persist across connections; identical retries reuse the record and conflicting retries fail (96.763166ms)
+✔ handshake precedes calls and responses are correlated by id (78.965904ms)
+✔ exit fails pending calls without hanging (33.139572ms)
+✔ invalid fails pending calls without hanging (35.630212ms)
+✔ missing CLI is a recoverable connection error (9.200212ms)
+✔ native approvals reject another turn and decline commands without a reviewable action (4.404629ms)
+✔ approvals pause and drain existing runs during maintenance while new work stays blocked (3452.354299ms)
+✔ restart recovery expires old approvals and cannot reuse changed requests (697.786914ms)
+✔ the browser client serializes native credentials, enrolls, logs out, and signs back in (200.864874ms)
+✔ private-proxy mode stays unchanged without auth setup (36.221095ms)
+✔ all private entry points are denied before setup enrollment; health still works (61.288931ms)
+✔ real signed enrollment and login issue secure cookies; bootstrap and challenges cannot replay (155.525116ms)
+✔ wrong origin, missing user verification, bad signatures, and unbound challenges fail (268.970305ms)
+✔ registration requires UV and exact origin, and setup links expire (94.707069ms)
+✔ add a backup passkey, prevent removing the last, revoke credentials and sessions (201.735944ms)
+✔ recovery invalidates existing sessions, passkeys, and pending ceremonies (160.050332ms)
+✔ recent verification and expiration are enforced; rate limits bound anonymous ceremonies (933.150183ms)
+✔ native auth rejects alternate hosts, duplicate cookies, and oversized bodies (109.027391ms)
+✔ concurrent first enrollments cannot claim ownership twice (100.57288ms)
+✔ automation models migrate, persist, validate, snapshot, and isolate execution (2309.861012ms)
+✔ device login survives requests, shares pending flow, and clears codes on completion or cancellation (465.31524ms)
+✔ Codex authentication failures are actionable without exposing provider details (0.380615ms)
+✔ coding conversations retain soul tools, load edited configuration, and keep reflection restricted (1090.401141ms)
+✔ real chat worker replies and notifications remain in job; shared retrieval preserves agent awareness (918.098713ms)
+✔ only a new turn in this job can release feedback pause; deleted discussion never reroutes or resumes (318.883676ms)
+✔ running reports expire at a bounded deadline; unrelated writes cannot renew or change execution (144.340836ms)
+✔ aggregate upgrade from core 10/workspace v1 preserves identities, moves only saved job feedback, repeats safely (391.939989ms)
+✔ aggregate upgrade from core 13/workspace v1 preserves identities, moves only saved job feedback, repeats safely (329.848607ms)
+✔ upgrade from core 10 fences active reports before core changes and reroutes queued reports without replay (327.437345ms)
+✔ upgrade from core 13 fences active reports before core changes and reroutes queued reports without replay (214.753288ms)
+✔ continuation restores an unavailable named server and verifies the original worker before prompting (3.219912ms)
+✔ recovery never prompts a missing, replaced, or approval-blocked worker (1.610031ms)
+✔ recovery requires a known identity, explicit server absence, and permission to continue (0.928909ms)
+✔ a failed submission is never retried as server recovery (0.548363ms)
+✔ starts a named worker without focusing and confirms activity after submission (2.763297ms)
+✔ starts an owned headless server only for explicit server_not_running (1.041607ms)
+✔ remote server startup uses the assigned directory and the user's CLI path (0.783651ms)
+✔ packaged Codex is selected inside the owned shell after shell startup (0.702002ms)
+✔ Codex project trust resolves local aliases to the assigned physical directory (0.616703ms)
+✔ Codex project trust is scoped to the exact assigned path and other workers keep native options (0.80931ms)
+✔ existing job workspace or worker prevents duplicate launches and prompt delivery (0.588603ms)
+✔ uncertain prompt timeout is preserved without retrying or marking the initial idle state complete (0.445985ms)
+✔ dispatch guards prevent launch or prompt after cancellation or lease loss (1.155977ms)
+✔ reads terminal text, preserves idle, and validates ownership before and after the read (0.432195ms)
+✔ missing worker and unavailable transport remain distinct (0.319366ms)
+✔ continuation rejects busy, blocked, and replaced workers before delivering input (0.300217ms)
+✔ stopping sends ctrl+c only to the verified worker pane and keeps its server (0.320087ms)
+✔ replacing the native coding session in the same terminal prevents input (0.224318ms)
+✔ remote execution quotes every argument and rejects SSH option or shell injection (0.334836ms)
+✔ invalid owned names, unsafe paths, kinds and briefs fail before any command (0.220268ms)
+✔ default command runner uses its binary override and removes coordinator session environment (181.307232ms)
+✔ coding assignments snapshot instructions and retry by durable request ID (161.723321ms)
+✔ remote instructions require a provisioned destination and preserve explicit ticket provenance (158.242283ms)
+✔ reflection cannot configure or run jobs and coding updates can act only on their reporting job (237.59433ms)
+✔ follow-ups have durable IDs and completion requires the current reviewed job revision (239.882164ms)
+✔ job state and a single reporting turn commit together; queued cancellation never starts a worker (197.55122ms)
+✔ only an explicit conversation can accept an inspected uncertain submission after it settled (165.906822ms)
+✔ new user requests during coding updates keep their own conversation permissions (149.503544ms)
+✔ delayed coding outcomes stay in the dedicated job discussion and preserve originating child provenance (232.355942ms)
+✔ actual Codex 0.154.0 / Herdr 0.9.0 screen isolates latest answer from echoed prompt and previous reply (1.334165ms)
+✔ isolates a complete per-request reply after a real terminal-style redraw and bullet (1.422823ms)
+✔ rejects prompt echo, old snapshots, wrong requests, partial frames and ambiguous repeats (0.967959ms)
+✔ legacy agents default to assistant and coding identity retains soul updates, undo and reflection (220.093846ms)
+✔ coding settings use revisions, validate profile references and isolate agent configuration (197.746699ms)
+✔ shared execution profiles protect concurrent edits and remove stale defaults without changing job snapshots (213.081428ms)
+✔ execution profiles can describe provisioning a new host and local profiles clear SSH targets (42.871247ms)
+✔ jobs are durable, scoped and idempotent while launch instructions remain snapshots (271.325404ms)
+✔ job state can atomically settle alongside a delivery record and rolls back on failure (101.192682ms)
+✔ maintenance blocks coding mutations while configuration and jobs stay readable (134.923205ms)
+✔ direct messages bypass occupied main thread, queue while busy, preserve identity and order across reads (646.628697ms)
+✔ restart uncertainty fences later instructions until explicit same-worker inspection; retry does not replay (344.512853ms)
+✔ approvals hold queued messages; missing or changed worker cannot receive or resume (237.61271ms)
+✔ busy race is queued without false delivery; lost transport reply is failed and never replayed (311.648909ms)
+✔ main-thread inputs and direct messages share ordering; completed jobs and foreign IDs reject (360.189739ms)
+✔ preview verifies actual owned listener and endpoint; stale URL, redirects, wrong bind and unrelated process never prove running (309.992448ms)
+✔ preview status preserves review fields without starting services (253.955026ms)
+✔ preview status preserves feedback fields without starting services (247.456692ms)
+✔ an uncertain concurrent coordinator input fences direct messages without replaying old unrelated failures (354.419877ms)
+✔ an explicit instruction resumes feedback pause while retaining same worker (205.849241ms)
+✔ terminal redraw or prompt echo cannot become a worker answer; completed delivery survives reconnect without replay (465.000566ms)
+✔ deletion during a stale worker observation cannot dispatch or recreate job conversation records (164.484577ms)
+✔ maintenance monitors existing coding jobs without launching or dispatching queued work (247.237796ms)
+✔ authorized continuation supplies the saved working directory and identity for recovery (256.226531ms)
+✔ coding workers launch once and publish one review update after observed work settles (260.407741ms)
+✔ idle after a blocked launch is not proof that coding work happened (317.283753ms)
+✔ a missing executable can be fixed and the original launch retried without prompting a nonexistent worker (473.803864ms)
+✔ an interrupted launch retry is inspected without replaying its follow-up (155.169227ms)
+✔ existing workspaces and uncertain preparation failures never enable automatic relaunch (347.545837ms)
+✔ uncertain launch failures and restarted launches are inspected without duplicate submission (333.480151ms)
+✔ uncertain and interrupted follow-up dispatches are never replayed automatically (348.566364ms)
+✔ stop requests wait for observed terminal state and do not repeat interrupts (275.473763ms)
+✔ worker identity changes block a stop and expired leases do not run commands (214.453919ms)
+✔ a replaced native session blocks cancellation before sending an interrupt (196.836617ms)
+✔ replacement session output cannot confirm that an interrupted worker stopped (177.87859ms)
+✔ a slow coding launch leaves conversational slots and database writes available (162.128354ms)
+✔ cancellation accepted during slow preparation prevents the initial worker prompt (232.866733ms)
+✔ a failed pre-interrupt read keeps cancellation pending for the next healthy tick (197.601667ms)
+✔ uncertain interrupt dispatch persists before I/O and subsequent checks never resend it (325.100859ms)
+✔ a backlog over forty queued jobs cannot starve active monitoring or stop requests (1368.115426ms)
+✔ preview metadata persists independently of execution and completion; rejects stale and unsafe reports (244.34264ms)
+✔ feedback is a durable linked timeline notice with idempotency, no run or worker input (157.282813ms)
+✔ explicit feedback queues exactly once on same owned worker, not a new assignment (303.765092ms)
+✔ paused feedback blocks autonomous continuation/completion and duplicate wakeups (177.326907ms)
+✔ stale, terminal-blocked and uncertain delivery submissions do not send or replay (228.623244ms)
+✔ review CTA requires explicit verification, preserves integration distinction; aggregate migration retains thread core version (128.184704ms)
+✔ the preview follows only the current run and disappears when it finishes (0.729241ms)
+✔ desktop tickets require the configured origin, expire, and can only connect once (1.367664ms)
+✔ human control blocks agent screenshots and input; expired control disconnects its viewer before allowing agent input (6.227588ms)
+✔ mobile keyboard text preserves Unicode and sends editing keys as X11 keysyms (0.229647ms)
+✔ waiting for a shared desktop is cancellable and never replays stale input (3.767615ms)
+✔ thinking exposes only the supplied summary, never raw reasoning content (1.632531ms)
+✔ command and tool results retain output and failure state on history reload (0.774371ms)
+✔ local conversation snapshots preserve bounded history, files, cursors and active run state (570.490495ms)
+✔ new agents are ready from local state while legacy imports remain deferred (154.986129ms)
+✔ chat lifecycle preserves history, isolates agents, migrates legacy sessions, and scopes soul tools (1890.336878ms)
+✔ datasets default off, are agent-scoped, revision checked, and preserved when disabled (326.027408ms)
+✔ typed datasets and chart specifications enforce bounded, non-executable schemas (12.794409ms)
+✔ chart references and source updates validate atomically; sources in use cannot be removed (170.609215ms)
+✔ chart mappings distinguish signed, empty, missing, categorical, and scatter data (0.809771ms)
+✔ dataset caps, maintenance gate, and invalid storage writes (667.571712ms)
+✔ agent tool schemas and dispatch bind data access to runtime owner and exclude reflections (113.882031ms)
+✔ v8 migration preserves legacy boards and disabled preference (269.136035ms)
+✔ dashboards default off, gate every content operation, and preserve saved content when disabled (409.523093ms)
+✔ stable dashboard keys are scoped to an agent and stale updates cannot overwrite changes (233.044049ms)
+✔ native blocks reject executable links, malformed tables, nonfinite charts, and unbounded reports (104.56862ms)
+✔ delegation frees the parent, isolates work, and delivers terminal outcomes once behind active user work (615.235954ms)
+✔ deletion removes owned records atomically, retains disk/shared data, fences retries and never schedules again (412.774575ms)
+✔ active turn and stop request block deletion until worker finishes; queued work is then discarded (163.384438ms)
+✔ coding starting/running/blocked/review/failed jobs and uncertain stops prevent deletion (254.700835ms)
+✔ safe prelaunch failure can be deleted and no failed launch is retried (94.999523ms)
+✔ outstanding delegated work on another agent is preserved and blocks deletion (118.620115ms)
+✔ storage failure rolls back all removal; mismatched confirmation and maintenance are rejected (175.424916ms)
+✔ runtime disposal must succeed before deletion, busy runtimes block and idle runtime is closed (69.046118ms)
+✔ completed job with queued direct input blocks deletion atomically (150.50975ms)
+✔ completed job with dispatching direct input blocks deletion atomically (113.657183ms)
+✔ cancelled job with queued direct input blocks deletion atomically (122.267432ms)
+✔ cancelled job with dispatching direct input blocks deletion atomically (145.978973ms)
+✔ terminal job retains unsettled direct receipts and worker fences until explicitly settled (130.213939ms)
+✔ combined deletion removes Notes/history, threads, job conversations and membership, fences all owned tables and preserves neighbors (251.006117ms)
+✔ uncertain failed direct submission blocks terminal-job deletion until inspection is acknowledged (142.641832ms)
+✔ display cookies preserve the first-render style and validate unknown values (1.390753ms)
+✔ uploads and downloads enforce same origin, scope, size and safe response headers (142.591383ms)
+✔ attachments link atomically to one message and retries cannot change accepted inputs (226.412277ms)
+✔ published outputs are immutable snapshots and reject traversal, symlinks and inactive runs (231.642584ms)
+✔ Codex receives document paths and image inputs while conversation preserves original user text (445.728467ms)
+✔ gzip HTML preserves private response metadata and cookies (33.753883ms)
+✔ HTML varies by encoding and respects explicit gzip quality before wildcard (11.07435ms)
+✔ leaves HEAD, empty, partial, preencoded, non-HTML, and no-transform responses untouched (0.81222ms)
+✔ gzip delivers the initial HTML before the source closes and cancels upstream (5.573395ms)
+✔ source failures reject the compressed response body (3.35828ms)
+✔ editor round trips supported formatting, checked tasks, headings, line breaks, and identities (666.606129ms)
+✔ safe preview escapes HTML and refuses unsafe URLs even before client hydration (62.182609ms)
+✔ typing/deleting and Undo/Redo back to the saved baseline need no autosave to report Saved (0.656313ms)
+✔ returning to baseline while a write is unresolved stays unsaved until acknowledgement and reconciliation (0.136658ms)
+✔ clean content never normalizes pending remote, recovery, offline, or failure states (0.138418ms)
+✔ notes persist independently; CAS, instructions, scoped reads, targeted edits, idempotency and restore preserve boundaries (395.723243ms)
+✔ bounded structured content rejects unsafe links and duplicate identities (16.242619ms)
+✔ three-way recovery preserves unrelated remote edits and refuses overlapping edits or reordered blocks (2.873426ms)
+✔ revision inspection, pagination and no-op saves preserve history and owner isolation (3103.936549ms)
+✔ distinct conversations share agent Notes while read tokens and CAS remain run-owned (266.090187ms)
+✔ push subscriptions accept browser providers and reject arbitrary destinations and invalid encryption keys (3.087944ms)
+✔ notification identity persists privately; subscriptions are idempotent and stale devices are removed without losing working devices (247.623716ms)
+✔ run notifications honor quiet automations, cancellations, and delegated work (0.283717ms)
+✔ notification categories gate delivery across devices and survive switching all notifications off and on (453.660811ms)
+✔ notifications name the agent and carry the final result, failure, approval, or explicit update without duplicate completion (287.752724ms)
+✔ service worker displays push notifications and clicks stay within Roost (2.54931ms)
+✔ startup preloads include static descendants once without loading lazy panels (1.212536ms)
+✔ reflection cadence skips unchanged and busy agents, coalesces downtime, and stays quiet (616.780273ms)
+✔ reflection uses bounded own-agent context and restricts tools to audited soul edits (2090.464204ms)
+✔ packaging materializes nested dependency links into a standalone archive (31.861145ms)
+✔ update work detection includes resumable coding jobs and supports older databases (399.917613ms)
+Waiting for agent runs and coding jobs to finish (up to five minutes)…
+✔ an update cannot stop the service while a coding worker is active (105.851044ms)
+✔ release validation rejects modified archives and unsafe paths before replacing the current release (6.510274ms)
+✔ schema migration preserves legacy agents and refuses newer databases (311.075758ms)
+✔ the updater waits for a busy database when checking active runs (296.054085ms)
+✔ maintenance drains active work, preserves queued work, and pauses new scheduled runs (261.64373ms)
+Waiting for agent runs and coding jobs to finish (up to five minutes)…
+Waiting for agent runs and coding jobs to finish (up to five minutes)…
+Updated to Roost 0.2.0. Backup: /tmp/roost-rollback-E4iDIr/backups/0.1.0-1789328615252
+Waiting for agent runs and coding jobs to finish (up to five minutes)…
+Waiting for agent runs and coding jobs to finish (up to five minutes)…
+Updated to Roost 0.2.0. Backup: /tmp/roost-rollback-KXPlM1/backups/0.1.0-1789328615417
+✔ failed update health restores release, database, soul files, and prior service state (308.25674ms)
+✔ run summaries bound history and payloads while preserving snapshot names and agent isolation (288.119548ms)
+✔ deleting an automation cancels its work atomically and preserves history and other work (393.1943ms)
+✔ timeline failures roll back run changes so queuing and completion can be retried (200.260672ms)
+✔ bounded cron schedules persist, queue once, and expire without a late catch-up (303.17939ms)
+✔ durable queue serializes each agent, deduplicates requests, catches up once, and never replays interrupted work (636.779081ms)
+✔ worker runs without an HTTP subscriber, supports explicit stop, and isolates scheduled threads and mutation tools (5488.794076ms)
+✔ dynamic delegation runs a specialist independently and wakes the parent's existing conversation (6462.505003ms)
+✔ background work reserves capacity for user conversations (1836.568342ms)
+✔ the existing sandbox remains the default; dedicated VM access is explicit (0.84637ms)
+✔ weekly schedules follow local time, skip a missing DST time, and run a repeated hour once (125.435314ms)
+✔ one cron schedule covers a daily time window within inclusive local dates (18.70331ms)
+✔ cron handles calendar expressions and DST without duplicate runs; invalid schedules fail (3.588878ms)
+✔ date windows also bound weekly and interval schedules (3.816035ms)
+✔ combined migration preserves data from base-v8 and is repeatable (201.27916ms)
+✔ combined migration preserves data from datasets-v9 and is repeatable (221.250985ms)
+✔ combined migration preserves data from models-v9 and is repeatable (227.942126ms)
+✔ combined migration preserves data from current-v10 and is repeatable (259.134068ms)
+✔ shape upgrade preserves Notes=false, Threads=none, run ownership and stable identities (182.933356ms)
+✔ shape upgrade preserves Notes=true, Threads=none, run ownership and stable identities (248.355995ms)
+✔ shape upgrade preserves Notes=false, Threads=11, run ownership and stable identities (301.595368ms)
+✔ shape upgrade preserves Notes=false, Threads=12, run ownership and stable identities (218.096302ms)
+✔ shape upgrade preserves Notes=false, Threads=13, run ownership and stable identities (309.081759ms)
+✔ shape upgrade preserves Notes=true, Threads=11, run ownership and stable identities (199.884756ms)
+✔ shape upgrade preserves Notes=true, Threads=12, run ownership and stable identities (890.049803ms)
+✔ shape upgrade preserves Notes=true, Threads=13, run ownership and stable identities (311.962354ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_reads (214.142527ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: ALTER TABLE agent_notes ADD COLUMN unexpected TEXT (238.709437ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_requests; CREATE TABLE note_requests(agentId TEXT NOT NULL,requestId TEXT NOT NULL,fingerprint TEXT NOT NULL,snapshot TEXT NOT NULL) (297.459705ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE conversation_records(id TEXT) (188.548558ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE provider_message_ids(agentId TEXT) (203.484892ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE coding_workspace_versions(version INTEGER PRIMARY KEY); INSERT INTO coding_workspace_versions VALUES(99) (166.795734ms)
+✔ malformed/unsupported shape rolls back schema and every saved row: UPDATE timeline SET message='malformed JSON' (176.019035ms)
+✔ deletion feature migration preserves deletion-v11 and installs the cumulative contracts (155.520397ms)
+✔ deletion feature migration preserves core14 and installs the cumulative contracts (258.432964ms)
+✔ deletion feature migration preserves core14-with-navigation and installs the cumulative contracts (269.939358ms)
+✔ future-deletion refuses migration without modifying the database (27.358597ms)
+✔ malformed-tombstones refuses migration without modifying the database (36.950054ms)
+✔ PWA caches immutable build assets but keeps pages, APIs, and sign-in redirects out (23.79086ms)
+✔ PWA navigation uses preloaded network responses and provides an uncached offline fallback (2.655559ms)
+✔ notification links accept only same-origin agent and conversation UUIDs (1.180656ms)
+✔ unknown settings groups fall back to appearance (0.8882ms)
+✔ search finds existing controls, conditional options, and vocabulary across groups (1.335584ms)
+✔ sidebar cookies restore layout and reject malformed widths (1.346645ms)
+✔ souls persist independently, reject stale writes, and never read another agent's memory (330.556417ms)
+✔ renders remembered-agent launches with the original request context (17.506714ms)
+✔ preserves redirects with query, cookie, or destination semantics (0.803261ms)
+✔ follow-ups and attachments steer one live turn, deduplicate retries, and preserve Stop (1839.681647ms)
+✔ stopping a steered message cancels its parent and prevents replay (1163.587428ms)
+✔ finished turns leave pending messages queued; ownership and restart recovery fence steering (185.164498ms)
+✔ theme cookies validate untrusted values and round-trip every preset/mode (1.173996ms)
+✔ custom palettes keep normal text and accent labels readable on app surfaces (1.809159ms)
+✔ worker resume and native-session rollover preserve imported assistant/activity IDs; delayed handoffs stay in child (12823.023803ms)
+✔ threads isolate identity, collision-prone provider output, queue/steering and bounded shared context (563.041052ms)
+✔ v8 migration preserves positions, revisions, archives, native session identity and queue ownership (226.578878ms)
+✔ deleted threads retain origin and parent snapshots, fence sends and never reopen (170.014756ms)
+✔ thread timestamps come from stored rows and survive streaming updates (88.510566ms)
+✔ timeline pages preserve history, incremental edits, bounded outputs and agent isolation (1693.267791ms)
+ℹ tests 244
+ℹ suites 0
+ℹ pass 244
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43775.714133
+
+> roost@0.1.41 build /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> vite build && vite build --config vite.cli.config.ts
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./scripts/preload-static-imports" without a file extension (vite.config.ts:7:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 2783 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/public/assets/peach-idXj2uP5.svg                        6.71 kB │ gzip:   0.58 kB
+.output/public/assets/moss-C5iqcrcn.svg                         6.99 kB │ gzip:   0.58 kB
+.output/public/assets/wisp-CdLUvbS4.svg                         7.33 kB │ gzip:   0.61 kB
+.output/public/assets/agents._agentId_-DOwmhUoV.css             1.74 kB │ gzip:   0.65 kB
+.output/public/assets/reset-DNG4bE6D.css                       37.55 kB │ gzip:   9.02 kB
+.output/public/assets/functions-D0ddj3Yw.js                     0.43 kB │ gzip:   0.29 kB
+.output/public/assets/preference-Ddnz6HAc.js                    0.47 kB │ gzip:   0.34 kB
+.output/public/assets/functions-BTx1Xg8T.js                     0.55 kB │ gzip:   0.33 kB
+.output/public/assets/DialogClose-CYtRdrqN.js                   0.60 kB │ gzip:   0.41 kB
+.output/public/assets/lazyRouteComponent-FANAuCYA.js            0.69 kB │ gzip:   0.43 kB
+.output/public/assets/rolldown-runtime-hePW80VL.js              0.71 kB │ gzip:   0.42 kB
+.output/public/assets/functions-DCrpM5Z9.js                     0.75 kB │ gzip:   0.42 kB
+.output/public/assets/shim-DoVoAmWq.js                          0.88 kB │ gzip:   0.47 kB
+.output/public/assets/preload-helper-Czpn1I53.js                1.19 kB │ gzip:   0.67 kB
+.output/public/assets/notice-details-BjXV_rgM.js                1.25 kB │ gzip:   0.57 kB
+.output/public/assets/motion-D-_6PLFR.js                        1.26 kB │ gzip:   0.67 kB
+.output/public/assets/functions-B9RkMBPw.js                     1.39 kB │ gzip:   0.64 kB
+.output/public/assets/functions-DHyk1v3a.js                     1.41 kB │ gzip:   0.64 kB
+.output/public/assets/styles-CNdEQgrZ.js                        1.65 kB │ gzip:   0.81 kB
+.output/public/assets/display-name-editor-Bt2YyhBO.js           1.88 kB │ gzip:   1.12 kB
+.output/public/assets/mobile-navigation-dialog-Dpw8bxa2.js      1.92 kB │ gzip:   1.13 kB
+.output/public/assets/routes-Dlq-Q6Df.js                        2.12 kB │ gzip:   1.13 kB
+.output/public/assets/visuallyHidden-DpBIuUtY.js                3.14 kB │ gzip:   1.25 kB
+.output/public/assets/DialogTrigger-CgCuPl91.js                 3.14 kB │ gzip:   1.56 kB
+.output/public/assets/codex-connection-Cfulaq_W.js              3.86 kB │ gzip:   1.72 kB
+.output/public/assets/agents.new-Db3RkoUF.js                    3.93 kB │ gzip:   1.68 kB
+.output/public/assets/theme-provider-d0CoBF28.js                4.15 kB │ gzip:   1.85 kB
+.output/public/assets/agents._agentId-CrYGMJxl.js               4.49 kB │ gzip:   2.23 kB
+.output/public/assets/useValueAsRef-CaL69pAg.js                 5.27 kB │ gzip:   2.29 kB
+.output/public/assets/agent-header-DvC-FA8I.js                  6.06 kB │ gzip:   2.42 kB
+.output/public/assets/CompositeRoot-DcswnRzI.js                 7.50 kB │ gzip:   3.12 kB
+.output/public/assets/agent-settings-dialog-adz4yQca.js         8.59 kB │ gzip:   3.72 kB
+.output/public/assets/computer-panel-xf1ySKKa.js               10.15 kB │ gzip:   4.14 kB
+.output/public/assets/floating-ui.utils.dom-CpREO1Pu.js        10.36 kB │ gzip:   3.97 kB
+.output/public/assets/agent-coding-settings-X6s0fhxX.js        13.58 kB │ gzip:   4.38 kB
+.output/public/assets/agent-identity-settings-B_P1zpMj.js      16.06 kB │ gzip:   5.86 kB
+.output/public/assets/floating-ui.dom-Hm_KQa73.js              17.23 kB │ gzip:   6.66 kB
+.output/public/assets/tool-activity-CY_rOcra.js                23.65 kB │ gzip:   8.20 kB
+.output/public/assets/route-BHYI03io.js                        23.73 kB │ gzip:   8.75 kB
+.output/public/assets/agents._agentId_.dashboard-C-PSOVJ2.js   26.15 kB │ gzip:   9.64 kB
+.output/public/assets/conversation-CCdpRmMQ.js                 32.49 kB │ gzip:  12.04 kB
+.output/public/assets/agents._agentId_.jobs-CMCkJ19i.js        35.16 kB │ gzip:  11.27 kB
+.output/public/assets/settings-CiHE0qYK.js                     36.80 kB │ gzip:  13.30 kB
+.output/public/assets/DialogTitle-Bz2jRD4v.js                  42.75 kB │ gzip:  14.44 kB
+.output/public/assets/primitives-DHTMujhK.js                   44.04 kB │ gzip:   4.07 kB
+.output/public/assets/available-B36Dpqyh.js                    48.99 kB │ gzip:  16.34 kB
+.output/public/assets/soul-change-ClSlwiln.js                  53.08 kB │ gzip:  16.38 kB
+.output/public/assets/__root-DFsVqkFC.js                       76.77 kB │ gzip:  27.34 kB
+.output/public/assets/collapsible-DMbZfCvt.js                 163.24 kB │ gzip:  49.29 kB
+.output/public/assets/schema-CZiwfeNj.js                      163.53 kB │ gzip:  51.66 kB
+.output/public/assets/index-CTeP-zXg.js                       198.13 kB │ gzip:  63.60 kB
+.output/public/assets/rfb-Qy9uEz01.js                         282.52 kB │ gzip:  70.79 kB
+.output/public/assets/agents._agentId_.note-OrVuTv4H.js       451.51 kB │ gzip: 141.23 kB
+.output/public/assets/dashboard-fluent-chart-KmCfP3A0.js      535.69 kB │ gzip: 154.88 kB
+
+✓ built in 9.39s
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[33m[PLUGIN_TIMINGS] [0mPlugin hooks ran for 8.8s of this 9.4s build (94%).
+The slowest hooks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - @rolldown/plugin-babel transform (43%, 4.0s, 117 calls)
+  - @stylexjs/unplugin transform (32%, 3.0s, 2783 calls)
+Additional hook time came from the hooks below and from hooks under 1s.
+3 hooks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (8407 calls)
+  - vite:asset load (12 calls)
+  - tanstack-start-core::server-fn:client transform (33 calls)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+vite v8.2.2 building ssr environment for production...
+transforming...
+✓ 325 modules transformed.
+rendering chunks...
+computing gzip size...
+node_modules/.nitro/vite/services/ssr/assets/peach-idXj2uP5.svg                        6.71 kB │ gzip:  0.58 kB
+node_modules/.nitro/vite/services/ssr/assets/moss-C5iqcrcn.svg                         6.99 kB │ gzip:  0.58 kB
+node_modules/.nitro/vite/services/ssr/assets/wisp-CdLUvbS4.svg                         7.33 kB │ gzip:  0.61 kB
+node_modules/.nitro/vite/services/ssr/assets/agents._agentId_-DOwmhUoV.css             1.74 kB │ gzip:  0.65 kB
+node_modules/.nitro/vite/services/ssr/assets/reset-DNG4bE6D.css                       37.55 kB │ gzip:  9.02 kB
+node_modules/.nitro/vite/services/ssr/assets/startup-Chp2YuLc.js                       0.11 kB │ gzip:  0.11 kB
+node_modules/.nitro/vite/services/ssr/assets/transaction.server-DixG9OrZ.js            0.28 kB │ gzip:  0.20 kB
+node_modules/.nitro/vite/services/ssr/assets/start-BREPdsyk.js                         0.28 kB │ gzip:  0.21 kB
+node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-BBEWxb-u.js         0.30 kB │ gzip:  0.20 kB
+node_modules/.nitro/vite/services/ssr/assets/schema-C7RxvCSr.js                        0.40 kB │ gzip:  0.20 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerRpc-x_KnCl2d.js               0.45 kB │ gzip:  0.30 kB
+node_modules/.nitro/vite/services/ssr/assets/preference-DzEKavZ4.js                    0.63 kB │ gzip:  0.34 kB
+node_modules/.nitro/vite/services/ssr/assets/sidebar-preferences-B916GFCb.js           0.72 kB │ gzip:  0.41 kB
+node_modules/.nitro/vite/services/ssr/assets/available-BJ6X0G-g.js                     0.74 kB │ gzip:  0.41 kB
+node_modules/.nitro/vite/services/ssr/assets/navigation-schema-7Km8TbAs.js             0.76 kB │ gzip:  0.30 kB
+node_modules/.nitro/vite/services/ssr/assets/schema-Bg-Kxb5N.js                        0.87 kB │ gzip:  0.36 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-CTrHF3XZ.js                     0.91 kB │ gzip:  0.48 kB
+node_modules/.nitro/vite/services/ssr/assets/sidebar-functions-DotrtWZi.js             0.96 kB │ gzip:  0.46 kB
+node_modules/.nitro/vite/services/ssr/assets/notice-details-CfRaCYnr.js                1.04 kB │ gzip:  0.41 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-B3t6RwR5.js                     1.08 kB │ gzip:  0.51 kB
+node_modules/.nitro/vite/services/ssr/assets/startup-functions-BamRsL9X.js             1.09 kB │ gzip:  0.55 kB
+node_modules/.nitro/vite/services/ssr/assets/display-functions-CHZPJkiI.js             1.24 kB │ gzip:  0.54 kB
+node_modules/.nitro/vite/services/ssr/assets/button-D_7uSMZr.js                        1.62 kB │ gzip:  0.92 kB
+node_modules/.nitro/vite/services/ssr/assets/mobile-navigation-dialog-Co9T05-G.js      1.71 kB │ gzip:  0.88 kB
+node_modules/.nitro/vite/services/ssr/assets/schema-BmRsF29Y.js                        1.80 kB │ gzip:  0.60 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-DYLX2pqi.js                     1.81 kB │ gzip:  0.73 kB
+node_modules/.nitro/vite/services/ssr/assets/chart-data-smydtIdJ.js                    1.98 kB │ gzip:  0.78 kB
+node_modules/.nitro/vite/services/ssr/assets/theme-provider-B6WdHeoG.js                2.05 kB │ gzip:  0.92 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-BGYRkt95.js                     2.07 kB │ gzip:  0.75 kB
+node_modules/.nitro/vite/services/ssr/assets/motion-COVp6dPq.js                        2.11 kB │ gzip:  1.01 kB
+node_modules/.nitro/vite/services/ssr/assets/styles-CAJ001CD.js                        2.19 kB │ gzip:  0.86 kB
+node_modules/.nitro/vite/services/ssr/assets/routes-BeyY4orU.js                        2.34 kB │ gzip:  1.00 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-DhyhsXKH.js                     2.38 kB │ gzip:  0.89 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-BFhedCKX.js                     2.54 kB │ gzip:  0.89 kB
+node_modules/.nitro/vite/services/ssr/assets/session.server-BwPHWz27.js                2.75 kB │ gzip:  1.05 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-BHq8GoGs.js                     3.01 kB │ gzip:  1.02 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-nKAM_pmb.js                     3.26 kB │ gzip:  0.98 kB
+node_modules/.nitro/vite/services/ssr/assets/display-name-editor-BiWpIKfM.js           3.29 kB │ gzip:  1.46 kB
+node_modules/.nitro/vite/services/ssr/assets/schema-BkFSOlBv.js                        3.29 kB │ gzip:  1.13 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-LshL_uP3.js                     3.38 kB │ gzip:  1.09 kB
+node_modules/.nitro/vite/services/ssr/assets/collapsible-D2rY5eOB.js                   3.94 kB │ gzip:  1.09 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-Dm1Gyzxm.js                     4.26 kB │ gzip:  1.17 kB
+node_modules/.nitro/vite/services/ssr/assets/agent-header-BGAkNUhE.js                  4.32 kB │ gzip:  1.32 kB
+node_modules/.nitro/vite/services/ssr/assets/display-preferences-BE91aHde.js           4.34 kB │ gzip:  1.49 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-C-Ldl5C6.js    4.44 kB │ gzip:  1.11 kB
+node_modules/.nitro/vite/services/ssr/assets/dashboard-fluent-chart-MCUFrD4K.js        4.77 kB │ gzip:  1.74 kB
+node_modules/.nitro/vite/services/ssr/assets/agents._agentId-Bc725oYV.js               5.20 kB │ gzip:  1.95 kB
+node_modules/.nitro/vite/services/ssr/assets/navigation-functions-q03JyxtE.js          5.25 kB │ gzip:  1.61 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-BatFrMOK.js                     5.50 kB │ gzip:  1.51 kB
+node_modules/.nitro/vite/services/ssr/assets/threads.server-DkSyH3vB.js                5.78 kB │ gzip:  1.90 kB
+node_modules/.nitro/vite/services/ssr/assets/codex-connection-BFaGub3n.js              5.81 kB │ gzip:  2.02 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-CpYVuXst.js                     6.13 kB │ gzip:  2.05 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-Cfy7Brry.js                  6.33 kB │ gzip:  1.99 kB
+node_modules/.nitro/vite/services/ssr/assets/workspace-schema-D0kZBU-I.js              6.39 kB │ gzip:  1.78 kB
+node_modules/.nitro/vite/services/ssr/assets/agents.new-KgQSF0rv.js                    6.64 kB │ gzip:  2.10 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-ZJ-R-b2y.js                     6.82 kB │ gzip:  2.00 kB
+node_modules/.nitro/vite/services/ssr/assets/agent-settings-dialog-C8SO4vVu.js         6.99 kB │ gzip:  2.51 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-CJZefv0z.js                  7.02 kB │ gzip:  2.24 kB
+node_modules/.nitro/vite/services/ssr/assets/functions-MK2zpDx2.js                     7.74 kB │ gzip:  1.83 kB
+node_modules/.nitro/vite/services/ssr/assets/functions--bcnAd4H.js                     8.28 kB │ gzip:  2.23 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-CTmJTlKl.js                 11.14 kB │ gzip:  2.77 kB
+node_modules/.nitro/vite/services/ssr/assets/push.server-BIzNL3m3.js                  11.55 kB │ gzip:  3.76 kB
+node_modules/.nitro/vite/services/ssr/assets/tool-activity-D43l-n8G.js                13.73 kB │ gzip:  3.32 kB
+node_modules/.nitro/vite/services/ssr/assets/agent-identity-settings-CEcWSBER.js      14.75 kB │ gzip:  3.87 kB
+node_modules/.nitro/vite/services/ssr/assets/computer-panel-DALcCfil.js               16.42 kB │ gzip:  4.92 kB
+node_modules/.nitro/vite/services/ssr/assets/router-a30jZZ-7.js                       17.45 kB │ gzip:  5.39 kB
+node_modules/.nitro/vite/services/ssr/assets/agent-coding-settings-BJUAutT3.js        19.01 kB │ gzip:  4.30 kB
+node_modules/.nitro/vite/services/ssr/assets/agents._agentId_.dashboard-NPZU1MDT.js   21.79 kB │ gzip:  6.04 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-Bd9bInk9.js                 22.79 kB │ gzip:  7.24 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-BADflNhc.js                 22.87 kB │ gzip:  7.11 kB
+node_modules/.nitro/vite/services/ssr/assets/__root-DKQG6_3t.js                       29.75 kB │ gzip:  9.02 kB
+node_modules/.nitro/vite/services/ssr/assets/settings-BblSLEv2.js                     30.84 kB │ gzip:  8.13 kB
+node_modules/.nitro/vite/services/ssr/assets/soul-change-CaS52ss9.js                  33.36 kB │ gzip:  8.24 kB
+node_modules/.nitro/vite/services/ssr/assets/store.server-BTJr7FDI.js                 34.51 kB │ gzip:  7.41 kB
+node_modules/.nitro/vite/services/ssr/assets/agents._agentId_.note-BMwLZ6Pn.js        37.56 kB │ gzip: 10.18 kB
+node_modules/.nitro/vite/services/ssr/assets/primitives-C-1UBmBA.js                   43.64 kB │ gzip:  3.47 kB
+node_modules/.nitro/vite/services/ssr/assets/workspace.server-B8aNyEnD.js             47.76 kB │ gzip: 12.05 kB
+node_modules/.nitro/vite/services/ssr/assets/conversation-7T984cLZ.js                 49.14 kB │ gzip: 13.30 kB
+node_modules/.nitro/vite/services/ssr/assets/agents._agentId_.jobs-RoX5BKCw.js        51.56 kB │ gzip: 11.90 kB
+node_modules/.nitro/vite/services/ssr/assets/agent-runtime.server-ltAAn-RV.js         68.58 kB │ gzip: 19.18 kB
+node_modules/.nitro/vite/services/ssr/assets/worker.server-C5ZRopNj.js                76.24 kB │ gzip: 21.02 kB
+node_modules/.nitro/vite/services/ssr/index.js                                       272.50 kB │ gzip: 65.38 kB
+
+✓ built in 3.89s
+[33m[PLUGIN_TIMINGS] [0mPlugin hooks ran for 3.7s of this 3.9s build (96%).
+The slowest hooks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - @stylexjs/unplugin transform (61%, 2.4s, 325 calls)
+Additional hook time came from the hooks below and from hooks under 1s.
+3 hooks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (1257 calls)
+  - vite:asset load (13 calls)
+  - tanstack-start-core::server-fn:ssr transform (41 calls)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+
+[nitro] ◐ Building [Nitro] (preset: node-server, compatibility: 2026-09-13)
+[nitro] ✔ Generated public .output/public
+vite v8.2.2 building nitro environment for production...
+transforming...
+✓ 3155 modules transformed.
+ℹ Tracing dependencies:
+- tslib (2.8.1, 1.14.1)
+✔ Traced 1 dependencies (8 files) in 72ms.
+ℹ Ensure your production environment matches the builder OS and architecture (linux-x64) to avoid native module issues.
+rendering chunks...
+computing gzip size...
+.output/server/_ssr/start-BREPdsyk.mjs                                0.14 kB │ gzip:   0.13 kB
+.output/server/_ssr/startup-Chp2YuLc.mjs                              0.15 kB │ gzip:   0.14 kB
+.output/server/_libs/devlop.mjs                                       0.16 kB │ gzip:   0.13 kB
+.output/server/_ssr/empty-plugin-adapters-BBEWxb-u.mjs                0.23 kB │ gzip:   0.16 kB
+.output/server/_libs/bail.mjs                                         0.28 kB │ gzip:   0.20 kB
+.output/server/_libs/fluentui__keyboard-keys.mjs                      0.31 kB │ gzip:   0.19 kB
+.output/server/_ssr/transaction.server-DixG9OrZ.mjs                   0.32 kB │ gzip:   0.24 kB
+.output/server/_libs/tiptap__extension-task-item.mjs                  0.32 kB │ gzip:   0.20 kB
+.output/server/_libs/tiptap__extension-task-list.mjs                  0.32 kB │ gzip:   0.20 kB
+.output/server/_libs/escape-string-regexp.mjs                         0.33 kB │ gzip:   0.23 kB
+.output/server/_ssr/createServerRpc-x_KnCl2d.mjs                      0.37 kB │ gzip:   0.26 kB
+.output/server/_ssr/schema-C7RxvCSr.mjs                               0.42 kB │ gzip:   0.24 kB
+.output/server/_libs/is-plain-obj.mjs                                 0.44 kB │ gzip:   0.25 kB
+.output/server/_libs/tiptap__extension-text.mjs                       0.52 kB │ gzip:   0.32 kB
+.output/server/_libs/tiptap__extension-document.mjs                   0.56 kB │ gzip:   0.35 kB
+.output/server/_libs/comma-separated-tokens.mjs                       0.63 kB │ gzip:   0.36 kB
+.output/server/_libs/ccount.mjs                                       0.68 kB │ gzip:   0.38 kB
+.output/server/_libs/estree-util-is-identifier-name.mjs               0.70 kB │ gzip:   0.39 kB
+.output/server/_ssr/navigation-schema-7Km8TbAs.mjs                    0.71 kB │ gzip:   0.34 kB
+.output/server/_ssr/available-BJ6X0G-g.mjs                            0.73 kB │ gzip:   0.43 kB
+.output/server/_ssr/sidebar-preferences-B916GFCb.mjs                  0.75 kB │ gzip:   0.44 kB
+.output/server/_libs/html-url-attributes.mjs                          0.75 kB │ gzip:   0.44 kB
+.output/server/_libs/decode-named-character-reference+[...].mjs       0.75 kB │ gzip:   0.45 kB
+.output/server/_ssr/preference-DzEKavZ4.mjs                           0.80 kB │ gzip:   0.43 kB
+.output/server/_ssr/schema-Bg-Kxb5N.mjs                               0.85 kB │ gzip:   0.42 kB
+.output/server/_libs/longest-streak.mjs                               0.87 kB │ gzip:   0.45 kB
+.output/server/_ssr/functions-CTrHF3XZ.mjs                            0.97 kB │ gzip:   0.51 kB
+.output/server/_ssr/sidebar-functions-DotrtWZi.mjs                    0.97 kB │ gzip:   0.48 kB
+.output/server/_chunks/ssr-renderer.mjs                               1.04 kB │ gzip:   0.51 kB
+.output/server/_libs/buffer-equal-constant-time.mjs                   1.05 kB │ gzip:   0.46 kB
+.output/server/_ssr/startup-functions-BamRsL9X.mjs                    1.12 kB │ gzip:   0.58 kB
+.output/server/_libs/hookable.mjs                                     1.19 kB │ gzip:   0.52 kB
+.output/server/_libs/remark-gfm.mjs                                   1.23 kB │ gzip:   0.52 kB
+.output/server/_ssr/display-functions-CHZPJkiI.mjs                    1.25 kB │ gzip:   0.56 kB
+.output/server/_ssr/notice-details-CfRaCYnr.mjs                       1.36 kB │ gzip:   0.50 kB
+.output/server/_runtime.mjs                                           1.56 kB │ gzip:   0.73 kB
+.output/server/_ssr/schema-BmRsF29Y.mjs                               1.56 kB │ gzip:   0.66 kB
+.output/server/_ssr/button-D_7uSMZr.mjs                               1.62 kB │ gzip:   0.90 kB
+.output/server/_ssr/functions-DYLX2pqi.mjs                            1.81 kB │ gzip:   0.76 kB
+.output/server/_libs/emotion__hash.mjs                                1.82 kB │ gzip:   0.60 kB
+.output/server/_libs/tiptap__extension-underline.mjs                  1.86 kB │ gzip:   0.80 kB
+.output/server/_libs/tiptap__extension-hard-break.mjs                 1.86 kB │ gzip:   0.84 kB
+.output/server/_libs/tiptap__extension-strike.mjs                     1.89 kB │ gzip:   0.80 kB
+.output/server/_ssr/chart-data-smydtIdJ.mjs                           2.01 kB │ gzip:   0.81 kB
+.output/server/_ssr/mobile-navigation-dialog-Co9T05-G.mjs             2.12 kB │ gzip:   0.98 kB
+.output/server/_libs/ufo.mjs                                          2.19 kB │ gzip:   0.71 kB
+.output/server/_ssr/styles-CAJ001CD.mjs                               2.22 kB │ gzip:   0.89 kB
+.output/server/_libs/peculiar__asn1-csr.mjs                           2.35 kB │ gzip:   0.70 kB
+.output/server/_libs/tiptap__extension-heading.mjs                    2.37 kB │ gzip:   0.98 kB
+.output/server/_libs/@tiptap/extension-horizontal-rule+[...].mjs      2.38 kB │ gzip:   0.97 kB
+.output/server/_ssr/functions-DhyhsXKH.mjs                            2.42 kB │ gzip:   0.93 kB
+.output/server/_ssr/theme-provider-B6WdHeoG.mjs                       2.46 kB │ gzip:   1.01 kB
+.output/server/_libs/tiptap__extension-italic.mjs                     2.47 kB │ gzip:   0.92 kB
+.output/server/_libs/tiptap__extension-code.mjs                       2.53 kB │ gzip:   1.02 kB
+.output/server/_ssr/functions-BFhedCKX.mjs                            2.55 kB │ gzip:   0.92 kB
+.output/server/_libs/extend.mjs                                       2.63 kB │ gzip:   0.97 kB
+.output/server/_libs/tiptap__extension-bold.mjs                       2.65 kB │ gzip:   1.02 kB
+.output/server/_libs/tiptap__extension-paragraph.mjs                  2.74 kB │ gzip:   1.07 kB
+.output/server/_ssr/session.server-BwPHWz27.mjs                       2.78 kB │ gzip:   1.08 kB
+.output/server/_ssr/routes-BeyY4orU.mjs                               2.85 kB │ gzip:   1.08 kB
+.output/server/_ssr/schema-BkFSOlBv.mjs                               3.13 kB │ gzip:   1.19 kB
+.output/server/_ssr/functions-nKAM_pmb.mjs                            3.22 kB │ gzip:   1.02 kB
+.output/server/_ssr/display-name-editor-BiWpIKfM.mjs                  3.69 kB │ gzip:   1.54 kB
+.output/server/_libs/tiptap__starter-kit.mjs                          3.92 kB │ gzip:   0.83 kB
+.output/server/_libs/hexagon__base64.mjs                              4.06 kB │ gzip:   1.35 kB
+.output/server/_libs/stylexjs__stylex.mjs                             4.16 kB │ gzip:   1.33 kB
+.output/server/_libs/tiptap__extension-blockquote.mjs                 4.20 kB │ gzip:   1.64 kB
+.output/server/_ssr/functions-Dm1Gyzxm.mjs                            4.22 kB │ gzip:   1.20 kB
+.output/server/_ssr/display-preferences-BE91aHde.mjs                  4.31 kB │ gzip:   1.51 kB
+.output/server/_tanstack-start-manifest_v-C-Ldl5C6.mjs                4.49 kB │ gzip:   1.15 kB
+.output/server/_ssr/collapsible-D2rY5eOB.mjs                          4.57 kB │ gzip:   1.18 kB
+.output/server/_ssr/agent-header-BGAkNUhE.mjs                         5.00 kB │ gzip:   1.42 kB
+.output/server/_ssr/navigation-functions-q03JyxtE.mjs                 5.20 kB │ gzip:   1.61 kB
+.output/server/_ssr/dashboard-fluent-chart-MCUFrD4K.mjs               5.24 kB │ gzip:   1.84 kB
+.output/server/_ssr/motion-COVp6dPq.mjs                               5.37 kB │ gzip:   2.11 kB
+.output/server/_ssr/functions-BatFrMOK.mjs                            5.45 kB │ gzip:   1.54 kB
+.output/server/_libs/peculiar__asn1-ecc.mjs                           5.50 kB │ gzip:   1.19 kB
+.output/server/_ssr/agents._agentId-Bc725oYV.mjs                      5.67 kB │ gzip:   2.01 kB
+.output/server/_ssr/threads.server-DkSyH3vB.mjs                       5.81 kB │ gzip:   1.96 kB
+.output/server/_ssr/workspace-schema-D0kZBU-I.mjs                     5.84 kB │ gzip:   1.85 kB
+.output/server/_libs/@fluentui/react-aria+[...].mjs                   6.00 kB │ gzip:   2.23 kB
+.output/server/_ssr/functions-CpYVuXst.mjs                            6.04 kB │ gzip:   2.09 kB
+.output/server/_ssr/store.server-Cfy7Brry.mjs                         6.36 kB │ gzip:   2.03 kB
+.output/server/_ssr/codex-connection-BFaGub3n.mjs                     6.60 kB │ gzip:   2.14 kB
+.output/server/_ssr/functions-ZJ-R-b2y.mjs                            6.64 kB │ gzip:   2.00 kB
+.output/server/_libs/agent-base.mjs                                   6.74 kB │ gzip:   1.96 kB
+.output/server/_libs/jwa.mjs                                          6.80 kB │ gzip:   1.83 kB
+.output/server/_ssr/store.server-CJZefv0z.mjs                         7.04 kB │ gzip:   2.27 kB
+.output/server/_libs/ungap__structured-clone.mjs                      7.17 kB │ gzip:   2.17 kB
+.output/server/_libs/ecdsa-sig-formatter+[...].mjs                    7.19 kB │ gzip:   1.94 kB
+.output/server/_libs/peculiar__asn1-pkcs9.mjs                         7.19 kB │ gzip:   1.43 kB
+.output/server/_ssr/agents.new-KgQSF0rv.mjs                           7.54 kB │ gzip:   2.19 kB
+.output/server/_ssr/functions-MK2zpDx2.mjs                            7.61 kB │ gzip:   1.86 kB
+.output/server/_ssr/agent-settings-dialog-C8SO4vVu.mjs                8.02 kB │ gzip:   2.59 kB
+.output/server/_ssr/functions--bcnAd4H.mjs                            8.14 kB │ gzip:   2.23 kB
+.output/server/_libs/jws.mjs                                          8.70 kB │ gzip:   2.21 kB
+.output/server/_libs/https-proxy-agent.mjs                            8.78 kB │ gzip:   3.01 kB
+.output/server/_libs/markdown-table.mjs                               8.86 kB │ gzip:   2.55 kB
+.output/server/_libs/tiptap__extension-code-block.mjs                 9.61 kB │ gzip:   2.73 kB
+.output/server/_ssr/store.server-CTmJTlKl.mjs                        10.56 kB │ gzip:   2.81 kB
+.output/server/_libs/tanstack__history.mjs                           10.66 kB │ gzip:   3.11 kB
+.output/server/_libs/@tiptap/extension-floating-menu+[...].mjs       10.84 kB │ gzip:   2.79 kB
+.output/server/_ssr/push.server-BIzNL3m3.mjs                         11.64 kB │ gzip:   3.83 kB
+.output/server/_libs/levischuck__tiny-cbor.mjs                       11.88 kB │ gzip:   3.29 kB
+.output/server/_libs/@tiptap/extension-unique-id+[...].mjs           12.08 kB │ gzip:   3.43 kB
+.output/server/_libs/@fluentui/react-provider+[...].mjs              12.11 kB │ gzip:   3.49 kB
+.output/server/_libs/http_ece.mjs                                    13.99 kB │ gzip:   3.91 kB
+.output/server/_libs/fluentui__priority-overflow.mjs                 14.80 kB │ gzip:   3.83 kB
+.output/server/_ssr/tool-activity-D43l-n8G.mjs                       14.86 kB │ gzip:   3.40 kB
+.output/server/_ssr/agent-identity-settings-CEcWSBER.mjs             16.77 kB │ gzip:   4.00 kB
+.output/server/_libs/@peculiar/asn1-pfx+[...].mjs                    17.17 kB │ gzip:   2.59 kB
+.output/server/_libs/floating-ui__dom.mjs                            17.49 kB │ gzip:   4.58 kB
+.output/server/_ssr/computer-panel-DALcCfil.mjs                      18.18 kB │ gzip:   5.07 kB
+.output/server/_libs/debug+ms.mjs                                    19.09 kB │ gzip:   5.84 kB
+.output/server/_libs/mdast-util-find-and-replace+[...].mjs           19.87 kB │ gzip:   6.28 kB
+.output/server/_ssr/agent-coding-settings-BJUAutT3.mjs               21.17 kB │ gzip:   4.45 kB
+.output/server/_ssr/router-a30jZZ-7.mjs                              21.63 kB │ gzip:   6.68 kB
+.output/server/_ssr/store.server-BADflNhc.mjs                        22.30 kB │ gzip:   7.13 kB
+.output/server/_ssr/store.server-Bd9bInk9.mjs                        22.47 kB │ gzip:   7.24 kB
+.output/server/_libs/web-push.mjs                                    22.99 kB │ gzip:   5.96 kB
+.output/server/_ssr/agents._agentId_.dashboard-NPZU1MDT.mjs          24.99 kB │ gzip:   6.14 kB
+.output/server/_libs/floating-ui__core.mjs                           28.88 kB │ gzip:   6.95 kB
+.output/server/__root-DKQG6_3t.mjs                                   31.60 kB │ gzip:   9.02 kB
+.output/server/_libs/croner.mjs                                      33.33 kB │ gzip:   8.85 kB
+.output/server/_ssr/settings-BblSLEv2.mjs                            33.58 kB │ gzip:   8.21 kB
+.output/server/_ssr/store.server-BTJr7FDI.mjs                        34.17 kB │ gzip:   7.43 kB
+.output/server/_libs/character-entities.mjs                          35.34 kB │ gzip:  12.28 kB
+.output/server/_ssr/soul-change-CaS52ss9.mjs                         37.16 kB │ gzip:   8.34 kB
+.output/server/_libs/@tiptap/extension-bubble-menu+[...].mjs         39.34 kB │ gzip:   9.65 kB
+.output/server/_ssr/agents._agentId_.note-BMwLZ6Pn.mjs               40.53 kB │ gzip:  10.28 kB
+.output/server/_libs/fluentui__chart-utilities.mjs                   40.62 kB │ gzip:   8.80 kB
+.output/server/_ssr/primitives-C-1UBmBA.mjs                          44.70 kB │ gzip:   3.58 kB
+.output/server/_libs/fluentui__tokens.mjs                            44.86 kB │ gzip:   8.04 kB
+.output/server/_ssr/workspace.server-B8aNyEnD.mjs                    47.29 kB │ gzip:  12.06 kB
+.output/server/_libs/tiptap__extension-list.mjs                      48.58 kB │ gzip:  12.50 kB
+.output/server/_libs/mdast-util-to-hast+[...].mjs                    50.13 kB │ gzip:  10.21 kB
+.output/server/_libs/micromark-extension-gfm+[...].mjs               51.63 kB │ gzip:   9.48 kB
+.output/server/_libs/fast-equals+tiptap__react.mjs                   52.64 kB │ gzip:  12.42 kB
+.output/server/_libs/@tiptap/extension-placeholder+[...].mjs         52.80 kB │ gzip:  14.05 kB
+.output/server/_ssr/conversation-7T984cLZ.mjs                        53.09 kB │ gzip:  13.41 kB
+.output/server/_ssr/agents._agentId_.jobs-RoX5BKCw.mjs               58.55 kB │ gzip:  12.79 kB
+.output/server/_ssr/agent-runtime.server-ltAAn-RV.mjs                66.52 kB │ gzip:  19.16 kB
+.output/server/_libs/@tiptap/extension-link+[...].mjs                68.67 kB │ gzip:  22.80 kB
+.output/server/_libs/mdast-util-gfm+[...].mjs                        69.20 kB │ gzip:  13.54 kB
+.output/server/_libs/hast-util-to-jsx-runtime+[...].mjs              69.25 kB │ gzip:  17.51 kB
+.output/server/_libs/react-markdown+[...].mjs                        70.83 kB │ gzip:  17.06 kB
+.output/server/_libs/h3+rou3+srvx.mjs                                71.08 kB │ gzip:  18.52 kB
+.output/server/_ssr/worker.server-C5ZRopNj.mjs                       75.15 kB │ gzip:  21.04 kB
+.output/server/_libs/crossws.mjs                                     79.55 kB │ gzip:  20.31 kB
+.output/server/_libs/@peculiar/asn1-cms+[...].mjs                    86.54 kB │ gzip:  11.73 kB
+.output/server/_libs/@fluentui/react-button+[...].mjs               108.61 kB │ gzip:  21.81 kB
+.output/server/_libs/asn1.js+[...].mjs                              119.95 kB │ gzip:  24.28 kB
+.output/server/_libs/simplewebauthn__server.mjs                     131.09 kB │ gzip:  36.46 kB
+.output/server/_libs/@peculiar/x509+[...].mjs                       160.23 kB │ gzip:  30.41 kB
+.output/server/_libs/@peculiar/asn1-android+[...].mjs               172.94 kB │ gzip:  32.80 kB
+.output/server/_libs/mdast-util-from-markdown+[...].mjs             193.93 kB │ gzip:  36.70 kB
+.output/server/_ssr/ssr.mjs                                         265.00 kB │ gzip:  64.53 kB
+.output/server/_libs/@base-ui/react+[...].mjs                       350.31 kB │ gzip:  75.41 kB
+.output/server/index.mjs                                            357.12 kB │ gzip:  88.90 kB
+.output/server/_libs/novnc__novnc.mjs                               494.39 kB │ gzip:  95.55 kB
+.output/server/_libs/@tiptap/core+[...].mjs                         610.18 kB │ gzip: 150.71 kB
+.output/server/_libs/effect.mjs                                     620.26 kB │ gzip: 135.05 kB
+.output/server/_libs/@tanstack/react-router+[...].mjs               649.56 kB │ gzip: 135.32 kB
+.output/server/_libs/@fluentui/react-charts+[...].mjs             1,046.10 kB │ gzip: 227.20 kB
+
+✓ built in 1.94s
+ℹ Generated .output/nitro.json
+
+[nitro] ✔ You can preview this build using npx vite preview
+vite v8.2.2 building ssr environment for production...
+transforming...
+✓ 607 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/cli/roost.mjs  382.27 kB │ gzip: 87.87 kB
+
+✓ built in 154ms
+
+> roost@0.1.41 test:auth:production /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> node --import tsx scripts/test-auth-production.ts
+
+Production auth smoke passed: enrollment, login, private pages/API, desktop upgrade, revocation, and recovery.
+
+> roost@0.1.41 check:sites /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> pnpm typecheck:sites && pnpm test:sites && pnpm build:sites
+
+
+> roost@0.1.41 typecheck:sites /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> tsc --project sites/tsconfig.json
+
+
+> roost@0.1.41 test:sites /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> node --import tsx --test sites/docs/*.test.tsx
+
+✔ Markdown links resolve to static routes and repeated headings get unique anchors (21.165689ms)
+✔ pipe tables render semantically and fenced examples remain code (10.238809ms)
+✔ static pages escape Markdown HTML, expose metadata, and provide a useful 404 (4.129991ms)
+✔ agent resources cover every guide and prioritize deployment before optional technical docs (11.79133ms)
+✔ raw Markdown rewrites article, anchor, reference, and repository links while preserving code examples (4.512097ms)
+✔ loading agent resources reflects added, changed, and removed source docs without a restart (3.091573ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 333.410537
+
+> roost@0.1.41 build:sites /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> pnpm build:marketing && pnpm build:docs
+
+
+> roost@0.1.41 build:marketing /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> vite build --config sites/marketing/vite.config.ts
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 5 modules transformed.
+rendering chunks...
+computing gzip size...
+sites/marketing/dist/llms.txt                    0.98 kB │ gzip: 0.45 kB
+sites/marketing/dist/index.html                 14.01 kB │ gzip: 3.84 kB
+sites/marketing/dist/assets/index-Ce0CAWeN.css  17.93 kB │ gzip: 4.66 kB
+sites/marketing/dist/assets/index-B7Wo7M8L.js    1.83 kB │ gzip: 0.84 kB
+
+✓ built in 97ms
+
+> roost@0.1.41 build:docs /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> vite build --config sites/docs/vite.config.ts
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 2 modules transformed.
+rendering chunks...
+computing gzip size...
+sites/docs/dist/index.md                               2.67 kB
+sites/docs/dist/delegation.md                          2.88 kB
+sites/docs/dist/deploy-exe-dev.md                      3.07 kB
+sites/docs/dist/deploy-marketing-railway.md            3.42 kB
+sites/docs/dist/getting-started.md                     3.60 kB
+sites/docs/dist/404.html                               3.66 kB │ gzip:  1.44 kB
+sites/docs/dist/deploy-linux.md                        3.90 kB
+sites/docs/dist/for-agents.md                          3.92 kB
+sites/docs/dist/mobile.md                              4.26 kB
+sites/docs/dist/authentication.md                      4.32 kB
+sites/docs/dist/files-and-approvals.md                 4.42 kB
+sites/docs/dist/chat-performance.md                    4.43 kB
+sites/docs/dist/computer.md                            4.88 kB
+sites/docs/dist/deploy-railway.md                      4.93 kB
+sites/docs/dist/message-threads.md                     5.17 kB
+sites/docs/dist/settings-navigation.md                 5.41 kB
+sites/docs/dist/public-sites.md                        5.49 kB
+sites/docs/dist/deploy-docs-railway.md                 5.69 kB
+sites/docs/dist/deploy-vercel.md                       5.70 kB
+sites/docs/dist/notifications.md                       5.84 kB
+sites/docs/dist/development.md                         5.99 kB
+sites/docs/dist/architecture.md                        6.17 kB
+sites/docs/dist/deployment.md                          6.65 kB
+sites/docs/dist/agents-and-memory.md                   6.96 kB
+sites/docs/dist/automations.md                         7.00 kB
+sites/docs/dist/coding-agents.md                       7.26 kB
+sites/docs/dist/delegation/index.html                  7.44 kB │ gzip:  2.92 kB
+sites/docs/dist/llms.txt                               7.70 kB │ gzip:  3.30 kB
+sites/docs/dist/index.html                             8.16 kB │ gzip:  2.73 kB
+sites/docs/dist/pwa-startup.md                         8.17 kB
+sites/docs/dist/install.md                             8.81 kB
+sites/docs/dist/shared-note.md                         8.87 kB
+sites/docs/dist/mobile/index.html                      8.97 kB │ gzip:  3.57 kB
+sites/docs/dist/custom-themes.md                       9.06 kB
+sites/docs/dist/deploy-marketing-railway/index.html    9.25 kB │ gzip:  3.37 kB
+sites/docs/dist/remote-desktop-setup.md                9.26 kB
+sites/docs/dist/deploy-exe-dev/index.html              9.28 kB │ gzip:  3.25 kB
+sites/docs/dist/dashboards.md                          9.37 kB
+sites/docs/dist/files-and-approvals/index.html         9.37 kB │ gzip:  3.65 kB
+sites/docs/dist/getting-started/index.html             9.38 kB │ gzip:  3.39 kB
+sites/docs/dist/chat-performance/index.html            9.85 kB │ gzip:  3.58 kB
+sites/docs/dist/computer/index.html                    9.86 kB │ gzip:  3.89 kB
+sites/docs/dist/deploy-linux/index.html               10.14 kB │ gzip:  3.60 kB
+sites/docs/dist/authentication/index.html             10.28 kB │ gzip:  3.80 kB
+sites/docs/dist/for-agents/index.html                 10.35 kB │ gzip:  3.61 kB
+sites/docs/dist/message-threads/index.html            10.42 kB │ gzip:  4.02 kB
+sites/docs/dist/deploy-macos.md                       10.73 kB
+sites/docs/dist/deploy-railway/index.html             11.22 kB │ gzip:  4.14 kB
+sites/docs/dist/settings-navigation/index.html        11.27 kB │ gzip:  4.09 kB
+sites/docs/dist/notifications/index.html              11.33 kB │ gzip:  4.29 kB
+sites/docs/dist/public-sites/index.html               11.99 kB │ gzip:  4.21 kB
+sites/docs/dist/development/index.html                12.04 kB │ gzip:  4.57 kB
+sites/docs/dist/deploy-docs-railway/index.html        12.21 kB │ gzip:  4.35 kB
+sites/docs/dist/deploy-vercel/index.html              12.26 kB │ gzip:  4.32 kB
+sites/docs/dist/architecture/index.html               12.30 kB │ gzip:  4.50 kB
+sites/docs/dist/agents-and-memory/index.html          12.88 kB │ gzip:  4.91 kB
+sites/docs/dist/coding-job-workspaces.md              13.01 kB
+sites/docs/dist/coding-agents/index.html              13.02 kB │ gzip:  4.74 kB
+sites/docs/dist/automations/index.html                13.21 kB │ gzip:  4.98 kB
+sites/docs/dist/deployment/index.html                 13.68 kB │ gzip:  4.76 kB
+sites/docs/dist/pwa-startup/index.html                13.70 kB │ gzip:  4.96 kB
+sites/docs/dist/shared-note/index.html                14.93 kB │ gzip:  5.74 kB
+sites/docs/dist/install/index.html                    16.05 kB │ gzip:  5.70 kB
+sites/docs/dist/remote-desktop-setup/index.html       16.28 kB │ gzip:  5.90 kB
+sites/docs/dist/dashboards/index.html                 16.34 kB │ gzip:  6.09 kB
+sites/docs/dist/custom-themes/index.html              17.83 kB │ gzip:  5.32 kB
+sites/docs/dist/deploy-macos/index.html               18.88 kB │ gzip:  6.05 kB
+sites/docs/dist/coding-job-workspaces/index.html      19.24 kB │ gzip:  7.31 kB
+sites/docs/dist/search-index.json                    195.25 kB │ gzip: 66.34 kB
+sites/docs/dist/llms-full.txt                        203.62 kB │ gzip: 72.61 kB
+sites/docs/dist/assets/docs.css                       11.78 kB │ gzip:  2.96 kB
+sites/docs/dist/assets/client-WUf2ffmW.js              2.70 kB │ gzip:  1.20 kB
+
+✓ built in 453ms

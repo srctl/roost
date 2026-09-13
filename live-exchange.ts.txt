@@ -1,0 +1,81 @@
+// Task-only evidence harness. Uses a new DB and the finished implementation
+// worker; never opens the preserved application databases or starts a worker.
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { Effect } from 'effect';
+import { saveAgent, withAgentStore } from '../../src/server/agents/store.server';
+import { createCodingJob, updateCodingJob } from '../../src/server/coding/store.server';
+import { sendWorkerMessage } from '../../src/server/coding/conversation.server';
+import { getJobWorkspace } from '../../src/server/coding/workspace-store.server';
+import { codingAdapter, tickCodingJobs } from '../../src/server/coding/worker.server';
+import { readCodingWorker } from '../../src/server/coding/herdr.server';
+
+const run = Effect.runPromise;
+const evidence = new URL('./', import.meta.url);
+const directory = mkdtempSync('/tmp/approved-three-live-');
+process.env.ROOST_DATA_DIR = directory;
+const target = { sessionName: 'roost-9e631d48-a0a4-48cc-b12f-bfe096f2a4d1', remoteTarget: '' };
+const workerName = 'roost-approved-integrator';
+const before = await readCodingWorker(target, workerName);
+assert.ok(['idle', 'done'].includes(before.state), 'Implementation worker must finish first');
+assert.ok(before.sessionIdentity);
+const agent = await run(saveAgent({ id: randomUUID(), name: 'Isolated combined transport check', kind: 'coding', instructions: 'Synthetic verification only', character: 'moss', model: 'fake' }));
+const id = randomUUID();
+await run(createCodingJob({ id, agentId: agent.id, title: 'Isolated same-worker verification', brief: 'Read-only verification; never launch replacement', cwd: process.cwd(), sessionName: target.sessionName, workerName, workerKind: 'codex' }));
+await run(updateCodingJob(agent.id, id, { status: 'running', sessionIdentity: before.sessionIdentity!, nativeSessionId: before.nativeSessionId ?? '', paneId: before.paneId ?? '', observedWorking: true, lastWorkerState: before.state }));
+await run(withAgentStore(db => {
+  db.prepare("INSERT INTO runs(id,agentId,conversationId,kind,prompt,status,createdAt) VALUES(?,?,?,'chat','Synthetic occupied manager row','running',?)").run(randomUUID(),agent.id,agent.id,Date.now());
+}));
+const requests = [randomUUID(), randomUUID()];
+const texts = [
+  'Your integration work is complete; this is the authorized isolated same-worker transport test. Use a single bounded shell sleep of 12 seconds, then reply exactly APPROVED_COMBINED_ONE inside the required response frame. Do not inspect or modify files, send messages, merge, deploy, or perform other work.',
+  'Second ordered isolated transport check. Reply exactly APPROVED_COMBINED_TWO inside the required response frame. Do not use tools or perform any other action.'
+];
+for (let i=0;i<2;i++) await run(sendWorkerMessage({agentId:agent.id,id,requestId:requests[i]!,text:texts[i]!}));
+await run(sendWorkerMessage({agentId:agent.id,id,requestId:requests[0]!,text:texts[0]!}));
+const stages: unknown[] = [];
+const submissions: unknown[] = [];
+const adapter = {...codingAdapter,
+  startCodingWorker: async () => {throw Error('Forbidden replacement launch');},
+  stopCodingWorker: async () => {throw Error('Forbidden worker stop');},
+  promptCodingWorker: async (...args: Parameters<typeof codingAdapter.promptCodingWorker>) => {
+    submissions.push({time:Date.now(),worker:args[1],identity:args[3]});
+    return codingAdapter.promptCodingWorker(...args);
+  }
+};
+let sawBusyQueue = false;
+const deadline = Date.now()+240000;
+try {
+  while(Date.now()<deadline) {
+    await run(withAgentStore(db => {
+      db.prepare("INSERT INTO worker_lease VALUES(1,'combined-live',?) ON CONFLICT(id) DO UPDATE SET owner='combined-live',heartbeat=excluded.heartbeat").run(Date.now());
+      db.exec('UPDATE coding_jobs SET lastCheckedAt=0');
+    }));
+    await tickCodingJobs('combined-live',new AbortController().signal,adapter);
+    const workspace = await run(getJobWorkspace(agent.id,id));
+    const states = workspace.messages.map(m=>({id:m.id,status:m.status,response:m.response}));
+    const manager = await run(withAgentStore(db=>db.prepare('SELECT status FROM runs WHERE agentId=?').get(agent.id)));
+    assert.equal(manager?.status,'running');
+    if(states[0]?.status==='responding' && states[1]?.status==='queued') sawBusyQueue=true;
+    if(JSON.stringify(states)!==JSON.stringify((stages.at(-1) as any)?.messages)) {
+      stages.push({time:Date.now(),messages:states,manager:manager?.status});
+      console.log(JSON.stringify(stages.at(-1)));
+    }
+    if(states.length===2 && states.every(m=>m.status==='answered')) break;
+    await new Promise(r=>setTimeout(r,1200));
+  }
+  const final = await run(getJobWorkspace(agent.id,id));
+  assert.deepEqual(final.messages.map(m=>m.response),['APPROVED_COMBINED_ONE','APPROVED_COMBINED_TWO']);
+  assert.ok(final.messages.every(m=>m.status==='answered'));
+  assert.equal(submissions.length,2);
+  assert.ok(sawBusyQueue);
+  const after = await readCodingWorker(target,workerName);
+  assert.equal(after.sessionIdentity,before.sessionIdentity);
+  assert.equal(after.nativeSessionId,before.nativeSessionId);
+  writeFileSync(new URL('live-exchange-result.json',evidence),JSON.stringify({pass:true,directory,tree:execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(),agentId:agent.id,jobId:id,workerName,sessionIdentity:after.sessionIdentity,nativeSessionId:after.nativeSessionId,submissions,stages,sawBusyQueue,manager:'Synthetic occupied DB row, not a live managing model turn',transport:'Actual Herdr/Codex/Astra worker, no transport doubles'},null,2)+'\n');
+  console.log('ACTUAL SAME-WORKER EXCHANGE PASS');
+} finally {
+  writeFileSync(new URL('live-exchange-audit.json',evidence),JSON.stringify({directory,submissions,stages},null,2)+'\n');
+}

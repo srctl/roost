@@ -1,0 +1,27 @@
+
+> roost@0.1.41 lint /home/exedev/.local/share/roost/data/workspaces/efddf5b4-d642-41e7-8235-8c8800fc92d9/roost-approved-three-merge
+> biome check --error-on-warnings .
+
+tests/agent-navigation.test.ts:378:7 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Template literals are preferred over string concatenation.
+  
+    376 │       );
+    377 │     db.exec(
+  > 378 │       "DELETE FROM agent_navigation_versions WHERE version=2;" + dropNavigation,
+        │       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    379 │     );
+    380 │     assert.deepEqual(await run(readAgentNavigation(directory)), {
+  
+  i Unsafe fix: Use a template literal.
+  
+    376 376 │         );
+    377 377 │       db.exec(
+    378     │ - ······"DELETE·FROM·agent_navigation_versions·WHERE·version=2;"·+·dropNavigation,
+        378 │ + ······`DELETE·FROM·agent_navigation_versions·WHERE·version=2;${dropNavigation}`,
+    379 379 │       );
+    380 380 │       assert.deepEqual(await run(readAgentNavigation(directory)), {
+  
+
+Checked 280 files in 760ms. No fixes applied.
+Found 1 info.

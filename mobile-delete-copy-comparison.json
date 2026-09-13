@@ -1,0 +1,17 @@
+{
+  "label": "mobile",
+  "width": 390,
+  "height": 844,
+  "route": "http://127.0.0.1:34855/agents/9b2cbd54-7fc6-47e8-aed5-daf0d0fa32ff",
+  "sourceBefore": "PR12 7bb621ee221a2962e8f5bcec564fb5c0b8ad3bb0 src/components/agent-deletion.tsx confirmation text",
+  "sourceAfter": "Final integration src/components/agent-deletion.tsx",
+  "method": "Same live final production fixture and styles. Only the two paragraph textContent values were replaced with approved PR12 text for before, then restored for after. This is a rendered copy comparison, not a historical-build comparison.",
+  "current": [
+    "Permanently remove this agent and its conversations, run history, Notes, automations, dashboards, file records and coding job records from Roost. Queued agent turns will be discarded. This cannot be undone.",
+    "Active turns and coding workers must finish or be confirmed stopped, and worker queues must be settled before deletion. Work already shared with other agents stays in their conversations."
+  ],
+  "before": [
+    "Permanently remove this agent and its conversations, run history, automations, dashboards, file records and coding job records from Roost. Queued work will be discarded. This cannot be undone.",
+    "Active turns and coding workers must finish or be confirmed stopped before deletion. Work already shared with other agents stays in their conversations."
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "pass": true,
+  "directory": "/tmp/approved-three-live-ltSzPA",
+  "tree": "8669a57d7a3b0241fc1048727bd3e2c2bd4a2a0c",
+  "agentId": "caf2276d-a76f-4e79-924f-24963b16168f",
+  "jobId": "b0c6e95f-232b-425a-a3ba-02d0715ab646",
+  "workerName": "roost-approved-integrator",
+  "sessionIdentity": "terminal:term_65b6252930bde2",
+  "submissions": [
+    {
+      "time": 1789328735013,
+      "worker": "roost-approved-integrator",
+      "identity": "terminal:term_65b6252930bde2"
+    },
+    {
+      "time": 1789328749737,
+      "worker": "roost-approved-integrator",
+      "identity": "terminal:term_65b6252930bde2"
+    }
+  ],
+  "stages": [
+    {
+      "time": 1789328735763,
+      "messages": [
+        {
+          "id": "081b7afe-99c7-4282-babd-ff5790e538e0",
+          "status": "responding",
+          "response": ""
+        },
+        {
+          "id": "5df45667-d294-4cad-890f-13bfa11dc90d",
+          "status": "queued",
+          "response": ""
+        }
+      ],
+      "manager": "running"
+    },
+    {
+      "time": 1789328750298,
+      "messages": [
+        {
+          "id": "081b7afe-99c7-4282-babd-ff5790e538e0",
+          "status": "answered",
+          "response": "APPROVED_COMBINED_ONE"
+        },
+        {
+          "id": "5df45667-d294-4cad-890f-13bfa11dc90d",
+          "status": "responding",
+          "response": ""
+        }
+      ],
+      "manager": "running"
+    },
+    {
+      "time": 1789328754205,
+      "messages": [
+        {
+          "id": "081b7afe-99c7-4282-babd-ff5790e538e0",
+          "status": "answered",
+          "response": "APPROVED_COMBINED_ONE"
+        },
+        {
+          "id": "5df45667-d294-4cad-890f-13bfa11dc90d",
+          "status": "answered",
+          "response": "APPROVED_COMBINED_TWO"
+        }
+      ],
+      "manager": "running"
+    }
+  ],
+  "sawBusyQueue": true,
+  "manager": "Synthetic occupied DB row, not a live managing model turn",
+  "transport": "Actual Herdr/Codex/Astra worker, no transport doubles"
+}

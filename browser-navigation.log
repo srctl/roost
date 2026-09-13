@@ -1,0 +1,5 @@
+desktop: lost-response creation retry preserved one section and UUID
+desktop: rename validation/cancel/save, section create/move/rename/delete, persisted collapse, stable conversation URL and in-memory drafts passed
+mobile: lost-response creation retry preserved one section and UUID
+mobile: rename validation/cancel/save, section create/move/rename/delete, persisted collapse, stable conversation URL and in-memory drafts passed
+Compiled rename/section endpoints: unauthenticated 401, foreign origin 403, instance session accepted

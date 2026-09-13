@@ -1,0 +1,328 @@
+TAP version 13
+# Subtest: core14 navigation installation, rename and sections preserve actual Notes, associated records, private files, IDs and ordering
+ok 1 - core14 navigation installation, rename and sections preserve actual Notes, associated records, private files, IDs and ordering
+  ---
+  duration_ms: 511.266835
+  type: 'test'
+  ...
+# Subtest: shared schemas and storage reject invalid names, UUIDs, missing agents/sections atomically
+ok 2 - shared schemas and storage reject invalid names, UUIDs, missing agents/sections atomically
+  ---
+  duration_ms: 307.857303
+  type: 'test'
+  ...
+# Subtest: feature migration upgrades legacy core13, composes with outer core14 transaction, and refuses future versions
+ok 3 - feature migration upgrades legacy core13, composes with outer core14 transaction, and refuses future versions
+  ---
+  duration_ms: 160.960622
+  type: 'test'
+  ...
+# Subtest: direct messages bypass occupied main thread, queue while busy, preserve identity and order across reads
+ok 4 - direct messages bypass occupied main thread, queue while busy, preserve identity and order across reads
+  ---
+  duration_ms: 759.962349
+  type: 'test'
+  ...
+# Subtest: restart uncertainty fences later instructions until explicit same-worker inspection; retry does not replay
+ok 5 - restart uncertainty fences later instructions until explicit same-worker inspection; retry does not replay
+  ---
+  duration_ms: 437.115264
+  type: 'test'
+  ...
+# Subtest: approvals hold queued messages; missing or changed worker cannot receive or resume
+ok 6 - approvals hold queued messages; missing or changed worker cannot receive or resume
+  ---
+  duration_ms: 296.021568
+  type: 'test'
+  ...
+# Subtest: busy race is queued without false delivery; lost transport reply is failed and never replayed
+ok 7 - busy race is queued without false delivery; lost transport reply is failed and never replayed
+  ---
+  duration_ms: 524.136494
+  type: 'test'
+  ...
+# Subtest: main-thread inputs and direct messages share ordering; completed jobs and foreign IDs reject
+ok 8 - main-thread inputs and direct messages share ordering; completed jobs and foreign IDs reject
+  ---
+  duration_ms: 456.611232
+  type: 'test'
+  ...
+# Subtest: preview verifies actual owned listener and endpoint; stale URL, redirects, wrong bind and unrelated process never prove running
+ok 9 - preview verifies actual owned listener and endpoint; stale URL, redirects, wrong bind and unrelated process never prove running
+  ---
+  duration_ms: 364.914433
+  type: 'test'
+  ...
+# Subtest: preview status preserves review fields without starting services
+ok 10 - preview status preserves review fields without starting services
+  ---
+  duration_ms: 269.415607
+  type: 'test'
+  ...
+# Subtest: preview status preserves feedback fields without starting services
+ok 11 - preview status preserves feedback fields without starting services
+  ---
+  duration_ms: 307.794342
+  type: 'test'
+  ...
+# Subtest: an uncertain concurrent coordinator input fences direct messages without replaying old unrelated failures
+ok 12 - an uncertain concurrent coordinator input fences direct messages without replaying old unrelated failures
+  ---
+  duration_ms: 441.994636
+  type: 'test'
+  ...
+# Subtest: an explicit instruction resumes feedback pause while retaining same worker
+ok 13 - an explicit instruction resumes feedback pause while retaining same worker
+  ---
+  duration_ms: 271.421834
+  type: 'test'
+  ...
+# Subtest: terminal redraw or prompt echo cannot become a worker answer; completed delivery survives reconnect without replay
+ok 14 - terminal redraw or prompt echo cannot become a worker answer; completed delivery survives reconnect without replay
+  ---
+  duration_ms: 692.592125
+  type: 'test'
+  ...
+# Subtest: deletion during a stale worker observation cannot dispatch or recreate job conversation records
+ok 15 - deletion during a stale worker observation cannot dispatch or recreate job conversation records
+  ---
+  duration_ms: 274.171841
+  type: 'test'
+  ...
+# Subtest: deletion removes owned records atomically, retains disk/shared data, fences retries and never schedules again
+ok 16 - deletion removes owned records atomically, retains disk/shared data, fences retries and never schedules again
+  ---
+  duration_ms: 705.389389
+  type: 'test'
+  ...
+# Subtest: active turn and stop request block deletion until worker finishes; queued work is then discarded
+ok 17 - active turn and stop request block deletion until worker finishes; queued work is then discarded
+  ---
+  duration_ms: 259.151752
+  type: 'test'
+  ...
+# Subtest: coding starting/running/blocked/review/failed jobs and uncertain stops prevent deletion
+ok 18 - coding starting/running/blocked/review/failed jobs and uncertain stops prevent deletion
+  ---
+  duration_ms: 385.448836
+  type: 'test'
+  ...
+# Subtest: safe prelaunch failure can be deleted and no failed launch is retried
+ok 19 - safe prelaunch failure can be deleted and no failed launch is retried
+  ---
+  duration_ms: 96.973267
+  type: 'test'
+  ...
+# Subtest: outstanding delegated work on another agent is preserved and blocks deletion
+ok 20 - outstanding delegated work on another agent is preserved and blocks deletion
+  ---
+  duration_ms: 105.388131
+  type: 'test'
+  ...
+# Subtest: storage failure rolls back all removal; mismatched confirmation and maintenance are rejected
+ok 21 - storage failure rolls back all removal; mismatched confirmation and maintenance are rejected
+  ---
+  duration_ms: 165.948852
+  type: 'test'
+  ...
+# Subtest: runtime disposal must succeed before deletion, busy runtimes block and idle runtime is closed
+ok 22 - runtime disposal must succeed before deletion, busy runtimes block and idle runtime is closed
+  ---
+  duration_ms: 86.013282
+  type: 'test'
+  ...
+# Subtest: completed job with queued direct input blocks deletion atomically
+ok 23 - completed job with queued direct input blocks deletion atomically
+  ---
+  duration_ms: 141.157784
+  type: 'test'
+  ...
+# Subtest: completed job with dispatching direct input blocks deletion atomically
+ok 24 - completed job with dispatching direct input blocks deletion atomically
+  ---
+  duration_ms: 116.478025
+  type: 'test'
+  ...
+# Subtest: cancelled job with queued direct input blocks deletion atomically
+ok 25 - cancelled job with queued direct input blocks deletion atomically
+  ---
+  duration_ms: 111.924457
+  type: 'test'
+  ...
+# Subtest: cancelled job with dispatching direct input blocks deletion atomically
+ok 26 - cancelled job with dispatching direct input blocks deletion atomically
+  ---
+  duration_ms: 147.508892
+  type: 'test'
+  ...
+# Subtest: terminal job retains unsettled direct receipts and worker fences until explicitly settled
+ok 27 - terminal job retains unsettled direct receipts and worker fences until explicitly settled
+  ---
+  duration_ms: 190.421563
+  type: 'test'
+  ...
+# Subtest: combined deletion removes Notes/history, threads, job conversations and membership, fences all owned tables and preserves neighbors
+ok 28 - combined deletion removes Notes/history, threads, job conversations and membership, fences all owned tables and preserves neighbors
+  ---
+  duration_ms: 335.578452
+  type: 'test'
+  ...
+# Subtest: uncertain failed direct submission blocks terminal-job deletion until inspection is acknowledged
+ok 29 - uncertain failed direct submission blocks terminal-job deletion until inspection is acknowledged
+  ---
+  duration_ms: 161.926907
+  type: 'test'
+  ...
+# Subtest: combined migration preserves data from base-v8 and is repeatable
+ok 30 - combined migration preserves data from base-v8 and is repeatable
+  ---
+  duration_ms: 324.20401
+  type: 'test'
+  ...
+# Subtest: combined migration preserves data from datasets-v9 and is repeatable
+ok 31 - combined migration preserves data from datasets-v9 and is repeatable
+  ---
+  duration_ms: 271.388231
+  type: 'test'
+  ...
+# Subtest: combined migration preserves data from models-v9 and is repeatable
+ok 32 - combined migration preserves data from models-v9 and is repeatable
+  ---
+  duration_ms: 304.130998
+  type: 'test'
+  ...
+# Subtest: combined migration preserves data from current-v10 and is repeatable
+ok 33 - combined migration preserves data from current-v10 and is repeatable
+  ---
+  duration_ms: 299.404092
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=false, Threads=none, run ownership and stable identities
+ok 34 - shape upgrade preserves Notes=false, Threads=none, run ownership and stable identities
+  ---
+  duration_ms: 289.371666
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=true, Threads=none, run ownership and stable identities
+ok 35 - shape upgrade preserves Notes=true, Threads=none, run ownership and stable identities
+  ---
+  duration_ms: 303.540524
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=false, Threads=11, run ownership and stable identities
+ok 36 - shape upgrade preserves Notes=false, Threads=11, run ownership and stable identities
+  ---
+  duration_ms: 244.820533
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=false, Threads=12, run ownership and stable identities
+ok 37 - shape upgrade preserves Notes=false, Threads=12, run ownership and stable identities
+  ---
+  duration_ms: 217.506444
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=false, Threads=13, run ownership and stable identities
+ok 38 - shape upgrade preserves Notes=false, Threads=13, run ownership and stable identities
+  ---
+  duration_ms: 229.512077
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=true, Threads=11, run ownership and stable identities
+ok 39 - shape upgrade preserves Notes=true, Threads=11, run ownership and stable identities
+  ---
+  duration_ms: 230.543544
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=true, Threads=12, run ownership and stable identities
+ok 40 - shape upgrade preserves Notes=true, Threads=12, run ownership and stable identities
+  ---
+  duration_ms: 407.086285
+  type: 'test'
+  ...
+# Subtest: shape upgrade preserves Notes=true, Threads=13, run ownership and stable identities
+ok 41 - shape upgrade preserves Notes=true, Threads=13, run ownership and stable identities
+  ---
+  duration_ms: 317.439555
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_reads
+ok 42 - malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_reads
+  ---
+  duration_ms: 291.385711
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: ALTER TABLE agent_notes ADD COLUMN unexpected TEXT
+ok 43 - malformed/unsupported shape rolls back schema and every saved row: ALTER TABLE agent_notes ADD COLUMN unexpected TEXT
+  ---
+  duration_ms: 289.005248
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_requests; CREATE TABLE note_requests(agentId TEXT NOT NULL,requestId TEXT NOT NULL,fingerprint TEXT NOT NULL,snapshot TEXT NOT NULL)
+ok 44 - malformed/unsupported shape rolls back schema and every saved row: DROP TABLE note_requests; CREATE TABLE note_requests(agentId TEXT NOT NULL,requestId TEXT NOT NULL,fingerprint TEXT NOT NULL,snapshot TEXT NOT NULL)
+  ---
+  duration_ms: 293.965202
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE conversation_records(id TEXT)
+ok 45 - malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE conversation_records(id TEXT)
+  ---
+  duration_ms: 263.597257
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE provider_message_ids(agentId TEXT)
+ok 46 - malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE provider_message_ids(agentId TEXT)
+  ---
+  duration_ms: 246.841797
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE coding_workspace_versions(version INTEGER PRIMARY KEY); INSERT INTO coding_workspace_versions VALUES(99)
+ok 47 - malformed/unsupported shape rolls back schema and every saved row: CREATE TABLE coding_workspace_versions(version INTEGER PRIMARY KEY); INSERT INTO coding_workspace_versions VALUES(99)
+  ---
+  duration_ms: 386.720934
+  type: 'test'
+  ...
+# Subtest: malformed/unsupported shape rolls back schema and every saved row: UPDATE timeline SET message='malformed JSON'
+ok 48 - malformed/unsupported shape rolls back schema and every saved row: UPDATE timeline SET message='malformed JSON'
+  ---
+  duration_ms: 574.118295
+  type: 'test'
+  ...
+# Subtest: deletion feature migration preserves deletion-v11 and installs the cumulative contracts
+ok 49 - deletion feature migration preserves deletion-v11 and installs the cumulative contracts
+  ---
+  duration_ms: 526.528642
+  type: 'test'
+  ...
+# Subtest: deletion feature migration preserves core14 and installs the cumulative contracts
+ok 50 - deletion feature migration preserves core14 and installs the cumulative contracts
+  ---
+  duration_ms: 822.921769
+  type: 'test'
+  ...
+# Subtest: deletion feature migration preserves core14-with-navigation and installs the cumulative contracts
+ok 51 - deletion feature migration preserves core14-with-navigation and installs the cumulative contracts
+  ---
+  duration_ms: 568.033575
+  type: 'test'
+  ...
+# Subtest: future-deletion refuses migration without modifying the database
+ok 52 - future-deletion refuses migration without modifying the database
+  ---
+  duration_ms: 27.994391
+  type: 'test'
+  ...
+# Subtest: malformed-tombstones refuses migration without modifying the database
+ok 53 - malformed-tombstones refuses migration without modifying the database
+  ---
+  duration_ms: 31.309383
+  type: 'test'
+  ...
+1..53
+# tests 53
+# suites 0
+# pass 53
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 17924.031298

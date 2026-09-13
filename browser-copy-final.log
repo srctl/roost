@@ -1,0 +1,22 @@
+Job mobile layout, keyboard emulation, draft/reconnect and focus checks passed [
+  {
+    width: 320,
+    height: 740,
+    passed: true,
+    keyboard: 'short layout + synthetic visual viewport; not physical device'
+  },
+  {
+    width: 390,
+    height: 844,
+    passed: true,
+    keyboard: 'short layout + synthetic visual viewport; not physical device'
+  },
+  {
+    width: 430,
+    height: 932,
+    passed: true,
+    keyboard: 'short layout + synthetic visual viewport; not physical device'
+  },
+  { width: 1440, height: 1000, passed: true, keyboard: 'not emulated' }
+]
+Fresh production Chat/Jobs/Notes styling, deletion guards and cleanup, and PR37 browser suite passed.

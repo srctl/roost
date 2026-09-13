@@ -1,0 +1,57 @@
+[
+  {
+    "port": 4342,
+    "path": "/",
+    "status": 200,
+    "bytes": 40752,
+    "revision": null
+  },
+  {
+    "port": 4342,
+    "path": "/verification-revision.json",
+    "status": 200,
+    "bytes": 154,
+    "revision": "{\"revision\": \"2aa050c1220efe4263e662a77e9a987882c5ef1d\", \"isolatedReview\": true, \"simulatedWorker\": true, \"checkedAt\": \"2026-09-13T19:12:29.354725+00:00\"}"
+  },
+  {
+    "port": 4344,
+    "path": "/",
+    "status": 200,
+    "bytes": 16414,
+    "revision": null
+  },
+  {
+    "port": 4344,
+    "path": "/verification-revision.json",
+    "status": 200,
+    "bytes": 155,
+    "revision": "{\"revision\": \"2aa050c1220efe4263e662a77e9a987882c5ef1d\", \"isolatedReview\": true, \"simulatedWorker\": false, \"checkedAt\": \"2026-09-13T19:12:29.340037+00:00\"}"
+  },
+  {
+    "port": 4346,
+    "path": "/",
+    "status": 200,
+    "bytes": 21438,
+    "revision": null
+  },
+  {
+    "port": 4336,
+    "path": "/",
+    "status": 200,
+    "bytes": 17960,
+    "revision": null
+  },
+  {
+    "port": 4327,
+    "path": "/",
+    "status": 200,
+    "bytes": 14910,
+    "revision": null
+  },
+  {
+    "bundle": "pr37-clean-ui-2aa050c.tar.gz",
+    "status": 200,
+    "bytes": 3750035,
+    "sha256": "e33b9e28b3ff159e610faa35ed1a937972defb3571565a283011a49631615864"
+  }
+]
