@@ -20,6 +20,7 @@ import { noteColors } from "../styles/notes.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { NoteButton } from "./note-button";
 import { NoteEditor } from "./note-editor";
+import { NoteOutline } from "./note-outline";
 import { NotePreview } from "./note-preview";
 
 const same = (a: unknown, b: unknown) =>
@@ -50,6 +51,8 @@ type Pending =
     };
 
 export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [base, setBase] = useState(initial);
   const [blocks, setBlocks] = useState(initial.blocks);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
@@ -408,193 +411,211 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
   );
 
   return (
-    <div {...stylex.props(styles.scroll)}>
-      <article aria-label="Shared note" {...stylex.props(styles.paper)}>
-        <div {...stylex.props(styles.metadata)}>
-          <NoteButton
-            type="button"
-            aria-expanded={instructionsOpen}
-            aria-controls="note-instructions-panel"
-            onClick={() => setInstructionsOpen((open) => !open)}
-            xstyle={styles.instructionToggle}
-          >
-            <span aria-hidden="true">{instructionsOpen ? "⌄" : "›"}</span>
-            Agent instructions
-          </NoteButton>
-          {controls}
-        </div>
-        {instructionsOpen && (
-          <div
-            id="note-instructions-panel"
-            {...stylex.props(styles.instructions)}
-          >
-            <textarea
-              id="note-instructions"
-              aria-label="Agent instructions"
-              disabled={!!recovery}
-              maxLength={8000}
-              rows={4}
-              value={instructions}
-              onFocus={() => {
-                focused.current = true;
-              }}
-              onBlur={() => {
-                focused.current = false;
-              }}
-              onChange={(event) => {
-                setInstructions(event.target.value);
-                setError("");
-                setStatus("Unsaved changes");
-              }}
-              placeholder="For example: keep the next steps current and preserve my personal notes."
-              {...stylex.props(styles.textarea)}
-            />
-            {instructions.length >= 7200 && (
-              <p {...stylex.props(styles.description)}>
-                {instructions.length.toLocaleString()} / 8,000 characters
-              </p>
-            )}
-          </div>
-        )}
-        {recovery && (
-          <div {...stylex.props(styles.notice)}>
-            <strong>Recover your unsaved draft</strong>
-            <p>A previous editing session left changes on this device.</p>
-            <NoteButton type="button" onClick={() => merge(base, recovery)}>
-              Recover draft
-            </NoteButton>{" "}
-            <NoteButton type="button" onClick={downloadDraft}>
-              Download draft
-            </NoteButton>{" "}
-            <NoteButton type="button" onClick={() => load(base)}>
-              Discard draft
-            </NoteButton>
-          </div>
-        )}
-        {conflict && (
-          <div {...stylex.props(styles.notice)}>
-            <strong>The note changed elsewhere</strong>
-            <p>
-              Your edits are safe here. Merge changes to different blocks, or
-              download your draft before reloading.
-            </p>
+    <div {...stylex.props(styles.workspace)}>
+      <div
+        ref={scrollRef}
+        tabIndex={-1}
+        data-note-scroll
+        {...stylex.props(styles.scroll)}
+      >
+        <article aria-label="Shared note" {...stylex.props(styles.paper)}>
+          <div {...stylex.props(styles.metadata)}>
             <NoteButton
               type="button"
-              onClick={() => merge(conflict, { base, blocks, instructions })}
+              aria-expanded={instructionsOpen}
+              aria-controls="note-instructions-panel"
+              onClick={() => setInstructionsOpen((open) => !open)}
+              xstyle={styles.instructionToggle}
             >
-              Merge changes
-            </NoteButton>{" "}
-            <NoteButton type="button" onClick={downloadDraft}>
-              Download draft
-            </NoteButton>{" "}
-            <NoteButton type="button" onClick={() => load(conflict)}>
-              Reload saved note
+              <span aria-hidden="true">{instructionsOpen ? "⌄" : "›"}</span>
+              Agent instructions
             </NoteButton>
+            {controls}
           </div>
-        )}
-        {storageWarning && (
-          <p role="status" {...stylex.props(styles.notice)}>
-            {storageWarning}
-          </p>
-        )}
-        {error && (
-          <div role="alert" {...stylex.props(styles.notice)}>
-            {error}{" "}
-            {!conflict && (
-              <NoteButton
-                type="button"
-                onClick={() => {
-                  setError("");
-                  void save();
+          {instructionsOpen && (
+            <div
+              id="note-instructions-panel"
+              {...stylex.props(styles.instructions)}
+            >
+              <textarea
+                id="note-instructions"
+                aria-label="Agent instructions"
+                disabled={!!recovery}
+                maxLength={8000}
+                rows={4}
+                value={instructions}
+                onFocus={() => {
+                  focused.current = true;
                 }}
-              >
-                Retry
+                onBlur={() => {
+                  focused.current = false;
+                }}
+                onChange={(event) => {
+                  setInstructions(event.target.value);
+                  setError("");
+                  setStatus("Unsaved changes");
+                }}
+                placeholder="For example: keep the next steps current and preserve my personal notes."
+                {...stylex.props(styles.textarea)}
+              />
+              {instructions.length >= 7200 && (
+                <p {...stylex.props(styles.description)}>
+                  {instructions.length.toLocaleString()} / 8,000 characters
+                </p>
+              )}
+            </div>
+          )}
+          {recovery && (
+            <div {...stylex.props(styles.notice)}>
+              <strong>Recover your unsaved draft</strong>
+              <p>A previous editing session left changes on this device.</p>
+              <NoteButton type="button" onClick={() => merge(base, recovery)}>
+                Recover draft
+              </NoteButton>{" "}
+              <NoteButton type="button" onClick={downloadDraft}>
+                Download draft
+              </NoteButton>{" "}
+              <NoteButton type="button" onClick={() => load(base)}>
+                Discard draft
               </NoteButton>
-            )}
-          </div>
-        )}
-        {history && (
-          <aside {...stylex.props(styles.notice)} aria-label="Note history">
-            <strong>Revision history</strong>
-            {history.length ? (
-              history.map((revision) => (
-                <div key={revision.revision}>
-                  <NoteButton
-                    type="button"
-                    xstyle={styles.subtle}
-                    onClick={() => void previewRevision(revision.revision)}
-                  >
-                    Revision {revision.revision} ·{" "}
-                    {revision.source.startsWith("agent:")
-                      ? "Agent"
-                      : revision.source}{" "}
-                    ·{" "}
-                    {revision.updatedAt
-                      ? new Date(revision.updatedAt).toLocaleString()
-                      : "Empty note"}
-                  </NoteButton>
-                </div>
-              ))
-            ) : (
-              <p>No saved revisions yet.</p>
-            )}
-            {hasMoreHistory && (
+            </div>
+          )}
+          {conflict && (
+            <div {...stylex.props(styles.notice)}>
+              <strong>The note changed elsewhere</strong>
+              <p>
+                Your edits are safe here. Merge changes to different blocks, or
+                download your draft before reloading.
+              </p>
               <NoteButton
                 type="button"
-                onClick={() => void showHistory(history.at(-1)!.revision)}
+                onClick={() => merge(conflict, { base, blocks, instructions })}
               >
-                Load older revisions
+                Merge changes
+              </NoteButton>{" "}
+              <NoteButton type="button" onClick={downloadDraft}>
+                Download draft
+              </NoteButton>{" "}
+              <NoteButton type="button" onClick={() => load(conflict)}>
+                Reload saved note
               </NoteButton>
-            )}
-            {preview && (
-              <div>
-                <h3>Revision {preview.revision}</h3>
-                <NotePreview blocks={preview.blocks} />
+            </div>
+          )}
+          {storageWarning && (
+            <p role="status" {...stylex.props(styles.notice)}>
+              {storageWarning}
+            </p>
+          )}
+          {error && (
+            <div role="alert" {...stylex.props(styles.notice)}>
+              {error}{" "}
+              {!conflict && (
                 <NoteButton
                   type="button"
-                  disabled={dirty || busy.current || !!conflict || !!recovery}
-                  onClick={() => void restorePreview()}
+                  onClick={() => {
+                    setError("");
+                    void save();
+                  }}
                 >
-                  Restore this content
-                </NoteButton>{" "}
-                <NoteButton type="button" onClick={() => setPreview(null)}>
-                  Close preview
+                  Retry
                 </NoteButton>
-                <p>
-                  Restoring creates a new revision and keeps current maintenance
-                  instructions. Save or resolve your draft first.
-                </p>
-              </div>
+              )}
+            </div>
+          )}
+          {history && (
+            <aside {...stylex.props(styles.notice)} aria-label="Note history">
+              <strong>Revision history</strong>
+              {history.length ? (
+                history.map((revision) => (
+                  <div key={revision.revision}>
+                    <NoteButton
+                      type="button"
+                      xstyle={styles.subtle}
+                      onClick={() => void previewRevision(revision.revision)}
+                    >
+                      Revision {revision.revision} ·{" "}
+                      {revision.source.startsWith("agent:")
+                        ? "Agent"
+                        : revision.source}{" "}
+                      ·{" "}
+                      {revision.updatedAt
+                        ? new Date(revision.updatedAt).toLocaleString()
+                        : "Empty note"}
+                    </NoteButton>
+                  </div>
+                ))
+              ) : (
+                <p>No saved revisions yet.</p>
+              )}
+              {hasMoreHistory && (
+                <NoteButton
+                  type="button"
+                  onClick={() => void showHistory(history.at(-1)!.revision)}
+                >
+                  Load older revisions
+                </NoteButton>
+              )}
+              {preview && (
+                <div>
+                  <h3>Revision {preview.revision}</h3>
+                  <NotePreview blocks={preview.blocks} />
+                  <NoteButton
+                    type="button"
+                    disabled={dirty || busy.current || !!conflict || !!recovery}
+                    onClick={() => void restorePreview()}
+                  >
+                    Restore this content
+                  </NoteButton>{" "}
+                  <NoteButton type="button" onClick={() => setPreview(null)}>
+                    Close preview
+                  </NoteButton>
+                  <p>
+                    Restoring creates a new revision and keeps current
+                    maintenance instructions. Save or resolve your draft first.
+                  </p>
+                </div>
+              )}
+            </aside>
+          )}
+          <div ref={contentRef}>
+            {recovery ? (
+              <NotePreview blocks={base.blocks} />
+            ) : (
+              <NoteEditor
+                key={version}
+                blocks={blocks}
+                onChange={(value) => {
+                  setBlocks(value);
+                  setStatus("Unsaved changes");
+                  setError("");
+                }}
+                onFocusChange={(value) => {
+                  focused.current = value;
+                }}
+                onError={(message) => {
+                  setError(message);
+                  setStatus("Not saved");
+                }}
+              />
             )}
-          </aside>
-        )}
-        {recovery ? (
-          <NotePreview blocks={base.blocks} />
-        ) : (
-          <NoteEditor
-            key={version}
-            blocks={blocks}
-            onChange={(value) => {
-              setBlocks(value);
-              setStatus("Unsaved changes");
-              setError("");
-            }}
-            onFocusChange={(value) => {
-              focused.current = value;
-            }}
-            onError={(message) => {
-              setError(message);
-              setStatus("Not saved");
-            }}
-          />
-        )}
-      </article>
+          </div>
+        </article>
+      </div>
+      <NoteOutline contentRef={contentRef} scrollRef={scrollRef} />
     </div>
   );
 }
 
 const styles = stylex.create({
+  workspace: {
+    position: "relative",
+    display: "flex",
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  },
   scroll: {
+    paddingRight: 44,
     overflowY: "auto",
     flex: 1,
     minHeight: 0,
@@ -646,6 +667,8 @@ const styles = stylex.create({
     justifyContent: "space-between",
     gap: 4,
     marginBottom: 12,
+    // Let the header use the space reserved for the outline beside the prose.
+    marginRight: -44,
   },
   instructionToggle: {
     display: "inline-flex",
