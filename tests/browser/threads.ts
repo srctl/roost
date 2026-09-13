@@ -20,6 +20,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
     for (const [label, width, height, hasTouch] of [
       ["desktop", 1440, 1000, false],
       ["mobile-touch", 390, 844, true],
+      ["narrow-touch", 320, 844, true],
       ["desktop-touch", 1440, 1000, true],
     ] as const) {
       const id = randomUUID();
@@ -140,10 +141,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
           shortBounds.x + shortBounds.width - 40,
         "short response shrinks to its content in either display mode",
       );
-      assert.equal(
-        shortArticle.x + shortArticle.width - shortAction.x - shortAction.width,
-        4,
-      );
+      assert.equal(shortAction.x - shortArticle.x - shortArticle.width, 4);
       assert.equal(
         shortArticle.y +
           shortArticle.height -
@@ -152,7 +150,8 @@ async function verifyReplyActions(browser: Browser, base: string) {
         4,
       );
       assert.ok(
-        shortAction.x >= shortArticle.x && shortAction.y >= shortArticle.y,
+        shortAction.x >= shortArticle.x + shortArticle.width &&
+          shortAction.y < shortArticle.y + shortArticle.height,
       );
       assert.ok(shortAction.width >= 40 && shortAction.height >= 40);
       const row = main.locator('[data-message-id="new-assistant"]');
@@ -200,15 +199,42 @@ async function verifyReplyActions(browser: Browser, base: string) {
           .evaluate((el) => el.scrollWidth <= el.clientWidth),
       );
       const target = (await action.boundingBox())!;
-      const assertInsideArticle = async () => {
+      const assertExteriorAction = async () => {
         const bounds = (await row.locator("article").boundingBox())!;
         const button = (await action.boundingBox())!;
         assert.ok(button.width >= 40 && button.height >= 40);
-        assert.ok(button.x >= bounds.x && button.y >= bounds.y);
-        assert.equal(bounds.x + bounds.width - button.x - button.width, 4);
+        assert.equal(button.x - bounds.x - bounds.width, 4);
         assert.equal(bounds.y + bounds.height - button.y - button.height, 4);
+        assert.ok(
+          button.y < bounds.y + bounds.height,
+          "action is beside, not below, the article",
+        );
+        const group = (await row
+          .locator("article")
+          .locator("..")
+          .boundingBox())!;
+        assert.ok(button.x + button.width + 4 <= group.x + group.width + 0.02);
+        assert.ok(
+          button.y - 4 >= group.y - 0.02,
+          "focus ring is not clipped above the group",
+        );
+        assert.ok(
+          button.y + button.height + 4 <= group.y + group.height + 0.02,
+        );
+        assert.ok(
+          group.x + group.width <=
+            (await row.boundingBox())!.x +
+              (await row.boundingBox())!.width +
+              0.02,
+        );
+        assert.equal(
+          await row
+            .locator("article")
+            .evaluate((el) => getComputedStyle(el).paddingInlineEnd),
+          responseStyle === "messages" ? "14px" : "0px",
+        );
       };
-      await assertInsideArticle();
+      await assertExteriorAction();
       assert.equal(
         rest.row.bottom,
         rest.content.bottom,
@@ -218,7 +244,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
       const assertContentClearance = async () => {
         const overlaps = await row.locator("article").evaluate((article) => {
           const target = article
-            .querySelector("button")!
+            .parentElement!.querySelector("button")!
             .getBoundingClientRect();
           // These boxes bound visible text, links and clipped code/table content.
           return [
@@ -255,13 +281,46 @@ async function verifyReplyActions(browser: Browser, base: string) {
       });
       await assertContentClearance();
       if (!hasTouch) {
-        await row.hover();
+        await row.locator("article").hover();
         await page.waitForTimeout(200);
         assert.equal(await opacity(), "1");
         assert.deepEqual(
           await geometry(),
           rest,
           "hover does not move or narrow content",
+        );
+        // Cross the real exterior gap before arriving on the control.
+        for (const x of [
+          rest.content.right - 1,
+          rest.content.right + 2,
+          target.x + target.width / 2,
+        ]) {
+          await page.mouse.move(x, target.y + target.height / 2);
+          await page.waitForTimeout(200);
+          assert.equal(
+            await opacity(),
+            "1",
+            "hover survives message-to-control traversal",
+          );
+          assert.equal(
+            await action.evaluate((el) => getComputedStyle(el).pointerEvents),
+            "auto",
+          );
+          assert.deepEqual(await geometry(), rest);
+        }
+        await action.click({ trial: true });
+        assert.ok(
+          await action.evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            return (
+              document
+                .elementFromPoint(
+                  rect.x + rect.width / 2,
+                  rect.y + rect.height / 2,
+                )
+                ?.closest("button") === el
+            );
+          }),
         );
       }
       await page.mouse.move(0, 0);
@@ -300,7 +359,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
           (el) => el.isConnected && el === document.activeElement,
         ),
       );
-      await assertInsideArticle();
+      await assertExteriorAction();
       await assertContentClearance();
       const refreshed = await geometry();
       assert.equal(refreshed.content.width, rest.content.width);
@@ -352,10 +411,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
         const originalTouchAction = await touchAction.elementHandle();
         const touchBounds = (await touchRow.locator("article").boundingBox())!;
         const touchTarget = (await touchAction.boundingBox())!;
-        assert.equal(
-          touchBounds.x + touchBounds.width - touchTarget.x - touchTarget.width,
-          4,
-        );
+        assert.equal(touchTarget.x - touchBounds.x - touchBounds.width, 4);
         assert.equal(
           touchBounds.y +
             touchBounds.height -

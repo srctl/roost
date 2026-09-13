@@ -57,24 +57,38 @@ export function AgentMessage({
 }) {
   const { responseStyle } = usePreferences();
 
-  return (
+  const article = (
     <article
       aria-label={`${name} response`}
       {...stylex.props(
         styles.message,
         responseStyle === "messages" && styles.incoming,
         compact && styles.compactAgent,
-        !!action && styles.withAction,
-        !!action && responseStyle !== "messages" && styles.documentWithAction,
-        !!action && stylex.defaultMarker(),
-        entering && styles.received,
+        !!action && styles.actionArticle,
+        entering && !action && styles.received,
       )}
     >
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
       {children && <MessageContent>{children}</MessageContent>}
       <FileLinks files={files} />
-      {action}
     </article>
+  );
+
+  return action ? (
+    <div
+      {...stylex.props(
+        styles.actionGroup,
+        responseStyle === "messages" && styles.bubbleActionGroup,
+        compact && styles.compactAgent,
+        stylex.defaultMarker(),
+        entering && styles.received,
+      )}
+    >
+      {article}
+      {action}
+    </div>
+  ) : (
+    article
   );
 }
 
@@ -104,14 +118,23 @@ const styles = stylex.create({
     lineHeight: 1.65,
   },
   message: { marginTop: 20, overflowWrap: "anywhere", lineHeight: 1.75 },
-  // Keep the 40px action and its focus ring inside the article, beside content.
-  // The gutter also constrains scrollable code/tables and attachment links.
-  documentWithAction: { width: "fit-content", maxWidth: "100%" },
-  withAction: {
-    position: "relative",
+  // Reserve exterior space for the target and focus ring; the group also keeps
+  // hover active while the pointer crosses from message to control.
+  actionGroup: {
+    display: "flex",
+    alignItems: "flex-end",
+    width: "fit-content",
+    maxWidth: "100%",
     minHeight: 48,
-    paddingInlineEnd: 56,
+    columnGap: 4,
+    paddingInlineEnd: 4,
+    marginTop: 20,
   },
+  bubbleActionGroup: {
+    maxWidth: "min(100%, calc(88% + 48px))",
+    marginTop: 8,
+  },
+  actionArticle: { minWidth: 0, maxWidth: "none", marginTop: 0 },
   incoming: {
     width: "fit-content",
     maxWidth: "88%",

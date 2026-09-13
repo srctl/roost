@@ -1,9 +1,9 @@
 # Message threads
 
 The assistant message’s “Reply in thread” icon creates or reopens one thread per
-message. It sits inside the bottom-right of the assistant message or bubble, with
-internal clearance for content. It appears on message hover or keyboard focus,
-and stays visible on touch/no-hover devices. User messages do not offer new thread
+message. It sits just outside the message or bubble’s right edge, near the bottom.
+The message and control share a hover area, including the gap between them. The
+icon appears on hover or keyboard focus and stays visible on touch/no-hover devices. User messages do not offer new thread
 creation. Existing thread counts, unread markers and status remain available on historical roots,
 including user messages, and reopen their threads. Main stays
 mounted beside the thread on desktop; mobile makes the background inert and shows

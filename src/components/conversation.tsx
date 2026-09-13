@@ -697,9 +697,8 @@ const styles = stylex.create({
     minWidth: 40,
     minHeight: 40,
     padding: 0,
-    position: "absolute",
-    insetInlineEnd: 4,
-    bottom: 4,
+    flexShrink: 0,
+    marginBottom: 4,
     opacity: {
       default: 1,
       "@media (hover: hover)": {
