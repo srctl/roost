@@ -14,6 +14,11 @@ import {
   readCodingJob,
   writeCodingJobPatch,
 } from "./store.server";
+import {
+  assertFeedbackMayResume,
+  readCodingWorkspace,
+  writeCodingWorkspace,
+} from "./workspace-store.server";
 
 const Brief = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(32000));
 export const StartCodingJob = Schema.Struct({
@@ -203,8 +208,17 @@ export function changeCodingJob(
     patch,
     job.revision,
   );
+  const workspace = readCodingWorkspace(db, job.agentId, job.id);
+  if (next.status === "running" && workspace.workflow === "review")
+    writeCodingWorkspace(db, {
+      ...workspace,
+      workflow: "working",
+      verification: "",
+      integration: "pending",
+    });
   if (
     !wake ||
+    readCodingWorkspace(db, job.agentId, job.id).workflow === "feedback" ||
     !["blocked", "review", "failed", "cancelled"].includes(next.status) ||
     next.notifiedStatus === next.status
   )
@@ -255,109 +269,131 @@ export const continueCodingJob = (
     writeTransaction(db, () => {
       assertAvailable(db);
       requireCodingRun(db, agentId, runId, "continue", input.id);
-      const job = readCodingJob(db, agentId, input.id);
-      if (!job) throw new AgentStoreError({ message: "Coding job not found." });
-      const prior = db
-        .prepare("SELECT * FROM coding_job_inputs WHERE id=?")
-        .get(input.requestId);
-      if (prior) {
-        if (
-          prior.jobId !== input.id ||
-          prior.agentId !== agentId ||
-          prior.prompt !== input.prompt
-        )
-          throw new AgentStoreError({
-            message: "This request ID was already used for another follow-up.",
-          });
-        return { id: input.requestId, status: String(prior.status) };
-      }
-      if (!["review", "blocked"].includes(job.status) || job.cancelRequested)
-        throw new AgentStoreError({
-          message:
-            "Wait for the worker to finish or request input before continuing this job.",
-        });
-      const retryLaunch = canRetryCodingLaunch(job);
-      const launchFollowups = db
-        .prepare(
-          "SELECT prompt FROM coding_job_inputs WHERE jobId=? AND status='launch_failed' ORDER BY createdAt,rowid",
-        )
-        .all(job.id)
-        .map((row) => String(row.prompt));
-      if (
-        retryLaunch &&
-        `${job.brief}${[...launchFollowups, input.prompt].map((prompt) => `\nFollow-up:\n${prompt}`).join("")}`
-          .length > 64000
-      )
-        throw new AgentStoreError({
-          message:
-            "The assignment and follow-up exceed the briefing limit. Shorten the follow-up.",
-        });
-      if (
-        db
-          .prepare(
-            "SELECT id FROM coding_job_inputs WHERE jobId=? AND status IN ('queued','dispatching','launch_queued','launching')",
-          )
-          .get(job.id)
-      )
-        throw new AgentStoreError({
-          message: "This job already has a pending follow-up.",
-        });
-      if (
-        job.status === "blocked" &&
-        !retryLaunch &&
-        db.prepare("SELECT kind FROM runs WHERE id=?").get(runId!)?.kind ===
-          "coding"
-      )
-        throw new AgentStoreError({
-          message:
-            "Report this blocker to the user. A blocked job needs inspection or resolved approval before an automatic follow-up.",
-        });
-      // Bound unattended continuations per job. A new explicit user
-      // instruction can always continue the job after this budget is exhausted.
-      if (
-        db.prepare("SELECT kind FROM runs WHERE id=?").get(runId!)?.kind ===
-          "coding" &&
-        Number(
-          db
-            .prepare(
-              "SELECT COUNT(*) AS count FROM coding_job_inputs WHERE jobId=?",
-            )
-            .get(job.id)?.count,
-        ) >= 12
-      )
-        throw new AgentStoreError({
-          message:
-            "This job has used its automatic continuation budget. Ask the user before continuing.",
-        });
-      db.prepare(
-        "INSERT INTO coding_job_inputs (id,jobId,agentId,prompt,status,createdAt) VALUES (?,?,?,?,?,?)",
-      ).run(
-        input.requestId,
-        job.id,
-        agentId,
-        input.prompt,
-        retryLaunch ? "launch_queued" : "queued",
-        Date.now(),
-      );
-      writeCodingJobPatch(
-        db,
-        agentId,
-        job.id,
-        {
-          status: retryLaunch ? "queued" : "running",
-          observedWorking: false,
-          ...(retryLaunch ? { lastWorkerState: "" } : {}),
-          notifiedStatus: "",
-          error: "",
-        },
-        job.revision,
-      );
-      return {
-        id: input.requestId,
-        status: retryLaunch ? "launch_queued" : "queued",
-      };
+      return queueCodingContinuation(db, agentId, input, runId);
     }),
   );
+
+// Shared transaction body. Callers establish either active-run authorization or
+// an explicit user feedback submission before entering this function.
+export function queueCodingContinuation(
+  db: DatabaseSync,
+  agentId: string,
+  input: typeof ContinueCodingJob.Type,
+  runId?: string,
+) {
+  const job = readCodingJob(db, agentId, input.id);
+  if (!job) throw new AgentStoreError({ message: "Coding job not found." });
+  const prior = db
+    .prepare("SELECT * FROM coding_job_inputs WHERE id=?")
+    .get(input.requestId);
+  if (prior) {
+    if (
+      prior.jobId !== input.id ||
+      prior.agentId !== agentId ||
+      prior.prompt !== input.prompt
+    )
+      throw new AgentStoreError({
+        message: "This request ID was already used for another follow-up.",
+      });
+    return { id: input.requestId, status: String(prior.status) };
+  }
+  if (runId) assertFeedbackMayResume(db, agentId, job.id, runId);
+  if (!["review", "blocked"].includes(job.status) || job.cancelRequested)
+    throw new AgentStoreError({
+      message:
+        "Wait for the worker to finish or request input before continuing this job.",
+    });
+  const retryLaunch = canRetryCodingLaunch(job);
+  const launchFollowups = db
+    .prepare(
+      "SELECT prompt FROM coding_job_inputs WHERE jobId=? AND status='launch_failed' ORDER BY createdAt,rowid",
+    )
+    .all(job.id)
+    .map((row) => String(row.prompt));
+  if (
+    retryLaunch &&
+    `${job.brief}${[...launchFollowups, input.prompt].map((prompt) => `\nFollow-up:\n${prompt}`).join("")}`
+      .length > 64000
+  )
+    throw new AgentStoreError({
+      message:
+        "The assignment and follow-up exceed the briefing limit. Shorten the follow-up.",
+    });
+  if (
+    db
+      .prepare(
+        "SELECT id FROM coding_job_inputs WHERE jobId=? AND status IN ('queued','dispatching','launch_queued','launching')",
+      )
+      .get(job.id)
+  )
+    throw new AgentStoreError({
+      message: "This job already has a pending follow-up.",
+    });
+  if (
+    job.status === "blocked" &&
+    !retryLaunch &&
+    (runId
+      ? db.prepare("SELECT kind FROM runs WHERE id=?").get(runId)?.kind
+      : undefined) === "coding"
+  )
+    throw new AgentStoreError({
+      message:
+        "Report this blocker to the user. A blocked job needs inspection or resolved approval before an automatic follow-up.",
+    });
+  // Bound unattended continuations per job. A new explicit user
+  // instruction can always continue the job after this budget is exhausted.
+  if (
+    (runId
+      ? db.prepare("SELECT kind FROM runs WHERE id=?").get(runId)?.kind
+      : undefined) === "coding" &&
+    Number(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM coding_job_inputs WHERE jobId=?",
+        )
+        .get(job.id)?.count,
+    ) >= 12
+  )
+    throw new AgentStoreError({
+      message:
+        "This job has used its automatic continuation budget. Ask the user before continuing.",
+    });
+  db.prepare(
+    "INSERT INTO coding_job_inputs (id,jobId,agentId,prompt,status,createdAt) VALUES (?,?,?,?,?,?)",
+  ).run(
+    input.requestId,
+    job.id,
+    agentId,
+    input.prompt,
+    retryLaunch ? "launch_queued" : "queued",
+    Date.now(),
+  );
+  writeCodingJobPatch(
+    db,
+    agentId,
+    job.id,
+    {
+      status: retryLaunch ? "queued" : "running",
+      observedWorking: false,
+      ...(retryLaunch ? { lastWorkerState: "" } : {}),
+      notifiedStatus: "",
+      error: "",
+    },
+    job.revision,
+  );
+  const workspace = readCodingWorkspace(db, agentId, job.id);
+  if (workspace.revision)
+    writeCodingWorkspace(db, {
+      ...workspace,
+      workflow: "working",
+      verification: "",
+      integration: "pending",
+    });
+  return {
+    id: input.requestId,
+    status: retryLaunch ? "launch_queued" : "queued",
+  };
+}
 
 export const completeCodingJob = (
   agentId: string,
@@ -368,6 +404,7 @@ export const completeCodingJob = (
     writeTransaction(db, () => {
       assertAvailable(db);
       requireCodingRun(db, agentId, runId, "continue", input.id);
+      assertFeedbackMayResume(db, agentId, input.id, runId!);
       const job = readCodingJob(db, agentId, input.id);
       if (!job) throw new AgentStoreError({ message: "Coding job not found." });
       const inspectedRecovery =

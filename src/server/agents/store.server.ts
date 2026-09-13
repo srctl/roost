@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
+import { migrateCodingWorkspace } from "../coding/workspace-migration.server";
 
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
@@ -232,6 +233,7 @@ export function withAgentStore<A>(
             throw error;
           }
         }
+        migrateCodingWorkspace(db);
         return run(db, directory);
       } finally {
         db.close();
