@@ -97,7 +97,12 @@ export function inspectFeatureShape(db: DatabaseSync, version: number) {
       if (!exists("runs_main_conversation")) fail("run ownership trigger");
     }
     if (messageIds) validate("provider_message_ids");
-    if (version >= 11 && !threadsPresent && !noteCount)
+    if (
+      version >= 11 &&
+      !threadsPresent &&
+      !noteCount &&
+      !(version === 11 && assertDeletionShape(db))
+    )
       fail("missing v11 features");
     if (version >= 12 && (!threadsPresent || !provider))
       fail("missing v12 sessions");
@@ -112,4 +117,22 @@ export function inspectFeatureShape(db: DatabaseSync, version: number) {
 export function migrateNotes(db: DatabaseSync) {
   if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name='agent_notes'").get())
     db.exec(notes);
+}
+
+export function assertDeletionShape(db: DatabaseSync) {
+  const columns = db.prepare("PRAGMA table_info(deleted_agents)").all();
+  if (!columns.length) return false;
+  if (
+    JSON.stringify(
+      columns.map(({ name, type, notnull, pk }) => [name, type, notnull, pk]),
+    ) !==
+    JSON.stringify([
+      ["id", "TEXT", 0, 1],
+      ["deletedAt", "INTEGER", 1, 0],
+    ])
+  )
+    throw new FeatureMigrationError(
+      "Unsupported database shape (deleted_agents). Storage was left unchanged.",
+    );
+  return true;
 }

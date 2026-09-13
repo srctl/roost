@@ -5,6 +5,7 @@ import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { test } from "node:test";
 import { Effect } from "effect";
+import { deleteAgentRecords } from "../src/server/agents/delete.server";
 import { saveAgent, withAgentStore } from "../src/server/agents/store.server";
 import {
   acknowledgeWorkerFailure,
@@ -554,4 +555,35 @@ test("terminal redraw or prompt echo cannot become a worker answer; completed de
     await send("Next instruction");
     await tick();
     assert.equal(prompts.length, 2);
+  }));
+
+test("deletion during a stale worker observation cannot dispatch or recreate job conversation records", async () =>
+  fixture(async ({ agentId, id, adapter, tick, state, prompts }) => {
+    adapter.readCodingWorker = async () => {
+      await run(updateCodingJob(agentId, id, { status: "completed" }));
+      await run(deleteAgentRecords({ agentId, name: "Worker chat" }));
+      return { ...state.worker, state: "idle" };
+    };
+    await tick();
+    assert.deepEqual(prompts, []);
+    await run(
+      withAgentStore((db) => {
+        for (const table of [
+          "agents",
+          "coding_jobs",
+          "conversation_records",
+          "timeline",
+          "coding_worker_messages",
+        ])
+          assert.equal(
+            db.prepare(`SELECT count(*) n FROM ${table}`).get()?.n,
+            0,
+            table,
+          );
+        assert.equal(
+          db.prepare("SELECT id FROM deleted_agents").get()?.id,
+          agentId,
+        );
+      }),
+    );
   }));

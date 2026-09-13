@@ -3,6 +3,7 @@ import { lazy, type RefObject, Suspense } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useOpenAfterMount } from "../features/motion";
 import { colors } from "../styles/tokens.stylex";
+import { AgentDeletion } from "./agent-deletion";
 import { AgentNameSettings } from "./agent-name-settings";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -58,6 +59,7 @@ export function AgentSettingsDialog({
             coding={agent.kind === "coding"}
           />
         </Suspense>
+        <AgentDeletion agent={agent} />
       </SheetContent>
     </Sheet>
   );
