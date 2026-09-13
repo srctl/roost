@@ -7,6 +7,17 @@ export const RenameAgentInput = Schema.Struct({
 });
 export const NavigationChange = Schema.Union(
   Schema.Struct({
+    action: Schema.Literal("place-section"),
+    id: Schema.NullOr(Schema.UUID),
+    targetId: Schema.NullOr(Schema.UUID),
+    edge: Schema.Literal("before", "after"),
+  }),
+  Schema.Struct({
+    action: Schema.Literal("reorder-section"),
+    id: Schema.NullOr(Schema.UUID),
+    direction: Schema.Literal("up", "down"),
+  }),
+  Schema.Struct({
     action: Schema.Literal("create"),
     id: Schema.UUID,
     name: Name,
@@ -26,6 +37,7 @@ export const NavigationChange = Schema.Union(
     action: Schema.Literal("move"),
     agentId: Schema.UUID,
     sectionId: Schema.NullOr(Schema.UUID),
+    beforeAgentId: Schema.optional(Schema.NullOr(Schema.UUID)),
   }),
 );
 export type NavigationChange = typeof NavigationChange.Type;
@@ -37,4 +49,6 @@ export type AgentNavigation = {
     collapsed: boolean;
   }[];
   memberships: Record<string, string>;
+  agentOrder: string[];
+  ungroupedPosition: number;
 };

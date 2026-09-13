@@ -1,9 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import { Link, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { type DragEvent, useState } from "react";
 import { useAgentActivity } from "../features/agents/activity";
-import { saveAgentNavigation } from "../features/agents/navigation-functions";
-import type { NavigationChange } from "../features/agents/navigation-schema";
+import { useAgentNavigation } from "../features/agents/navigation";
+import {
+  orderAgents,
+  orderedSections,
+} from "../features/agents/navigation-state";
 import type { Agent } from "../features/agents/schema";
 import { Route } from "../routes/__root";
 import { motion } from "../styles/motion.stylex";
@@ -12,6 +15,12 @@ import { AgentSectionControls } from "./agent-section-controls";
 import { AgentWorking } from "./agent-working";
 import { Button } from "./ui/button";
 import { Avatar, Icon } from "./ui/primitives";
+
+type DropTarget = {
+  sectionId: string;
+  beforeAgentId: string | null;
+  marker: { id: string; edge: "before" | "after" } | null;
+};
 
 export function Sidebar({
   agents,
@@ -25,36 +34,96 @@ export function Sidebar({
   drawer?: boolean;
 }) {
   const activity = useAgentActivity();
-  const router = useRouter();
   const result = Route.useLoaderData().navigation;
-  const navigation = result.ok
-    ? result.value
-    : { sections: [], memberships: {} };
+  const { navigation, save, busy, error } = useAgentNavigation();
   const [managing, setManaging] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function save(change: NavigationChange) {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await saveAgentNavigation({ data: change });
-      if (!response.ok) throw new Error(response.error);
-      await router.invalidate();
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not save sections. Try again.";
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setBusy(false);
-    }
+  const [draggedAgent, setDraggedAgent] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const orderedAgents = orderAgents(agents, navigation.agentOrder);
+  const [announcement, setAnnouncement] = useState("");
+
+  function endDrag() {
+    setDraggedAgent(null);
+    setDropTarget(null);
   }
-  const groups = [
-    ...navigation.sections,
-    { id: "", name: "Ungrouped", collapsed: false },
-  ];
+
+  function resolveDrop(
+    event: DragEvent<HTMLElement>,
+    sectionId: string,
+  ): DropTarget | null {
+    if (!draggedAgent || !agents.some((agent) => agent.id === draggedAgent))
+      return null;
+    const members = orderedAgents.filter(
+      (agent) => (navigation.memberships[agent.id] ?? "") === sectionId,
+    );
+    const remaining = members.filter((agent) => agent.id !== draggedAgent);
+    const row =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-agent-id]")
+        : null;
+    let beforeAgentId: string | null = null;
+    let marker: DropTarget["marker"] = null;
+    if (row && event.currentTarget.contains(row)) {
+      const id = row.dataset.agentId!;
+      if (id === draggedAgent) return null;
+      const index = remaining.findIndex((agent) => agent.id === id);
+      if (index < 0) return null;
+      const bounds = row.getBoundingClientRect();
+      const after = event.clientY >= bounds.top + bounds.height / 2;
+      beforeAgentId = after ? (remaining[index + 1]?.id ?? null) : id;
+      marker = { id, edge: after ? "after" : "before" };
+    }
+    if ((navigation.memberships[draggedAgent] ?? "") === sectionId) {
+      const next = remaining.map((agent) => agent.id);
+      next.splice(
+        beforeAgentId === null ? next.length : next.indexOf(beforeAgentId),
+        0,
+        draggedAgent,
+      );
+      if (next.every((id, index) => members[index]?.id === id)) return null;
+    }
+    return { sectionId, beforeAgentId, marker };
+  }
+
+  function dragOver(event: DragEvent<HTMLElement>, sectionId: string) {
+    const target = resolveDrop(event, sectionId);
+    setDropTarget(target);
+    if (!target) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function moveAgent(
+    agentId: string,
+    sectionId: string,
+    beforeAgentId: string | null,
+  ) {
+    const name = agents.find((agent) => agent.id === agentId)!.name;
+    const sectionName =
+      navigation.sections.find((section) => section.id === sectionId)?.name ??
+      "Ungrouped";
+    setAnnouncement(`Moving ${name} in ${sectionName}.`);
+    void save({
+      action: "move",
+      agentId,
+      sectionId: sectionId || null,
+      beforeAgentId,
+    })
+      .then(() => setAnnouncement(`Moved ${name} in ${sectionName}.`))
+      .catch(() =>
+        setAnnouncement(`Could not save the move for ${name}. Try again.`),
+      );
+  }
+
+  function drop(event: DragEvent<HTMLElement>, sectionId: string) {
+    event.preventDefault();
+    const target = resolveDrop(event, sectionId);
+    if (target && draggedAgent)
+      moveAgent(draggedAgent, sectionId, target.beforeAgentId);
+    endDrag();
+  }
+
+  const groups = orderedSections(navigation);
 
   return (
     <aside
@@ -75,27 +144,70 @@ export function Sidebar({
           <Icon name={drawer ? "close" : "panel"} />
         </Button>
       </div>
-      <div {...stylex.props(styles.heading)}>Agents</div>
-      <nav {...stylex.props(styles.list)}>
-        <Button aria-expanded={managing} onClick={() => setManaging(!managing)}>
-          {managing ? "Done managing sections" : "Manage sections"}
+      <div {...stylex.props(styles.heading)}>
+        <span>Agents</span>
+        <Button
+          aria-label="Manage sections"
+          title="Manage sections"
+          aria-haspopup="dialog"
+          onClick={() => setManaging(true)}
+          xstyle={styles.manage}
+        >
+          <Icon name="settings" size={14} />
         </Button>
+      </div>
+      {managing && (
+        <AgentSectionControls
+          navigation={navigation}
+          agents={agents}
+          save={save}
+          busy={busy}
+          error={error}
+          onClose={() => setManaging(false)}
+        />
+      )}
+      <span role="status" {...stylex.props(styles.srOnly)}>
+        {announcement}
+      </span>
+      <nav {...stylex.props(styles.list)}>
         {(!result.ok || error) && (
-          <p role="alert">{error || (!result.ok ? result.error : "")}</p>
+          <p role="alert" {...stylex.props(styles.error)}>
+            {error || (!result.ok ? result.error : "")}
+          </p>
         )}
-        {managing && (
-          <AgentSectionControls
-            navigation={navigation}
-            agents={agents}
-            save={save}
-            busy={busy}
-          />
-        )}
-        {groups.map((group) => (
-          <div key={group.id}>
+        {groups.map((group, index) => (
+          <section
+            key={group.id}
+            aria-label={`${group.name} agents`}
+            data-agent-section={group.id || "ungrouped"}
+            onDragEnter={(event) => dragOver(event, group.id)}
+            onDragOver={(event) => dragOver(event, group.id)}
+            onDragLeave={(event) => {
+              if (
+                !(
+                  event.relatedTarget instanceof Node &&
+                  event.currentTarget.contains(event.relatedTarget)
+                )
+              ) {
+                setDropTarget((current) =>
+                  current?.sectionId === group.id ? null : current,
+                );
+              }
+            }}
+            onDrop={(event) => drop(event, group.id)}
+            {...stylex.props(
+              styles.group,
+              dropTarget?.sectionId === group.id &&
+                !dropTarget.marker &&
+                styles.dropTarget,
+              !group.id &&
+                index > 0 &&
+                navigation.sections.length > 0 &&
+                styles.ungrouped,
+            )}
+          >
             {group.id && (
               <Button
-                disabled={busy}
                 aria-expanded={!group.collapsed}
                 aria-controls={`${drawer ? "mobile" : "desktop"}-section-${group.id}`}
                 onClick={() =>
@@ -112,13 +224,30 @@ export function Sidebar({
                   size={14}
                 />
                 <span {...stylex.props(styles.name)}>{group.name}</span>
+                {group.collapsed && (
+                  <span {...stylex.props(styles.count)}>
+                    {
+                      agents.filter(
+                        (agent) =>
+                          navigation.memberships[agent.id] === group.id,
+                      ).length
+                    }
+                  </span>
+                )}
               </Button>
             )}
+            {!group.id &&
+              navigation.sections.length > 0 &&
+              (draggedAgent !== null ||
+                agents.some((agent) => !navigation.memberships[agent.id])) && (
+                <div {...stylex.props(styles.ungroupedHeading)}>Ungrouped</div>
+              )}
             <div
+              {...stylex.props(!!group.id && styles.sectionMembers)}
               id={`${drawer ? "mobile" : "desktop"}-section-${group.id}`}
               hidden={group.collapsed}
             >
-              {agents
+              {orderedAgents
                 .filter(
                   (agent) =>
                     (navigation.memberships[agent.id] ?? "") === group.id,
@@ -126,11 +255,73 @@ export function Sidebar({
                 .map((agent) => (
                   <Link
                     key={agent.id}
+                    draggable
+                    data-agent-id={agent.id}
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                    title="Drag to reorder, or use Alt + ↑ / ↓"
+                    onKeyDown={(event) => {
+                      if (
+                        !event.altKey ||
+                        !["ArrowUp", "ArrowDown"].includes(event.key)
+                      )
+                        return;
+                      event.preventDefault();
+                      const members = orderedAgents.filter(
+                        (member) =>
+                          (navigation.memberships[member.id] ?? "") ===
+                          group.id,
+                      );
+                      const index = members.findIndex(
+                        (member) => member.id === agent.id,
+                      );
+                      if (event.key === "ArrowUp" && index > 0)
+                        moveAgent(agent.id, group.id, members[index - 1]!.id);
+                      if (
+                        event.key === "ArrowDown" &&
+                        index < members.length - 1
+                      )
+                        moveAgent(
+                          agent.id,
+                          group.id,
+                          members[index + 2]?.id ?? null,
+                        );
+                    }}
+                    onDragStart={(event) => {
+                      event.dataTransfer.clearData();
+                      event.dataTransfer.setData(
+                        "application/x-roost-agent",
+                        agent.id,
+                      );
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setDragImage(
+                        event.currentTarget,
+                        16,
+                        18,
+                      );
+                      setDraggedAgent(agent.id);
+                      setAnnouncement("");
+                    }}
+                    onDragEnd={endDrag}
                     onClick={onNavigate}
                     to="/agents/$agentId"
                     params={{ agentId: agent.id }}
-                    {...stylex.props(styles.row)}
-                    activeProps={stylex.props(styles.row, styles.active)}
+                    {...stylex.props(
+                      styles.row,
+                      draggedAgent === agent.id && styles.dragged,
+                      dropTarget?.marker?.id === agent.id &&
+                        (dropTarget.marker.edge === "before"
+                          ? styles.insertBefore
+                          : styles.insertAfter),
+                    )}
+                    activeProps={stylex.props(
+                      styles.row,
+                      styles.active,
+                      draggedAgent === agent.id && styles.dragged,
+                      dropTarget?.marker?.id === agent.id &&
+                        (dropTarget.marker.edge === "before"
+                          ? styles.insertBefore
+                          : styles.insertAfter),
+                    )}
                   >
                     <Avatar character={agent.character} size={24} />
                     <span {...stylex.props(styles.name)}>{agent.name}</span>
@@ -140,7 +331,7 @@ export function Sidebar({
                   </Link>
                 ))}
             </div>
-          </div>
+          </section>
         ))}
         <Link
           onClick={onNavigate}
@@ -165,13 +356,66 @@ export function Sidebar({
 }
 
 const styles = stylex.create({
+  group: {
+    borderRadius: 6,
+    transitionProperty: "background-color",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
+  },
+  dropTarget: {
+    backgroundColor: colors.selected,
+  },
+  dragged: { opacity: 0.45 },
+  insertBefore: {
+    borderRadius: 0,
+    boxShadow: `inset 0 2px 0 ${colors.accent}`,
+  },
+  insertAfter: {
+    borderRadius: 0,
+    boxShadow: `inset 0 -2px 0 ${colors.accent}`,
+  },
+  count: {
+    fontSize: 11,
+    color: colors.muted,
+    fontVariantNumeric: "tabular-nums",
+  },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+    borderWidth: 0,
+  },
   sectionHeading: {
     display: "flex",
     gap: 6,
     width: "100%",
     minWidth: 0,
     textAlign: "left",
-    marginTop: 8,
+    justifyContent: "flex-start",
+    fontSize: 12,
+    paddingInline: 6,
+    transform: "none",
+  },
+  manage: { padding: 6 },
+  error: { fontSize: 12, color: colors.muted, margin: 0, padding: 8 },
+  sectionMembers: {
+    marginLeft: 12,
+    paddingLeft: 6,
+    borderLeftWidth: 1,
+    borderLeftStyle: "solid",
+    borderLeftColor: colors.border,
+  },
+  ungrouped: { marginTop: 12 },
+  ungroupedHeading: {
+    fontSize: 11,
+    color: colors.muted,
+    paddingInline: 8,
+    paddingBottom: 4,
   },
   sidebar: {
     width: "min(var(--sidebar-width, 216px), max(140px, calc(100vw - 480px)))",
@@ -213,6 +457,9 @@ const styles = stylex.create({
     color: colors.foreground,
   },
   heading: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     flexShrink: 0,
     color: colors.muted,
     fontSize: 11,

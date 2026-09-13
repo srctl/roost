@@ -72,6 +72,7 @@ const paths = {
   ),
   "arrow-down": <path d="M12 5v14m-6-6 6 6 6-6" />,
   "chevron-down": <path d="m8 10 4 4 4-4" />,
+  grip: <path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" />,
   "chevron-right": <path d="m10 8 4 4-4 4" />,
   more: (
     <>
