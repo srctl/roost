@@ -106,3 +106,23 @@ export function previewState(workspace: CodingWorkspace, now = Date.now()) {
     ? "running"
     : "unknown";
 }
+
+export const WorkerMessageInput = Schema.Struct({
+  agentId: Schema.UUID,
+  id: Schema.UUID,
+  requestId: Schema.UUID,
+  text: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(16000)),
+});
+export type WorkerMessage = {
+  id: string;
+  text: string;
+  createdAt: number;
+  status: string;
+  error: string;
+  response: string;
+  deliveredAt: number | null;
+  previewCheck: string;
+};
+
+export const isPreviewStatusQuestion = (text: string) =>
+  /^is the dev server running for this preview[?.!]*$/i.test(text.trim());

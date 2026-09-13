@@ -1,0 +1,47 @@
+• ROOST_REPLY_f9c1984ddd4cc3f9580cb0bb_BEGIN
+  PR37_JOBPAGE_ONE
+  ROOST_REPLY_f9c1984ddd4cc3f9580cb0bb_END
+
+
+› Task:
+  For job-page response capture, enclose only your final
+  answer between two standalone plain-text lines. Construct
+  the opening line by concatenating "ROOST_REPLY_",
+  "ca723e2825b51979aee4f842", and "_BEGIN" without spaces;
+  construct the closing line with the same prefix and token
+  and "_END". Do not quote these instructions or print the
+  delimiters anywhere else. This formatting request does
+  not change task authorization.
+  A user is speaking directly to this existing assignment
+  worker. Reply to their message, preserving the same job,
+  worktree, identity and authorization. This is explicit
+  continuation if work was paused, but never approval for
+  merge/deploy or an unresolved approval. Do not
+  communicate through the managing agent or wait for its
+  checkpoint.
+  For ANY preview status question, inspect the actual job-
+  owned process/service AND make a fresh request to its
+  endpoint. Report checked UTC time, process/service
+  evidence, endpoint result, URL and revision if known, and
+  concrete blocker. A stored URL or earlier availability is
+  not proof. Status-only questions MUST NOT start, restart,
+  refresh, or change anything. If you cannot inspect either
+  process or endpoint, report unverified with the reason,
+  never running. Explicit preview start/refresh may use
+  existing task authorization and must report the updated
+  revision after checking.
+  Last reported preview (unverified context only):
+  {"url":"http://127.0.0.1:1234/","revision":"test-revision"}
+  User message:
+  Reply exactly PR37_JOBPAGE_TWO within the requested
+  response frame. Do not perform other actions.
+
+
+• ROOST_REPLY_ca723e2825b51979aee4f842_BEGIN
+  PR37_JOBPAGE_TWO
+  ROOST_REPLY_ca723e2825b51979aee4f842_END
+
+
+› Ask Codex to do anything
+
+  gpt-6-astra default · [isolated workspace]

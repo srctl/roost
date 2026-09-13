@@ -224,7 +224,16 @@ export function changeCodingJob(
     job.revision,
   );
   const workspace = readCodingWorkspace(db, job.agentId, job.id);
-  if (next.status === "running" && workspace.workflow === "review")
+  const readOnlyTurn = db
+    .prepare(
+      "SELECT m.inputId FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND m.readOnly=1 AND i.status IN ('dispatching','sent') AND m.completedAt IS NULL",
+    )
+    .get(job.id);
+  if (
+    next.status === "running" &&
+    workspace.workflow === "review" &&
+    !readOnlyTurn
+  )
     writeCodingWorkspace(db, {
       ...workspace,
       workflow: "working",
@@ -439,6 +448,17 @@ export const completeCodingJob = (
       const job = readCodingJob(db, agentId, input.id);
       if (!job) throw new AgentStoreError({ message: "Coding job not found." });
       requireConversation(db, agentId, job.id);
+      if (
+        db
+          .prepare(
+            "SELECT id FROM coding_job_inputs WHERE jobId=? AND status IN ('queued','dispatching','launch_queued','launching') UNION SELECT m.inputId FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND i.status='sent' AND m.completedAt IS NULL",
+          )
+          .get(job.id, job.id)
+      )
+        throw new AgentStoreError({
+          message:
+            "Wait for pending worker messages and responses before completing this job.",
+        });
       const inspectedRecovery =
         job.status === "blocked" &&
         ["idle", "done"].includes(job.lastWorkerState) &&
@@ -483,6 +503,9 @@ export const stopCodingJob = (agentId: string, id: string) =>
       if (["completed", "cancelled", "failed"].includes(job.status)) return job;
       db.prepare(
         "UPDATE coding_job_inputs SET status='failed',error='Stopped by the user.' WHERE jobId=? AND status IN ('queued','launch_queued','launch_failed')",
+      ).run(id);
+      db.prepare(
+        "UPDATE coding_job_inputs SET status='failed',error='Stop requested. A delivered message may have run; its response was not reconciled. Inspect the worker before any further instruction.' WHERE jobId=? AND status='sent' AND id IN (SELECT inputId FROM coding_worker_messages WHERE completedAt IS NULL)",
       ).run(id);
       return changeCodingJob(db, job, {
         cancelRequested: true,

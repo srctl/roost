@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { CodingJob, CodingJobPatch } from "../../features/coding/schema";
 import { withAgentStore } from "../agents/store.server";
 import { isMaintenance } from "../maintenance.server";
+import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import {
   HerdrError,
@@ -12,11 +13,14 @@ import {
   stopCodingWorker,
 } from "./herdr.server";
 import { changeCodingJob } from "./jobs.server";
+import { checkJobPreview } from "./preview-check.server";
+import { captureWorkerResponse } from "./response-capture.server";
 import {
   decodeCodingJob,
   readCodingJob,
   writeCodingJobPatch,
 } from "./store.server";
+import { readCodingWorkspace } from "./workspace-store.server";
 
 export const codingAdapter = {
   startCodingWorker,
@@ -70,6 +74,15 @@ export async function tickCodingJobs(
             "SELECT i.id AS inputId,j.* FROM coding_job_inputs i JOIN coding_jobs j ON j.id=i.jobId WHERE i.status='dispatching'",
           )
           .all()) {
+          db.prepare(
+            "INSERT OR IGNORE INTO coding_worker_fences(inputId,jobId,agentId,sessionIdentity,nativeSessionId) VALUES(?,?,?,?,?)",
+          ).run(
+            String(row.inputId),
+            String(row.id),
+            String(row.agentId),
+            String(row.sessionIdentity),
+            String(row.nativeSessionId),
+          );
           db.prepare(
             "UPDATE coding_job_inputs SET status='failed',error=? WHERE id=?",
           ).run(
@@ -351,6 +364,111 @@ export async function tickCodingJobs(
           );
           return;
         }
+        // Observe a safe boundary before claiming any input. Herdr's prompt API
+        // cannot interrupt a busy turn, and blocked terminals may be approvals.
+        const legacyQueued = await Effect.runPromise(
+          withAgentStore(
+            (db) =>
+              !isMaintenance(db) &&
+              Boolean(
+                db
+                  .prepare(
+                    "SELECT i.id FROM coding_job_inputs i LEFT JOIN coding_worker_messages m ON m.inputId=i.id WHERE i.id=(SELECT id FROM coding_job_inputs WHERE jobId=? AND status='queued' ORDER BY createdAt,rowid LIMIT 1) AND m.inputId IS NULL AND NOT EXISTS(SELECT 1 FROM coding_worker_messages active JOIN coding_job_inputs a ON a.id=active.inputId WHERE a.jobId=i.jobId AND a.status='sent' AND active.completedAt IS NULL)",
+                  )
+                  .get(job.id),
+              ),
+          ),
+        );
+        // The established coordinator continuation transport also supports
+        // explicitly authorized named-server recovery. It performs its own
+        // identity/approval/busy guard; do not preempt recovery with a read.
+        const observed: HerdrWorker = legacyQueued
+          ? {
+              state: "idle",
+              output: job.output,
+              sessionIdentity: job.sessionIdentity,
+              nativeSessionId: job.nativeSessionId,
+            }
+          : await adapter.readCodingWorker(job, job.workerName, signal);
+        const sameWorker =
+          Boolean(job.sessionIdentity) &&
+          observed.sessionIdentity === job.sessionIdentity &&
+          (!job.nativeSessionId ||
+            observed.nativeSessionId === job.nativeSessionId);
+        await Effect.runPromise(
+          withAgentStore((db) =>
+            writeTransaction(db, () => {
+              if (!owns(db, owner) || signal.aborted) return;
+              if (!sameWorker || observed.state === "missing") {
+                db.prepare(
+                  "UPDATE coding_job_inputs SET status='failed',error=? WHERE jobId=? AND status IN ('queued','sent') AND id IN (SELECT inputId FROM coding_worker_messages WHERE completedAt IS NULL)",
+                ).run(
+                  "The existing worker is missing or its identity changed. Delivery or response could not be reconciled; inspect the original worker before releasing this queue. Unsent messages were not delivered and delivered messages will not be replayed.",
+                  job.id,
+                );
+                return;
+              }
+              const active = db
+                .prepare(
+                  "SELECT m.*,i.prompt AS submittedPrompt FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND i.status='sent' AND m.completedAt IS NULL ORDER BY i.createdAt,i.rowid LIMIT 1",
+                )
+                .get(job.id);
+              if (!active || legacyQueued) return;
+              if (observed.state === "working")
+                db.prepare(
+                  "UPDATE coding_worker_messages SET respondingAt=COALESCE(respondingAt,?) WHERE inputId=?",
+                ).run(Date.now(), String(active.inputId));
+              if (
+                ["idle", "done"].includes(observed.state) &&
+                (active.respondingAt ||
+                  observed.output !== active.baselineOutput)
+              ) {
+                const output = captureWorkerResponse(
+                  String(active.inputId),
+                  String(active.baselineOutput),
+                  observed.output,
+                  String(active.submittedPrompt),
+                );
+                const responseId = `worker-response:${String(active.inputId)}`;
+                putMessage(
+                  db,
+                  job.agentId,
+                  {
+                    id: responseId,
+                    role: output ? "assistant" : "notice",
+                    title: output
+                      ? "Worker response"
+                      : "Worker response unavailable",
+                    text:
+                      output ||
+                      "The worker finished this turn, but its response could not be safely isolated from the terminal screen. Inspect the existing worker in Herdr; this message will not be replayed.",
+                    createdAt: Date.now(),
+                  },
+                  job.id,
+                );
+                db.prepare(
+                  "UPDATE coding_worker_messages SET completedAt=?,responseId=? WHERE inputId=?",
+                ).run(Date.now(), responseId, String(active.inputId));
+              }
+            }),
+          ),
+        );
+        if (!sameWorker || !["idle", "done"].includes(observed.state)) {
+          if (!sameWorker) {
+            await persist(job, {
+              status: "blocked",
+              lastWorkerState:
+                observed.state === "missing" ? "missing" : "unknown",
+              error:
+                "The existing worker identity could not be verified. No input was sent.",
+            });
+            return;
+          }
+          await recordWorker(job, observed);
+          return;
+        }
+        // Persist the observation before dispatch; coordinator updates can race
+        // with I/O, so reacquire the current revision inside the claim below.
         const input = await Effect.runPromise(
           withAgentStore((db) =>
             writeTransaction(db, () => {
@@ -358,9 +476,56 @@ export async function tickCodingJobs(
                 return undefined;
               const current = readCodingJob(db, job.agentId, job.id);
               if (!current || current.cancelRequested) return undefined;
+              if (["completed", "cancelled", "failed"].includes(current.status))
+                return undefined;
+              if (
+                db
+                  .prepare(
+                    "SELECT i.id FROM coding_job_inputs i JOIN coding_worker_messages m ON m.inputId=i.id WHERE i.jobId=? AND i.status='failed'",
+                  )
+                  .get(job.id)
+              )
+                return undefined;
+              if (
+                db
+                  .prepare(
+                    "SELECT inputId FROM coding_worker_fences WHERE jobId=? AND acknowledgedAt IS NULL",
+                  )
+                  .get(job.id)
+              )
+                return undefined;
+              // A delivered turn must settle before the next queue item.
+              if (
+                db
+                  .prepare(
+                    "SELECT m.inputId FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND i.status='sent' AND m.completedAt IS NULL",
+                  )
+                  .get(job.id)
+              )
+                return undefined;
+              const next = db
+                .prepare(
+                  "SELECT i.id,m.sessionIdentity,m.nativeSessionId FROM coding_job_inputs i LEFT JOIN coding_worker_messages m ON m.inputId=i.id WHERE i.jobId=? AND i.status='queued' ORDER BY i.createdAt,i.rowid LIMIT 1",
+                )
+                .get(job.id);
+              if (
+                next?.sessionIdentity &&
+                (next.sessionIdentity !== observed.sessionIdentity ||
+                  (next.nativeSessionId &&
+                    next.nativeSessionId !== observed.nativeSessionId))
+              ) {
+                db.prepare(
+                  "UPDATE coding_job_inputs SET status='failed',error='The message belongs to a different worker identity. No input was sent.' WHERE id=?",
+                ).run(String(next.id));
+                return undefined;
+              }
+              if (next)
+                db.prepare(
+                  "UPDATE coding_worker_messages SET baselineOutput=? WHERE inputId=?",
+                ).run(observed.output, String(next.id));
               const row = db
                 .prepare(
-                  "UPDATE coding_job_inputs SET status='dispatching' WHERE id=(SELECT id FROM coding_job_inputs WHERE jobId=? AND status='queued' ORDER BY createdAt LIMIT 1) RETURNING *",
+                  "UPDATE coding_job_inputs SET status='dispatching' WHERE id=(SELECT id FROM coding_job_inputs WHERE jobId=? AND status='queued' ORDER BY createdAt,rowid LIMIT 1) RETURNING *",
                 )
                 .get(job.id);
               if (row)
@@ -385,6 +550,50 @@ export async function tickCodingJobs(
         );
         if (input) {
           try {
+            if (
+              /is the dev server running for this preview/i.test(
+                String(input.prompt),
+              )
+            ) {
+              const workspace = await Effect.runPromise(
+                withAgentStore((db) =>
+                  readCodingWorkspace(db, job.agentId, job.id),
+                ),
+              );
+              const otherWorktrees = await Effect.runPromise(
+                withAgentStore((db) =>
+                  db
+                    .prepare(
+                      "SELECT cwd FROM coding_jobs WHERE id<>? AND remoteTarget=''",
+                    )
+                    .all(job.id)
+                    .map((row) => String(row.cwd)),
+                ),
+              );
+              const check = await checkJobPreview(
+                job,
+                workspace.previewUrl,
+                workspace.previewRevision,
+                otherWorktrees,
+              );
+              await Effect.runPromise(
+                withAgentStore((db) => {
+                  if (!owns(db, owner) || signal.aborted) return;
+                  putMessage(
+                    db,
+                    job.agentId,
+                    {
+                      id: `preview-check:${String(input.id)}`,
+                      role: "notice",
+                      title: "Live preview check",
+                      text: JSON.stringify(check, null, 2),
+                      createdAt: check.checkedAt,
+                    },
+                    job.id,
+                  );
+                }),
+              );
+            }
             const started = await adapter.promptCodingWorker(
               job,
               job.workerName,
@@ -398,6 +607,13 @@ export async function tickCodingJobs(
               withAgentStore((db) =>
                 writeTransaction(db, () => {
                   if (!owns(db, owner) || signal.aborted) return;
+                  db.prepare(
+                    "UPDATE coding_worker_messages SET deliveredAt=?,respondingAt=? WHERE inputId=?",
+                  ).run(
+                    Date.now(),
+                    started.state === "working" ? Date.now() : null,
+                    String(input.id),
+                  );
                   db.prepare(
                     "UPDATE coding_job_inputs SET status='sent' WHERE id=?",
                   ).run(String(input.id));
@@ -422,6 +638,26 @@ export async function tickCodingJobs(
               withAgentStore((db) =>
                 writeTransaction(db, () => {
                   if (!owns(db, owner) || signal.aborted) return;
+                  if (
+                    error instanceof HerdrError &&
+                    error.code === "worker_busy" &&
+                    !error.uncertain
+                  ) {
+                    db.prepare(
+                      "UPDATE coding_job_inputs SET status='queued',error='' WHERE id=?",
+                    ).run(String(input.id));
+                    return;
+                  }
+                  if (!(error instanceof HerdrError) || error.uncertain)
+                    db.prepare(
+                      "INSERT OR IGNORE INTO coding_worker_fences(inputId,jobId,agentId,sessionIdentity,nativeSessionId) VALUES(?,?,?,?,?)",
+                    ).run(
+                      String(input.id),
+                      job.id,
+                      job.agentId,
+                      job.sessionIdentity,
+                      job.nativeSessionId,
+                    );
                   db.prepare(
                     "UPDATE coding_job_inputs SET status='failed',error=? WHERE id=?",
                   ).run(message(error), String(input.id));
@@ -437,10 +673,7 @@ export async function tickCodingJobs(
           }
           return;
         }
-        await recordWorker(
-          job,
-          await adapter.readCodingWorker(job, job.workerName, signal),
-        );
+        await recordWorker(job, observed);
       } catch (error) {
         if (signal.aborted) return;
         // Refresh only the revision: cancellation may have arrived during a
