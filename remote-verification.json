@@ -1,0 +1,48 @@
+{
+  "prs": [
+    {
+      "number": 31,
+      "url": "https://github.com/srctl/roost/pull/31",
+      "base": "review/message-threads-03-ui",
+      "base_sha": "ee30154fe635f101308489d740dcd9d791d9b1b2",
+      "head": "review/jobs-only-01-storage",
+      "head_sha": "c8296d918e850f3d88db87b45c787162a283b86a",
+      "files": 9,
+      "additions": 1086,
+      "deletions": 101,
+      "draft": true,
+      "stack": null,
+      "tree": "174f584709c12e9dbfdd4979c2d4cff7bd3ba1ae"
+    },
+    {
+      "number": 32,
+      "url": "https://github.com/srctl/roost/pull/32",
+      "base": "review/jobs-only-01-storage",
+      "base_sha": "c8296d918e850f3d88db87b45c787162a283b86a",
+      "head": "review/jobs-only-02-ui",
+      "head_sha": "0f22c03378c644e1bb96c17e0b82d934a4e34624",
+      "files": 7,
+      "additions": 1514,
+      "deletions": 293,
+      "draft": true,
+      "stack": null,
+      "tree": "635ab6699b9fe034cfb84feed09388974211f317"
+    },
+    {
+      "number": 33,
+      "url": "https://github.com/srctl/roost/pull/33",
+      "base": "review/jobs-only-02-ui",
+      "base_sha": "0f22c03378c644e1bb96c17e0b82d934a4e34624",
+      "head": "review/jobs-only-03-integration",
+      "head_sha": "5fabd42f5cffd07b20adb04af4d37f222e7f34e4",
+      "files": 23,
+      "additions": 1005,
+      "deletions": 231,
+      "draft": false,
+      "stack": null,
+      "tree": "6aa4d233cf8b13ad868539b035fa44a2e72fbd67"
+    }
+  ],
+  "original_refs_preserved": true,
+  "tree_equivalent_to": "e06f198f2a511bf52157eaefa6b9806939d3714f"
+}
