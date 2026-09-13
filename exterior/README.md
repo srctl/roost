@@ -30,3 +30,12 @@ Final behavior: a neutral group reserves a 4px exterior gap, 40px control, and f
 | mobile-touch-dark-rest | ![Before: mobile-touch-dark-rest](before-mobile-touch-dark-rest.png) | ![After: mobile-touch-dark-rest](after-mobile-touch-dark-rest.png) |
 | mobile-touch-light-focus | ![Before: mobile-touch-light-focus](before-mobile-touch-light-focus.png) | ![After: mobile-touch-light-focus](after-mobile-touch-light-focus.png) |
 | mobile-touch-light-rest | ![Before: mobile-touch-light-rest](before-mobile-touch-light-rest.png) | ![After: mobile-touch-light-rest](after-mobile-touch-light-rest.png) |
+
+## Exact persistent preview route
+
+These additional pairs show the synthetic preview route used for feedback, before1601ac2 and after415367c. Desktop1440x1000 hover and mobile390x844 touch, bubble mode/dark.
+
+| State | Before | After |
+| --- | --- | --- |
+| desktop-hover | ![Before desktop-hover](live-preview/exterior-before-desktop-hover.png) | ![After desktop-hover](live-preview/exterior-after-desktop-hover.png) |
+| mobile-touch | ![Before mobile-touch](live-preview/exterior-before-mobile-touch.png) | ![After mobile-touch](live-preview/exterior-after-mobile-touch.png) |
