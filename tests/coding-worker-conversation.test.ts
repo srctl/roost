@@ -15,6 +15,7 @@ import {
   type HerdrWorker,
 } from "../src/server/coding/herdr.server";
 import { checkJobPreview } from "../src/server/coding/preview-check.server";
+import { responseFrame } from "../src/server/coding/response-capture.server";
 import {
   createCodingJob,
   getCodingJob,
@@ -147,7 +148,8 @@ test("direct messages bypass occupied main thread, queue while busy, preserve id
     await send("First instruction", first);
     await send("First instruction", first);
     await assert.rejects(send("Different", first), /different worker message/);
-    await send("Second instruction");
+    const second = randomUUID();
+    await send("Second instruction", second);
     await tick();
     assert.equal(prompts.length, 0);
     assert.deepEqual(
@@ -163,7 +165,7 @@ test("direct messages bypass occupied main thread, queue while busy, preserve id
     state.worker = {
       ...state.worker,
       state: "idle",
-      output: "Original output\nFirst response",
+      output: `Original output\n${responseFrame(first).begin}\nFirst response\n${responseFrame(first).end}`,
     };
     await tick();
     assert.equal(prompts.length, 2);
@@ -175,7 +177,7 @@ test("direct messages bypass occupied main thread, queue while busy, preserve id
     state.worker = {
       ...state.worker,
       state: "idle",
-      output: "Original output\nFirst response\nSecond response",
+      output: `Original output\nFirst response\n${responseFrame(second).begin}\nSecond response\n${responseFrame(second).end}`,
     };
     await tick();
     await tick();
@@ -523,4 +525,33 @@ test("an explicit instruction resumes feedback pause while retaining same worker
       (await run(getCodingJob(agentId, id))).sessionIdentity,
       "session",
     );
+  }));
+
+test("terminal redraw or prompt echo cannot become a worker answer; completed delivery survives reconnect without replay", () =>
+  fixture(async ({ agentId, id, send, tick, state, prompts }) => {
+    await send("Read-only question");
+    state.worker = { ...state.worker, state: "idle" };
+    await tick();
+    state.worker = {
+      ...state.worker,
+      state: "idle",
+      output: `Old answer\n› Task:\n${prompts[0]}\n›`,
+    };
+    await tick();
+    const read = await run(getJobWorkspace(agentId, id));
+    assert.equal(read.messages[0]?.status, "response_unavailable");
+    assert.match(read.messages[0]!.response, /could not be safely isolated/);
+    assert.doesNotMatch(
+      read.messages[0]!.response,
+      /Old answer|Read-only question|ROOST_REPLY/,
+    );
+    await tick();
+    assert.equal(prompts.length, 1);
+    assert.equal(
+      (await run(getJobWorkspace(agentId, id))).messages[0]?.status,
+      "response_unavailable",
+    );
+    await send("Next instruction");
+    await tick();
+    assert.equal(prompts.length, 2);
   }));

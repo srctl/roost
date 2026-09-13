@@ -1027,9 +1027,11 @@ function WorkerDiscussion({
                     ? "Delivered · awaiting worker activity"
                     : message.status === "answered"
                       ? "Answered"
-                      : message.status === "acknowledged"
-                        ? "Inspected · not replayed"
-                        : "Failed · inspect before sending a fresh instruction"}
+                      : message.status === "response_unavailable"
+                        ? "Turn finished · response unavailable"
+                        : message.status === "acknowledged"
+                          ? "Inspected · not replayed"
+                          : "Failed · inspect before sending a fresh instruction"}
             </p>
             {message.error && <p {...stylex.props(s.error)}>{message.error}</p>}
             {message.status === "failed" && (
@@ -1058,12 +1060,15 @@ function WorkerDiscussion({
             {message.response && (
               <>
                 <div {...stylex.props(s.author)}>
-                  Worker · captured response
+                  {message.status === "response_unavailable"
+                    ? "Response capture notice"
+                    : "Worker · captured response"}
                 </div>
                 <p {...stylex.props(s.messageText)}>{message.response}</p>
                 <p {...stylex.props(s.muted)}>
-                  Captured worker output; preview claims require the process and
-                  endpoint evidence reported by the worker.
+                  {message.status === "response_unavailable"
+                    ? "Delivery completed; terminal prompts and prior output are not shown as a new answer."
+                    : "Captured worker output; preview claims require the process and endpoint evidence reported by the worker."}
                 </p>
               </>
             )}

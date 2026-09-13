@@ -14,6 +14,7 @@ import {
 } from "./herdr.server";
 import { changeCodingJob } from "./jobs.server";
 import { checkJobPreview } from "./preview-check.server";
+import { captureWorkerResponse } from "./response-capture.server";
 import {
   decodeCodingJob,
   readCodingJob,
@@ -409,7 +410,7 @@ export async function tickCodingJobs(
               }
               const active = db
                 .prepare(
-                  "SELECT m.* FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND i.status='sent' AND m.completedAt IS NULL ORDER BY i.createdAt,i.rowid LIMIT 1",
+                  "SELECT m.*,i.prompt AS submittedPrompt FROM coding_worker_messages m JOIN coding_job_inputs i ON i.id=m.inputId WHERE m.jobId=? AND i.status='sent' AND m.completedAt IS NULL ORDER BY i.createdAt,i.rowid LIMIT 1",
                 )
                 .get(job.id);
               if (!active || legacyQueued) return;
@@ -422,21 +423,25 @@ export async function tickCodingJobs(
                 (active.respondingAt ||
                   observed.output !== active.baselineOutput)
               ) {
-                const baseline = String(active.baselineOutput);
-                const output = observed.output.startsWith(baseline)
-                  ? observed.output.slice(baseline.length).trim()
-                  : observed.output.trim();
+                const output = captureWorkerResponse(
+                  String(active.inputId),
+                  String(active.baselineOutput),
+                  observed.output,
+                  String(active.submittedPrompt),
+                );
                 const responseId = `worker-response:${String(active.inputId)}`;
                 putMessage(
                   db,
                   job.agentId,
                   {
                     id: responseId,
-                    role: "assistant",
-                    title: "Worker response · terminal output",
+                    role: output ? "assistant" : "notice",
+                    title: output
+                      ? "Worker response"
+                      : "Worker response unavailable",
                     text:
                       output ||
-                      "The worker finished this turn without additional captured output. Inspect its terminal for details.",
+                      "The worker finished this turn, but its response could not be safely isolated from the terminal screen. Inspect the existing worker in Herdr; this message will not be replayed.",
                     createdAt: Date.now(),
                   },
                   job.id,

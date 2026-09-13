@@ -9,6 +9,7 @@ import { assertAvailable } from "../maintenance.server";
 import { requireConversation } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
+import { responseCaptureInstruction } from "./response-capture.server";
 import {
   readCodingWorkspace,
   requireWorkspaceJob,
@@ -40,7 +41,10 @@ export function readWorkerMessages(
           : row.status === "failed"
             ? "failed"
             : row.completedAt
-              ? "answered"
+              ? row.response &&
+                JSON.parse(String(row.response)).role === "assistant"
+                ? "answered"
+                : "response_unavailable"
               : row.respondingAt
                 ? "responding"
                 : row.deliveredAt
@@ -145,7 +149,7 @@ export const sendWorkerMessage = (input: typeof WorkerMessageInput.Type) =>
             "This worker already has 20 queued messages. Wait for delivery before sending more.",
         });
       const workspace = readCodingWorkspace(db, data.agentId, data.id);
-      const prompt = `A user is speaking directly to this existing assignment worker. Reply to their message, preserving the same job, worktree, identity and authorization. This is explicit continuation if work was paused, but never approval for merge/deploy or an unresolved approval. Do not communicate through the managing agent or wait for its checkpoint.\nFor ANY preview status question, inspect the actual job-owned process/service AND make a fresh request to its endpoint. Report checked UTC time, process/service evidence, endpoint result, URL and revision if known, and concrete blocker. A stored URL or earlier availability is not proof. Status-only questions MUST NOT start, restart, refresh, or change anything. If you cannot inspect either process or endpoint, report unverified with the reason, never running. Explicit preview start/refresh may use existing task authorization and must report the updated revision after checking.\nLast reported preview (unverified context only): ${JSON.stringify({ url: workspace.previewUrl, revision: workspace.previewRevision })}\nUser message:\n${data.text}`;
+      const prompt = `${responseCaptureInstruction(data.requestId)}\nA user is speaking directly to this existing assignment worker. Reply to their message, preserving the same job, worktree, identity and authorization. This is explicit continuation if work was paused, but never approval for merge/deploy or an unresolved approval. Do not communicate through the managing agent or wait for its checkpoint.\nFor ANY preview status question, inspect the actual job-owned process/service AND make a fresh request to its endpoint. Report checked UTC time, process/service evidence, endpoint result, URL and revision if known, and concrete blocker. A stored URL or earlier availability is not proof. Status-only questions MUST NOT start, restart, refresh, or change anything. If you cannot inspect either process or endpoint, report unverified with the reason, never running. Explicit preview start/refresh may use existing task authorization and must report the updated revision after checking.\nLast reported preview (unverified context only): ${JSON.stringify({ url: workspace.previewUrl, revision: workspace.previewRevision })}\nUser message:\n${data.text}`;
       db.prepare(
         "INSERT INTO coding_job_inputs(id,jobId,agentId,prompt,status,createdAt) VALUES(?,?,?,?,'queued',?)",
       ).run(data.requestId, data.id, data.agentId, prompt, Date.now());
