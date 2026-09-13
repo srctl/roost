@@ -153,6 +153,16 @@ try {
     });
     await panel.locator('[id="child-0"]').waitFor();
     await page.waitForTimeout(1200);
+    const reply = panel.locator('[id="child-0"]');
+    await reply.getByText("Thread fixture", { exact: true }).waitFor();
+    assert.ok(await reply.locator("time").getAttribute("datetime"));
+    assert.equal(await reply.locator("img").count(), 1);
+    assert.equal(
+      await reply
+        .locator("article")
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+      "rgba(0, 0, 0, 0)",
+    );
     assert.equal(await main.locator("[data-message-id]").count(), count);
     assert.equal(await mainHistory.evaluate((el) => el.scrollTop), top);
     const childHistory = panel.locator('[aria-label="Conversation history"]');
