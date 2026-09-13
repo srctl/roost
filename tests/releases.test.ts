@@ -54,7 +54,7 @@ test("update work detection includes resumable coding jobs and supports older da
       ["review", "idle", 1],
       ["queued", "unknown", 0],
       ["blocked", "not_started", 0],
-      ["blocked", "missing", 0],
+      ["blocked", "missing", 1],
       ["completed", "idle", 0],
       ["cancelled", "idle", 0],
       ["failed", "unknown", 0],
