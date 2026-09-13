@@ -207,6 +207,7 @@ const makeAgentServer = (
       (unsubscribe) => Effect.sync(unsubscribe),
     );
     client.onRequest = async (method, params, requestId) => {
+      const bound = { runId, threadId, turnId, toolSignal, allowMutations };
       if (method === "account/chatgptAuthTokens/refresh") {
         const auth = await Effect.runPromise(hostCredentials);
 
@@ -222,22 +223,27 @@ const makeAgentServer = (
       }
 
       const context =
-        runId && threadId
-          ? { agentId, runId, threadId, requestKey: JSON.stringify(requestId) }
+        bound.runId && bound.threadId
+          ? {
+              agentId,
+              runId: bound.runId,
+              threadId: bound.threadId,
+              requestKey: JSON.stringify(requestId),
+            }
           : undefined;
-      if (isNativeApproval(method) && allowMutations === "reflection")
+      if (isNativeApproval(method) && bound.allowMutations === "reflection")
         throw new Error("Reflection cannot request additional permissions.");
       if (isNativeApproval(method)) {
-        if (!context || !toolSignal) throw new Error("No active run.");
+        if (!context || !bound.toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
         const itemId = (params as { itemId?: string }).itemId;
         return handleNativeApproval(
           context,
           method,
           params,
-          turnId,
+          bound.turnId,
           itemId ? changes.get(itemId) : undefined,
-          toolSignal,
+          bound.toolSignal,
         );
       }
       if (method !== "item/tool/call") {
@@ -247,16 +253,19 @@ const makeAgentServer = (
       const call = Schema.decodeUnknownSync(ToolCall)(params);
 
       if (
-        call.threadId !== threadId ||
-        call.turnId !== turnId ||
+        call.threadId !== bound.threadId ||
+        call.turnId !== bound.turnId ||
         call.namespace !== null ||
-        !toolSignal ||
-        toolSignal.aborted
+        !bound.toolSignal ||
+        bound.toolSignal.aborted
       ) {
         throw new Error();
       }
 
-      if (allowMutations === "reflection" && !reflectionTools.has(call.tool)) {
+      if (
+        bound.allowMutations === "reflection" &&
+        !reflectionTools.has(call.tool)
+      ) {
         return {
           success: false,
           contentItems: [
@@ -269,17 +278,17 @@ const makeAgentServer = (
       }
       if (call.tool === "roost_computer") {
         return Effect.runPromise(computerAction(agentId, call.arguments), {
-          signal: toolSignal,
+          signal: bound.toolSignal,
         });
       }
 
       if (call.tool === "roost_request_approval") {
-        if (!context || !toolSignal) throw new Error("No active run.");
+        if (!context || !bound.toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
         const response = await waitForApproval(
           context,
           Schema.decodeUnknownSync(RequestApproval)(call.arguments),
-          toolSignal,
+          bound.toolSignal,
         );
         return {
           success: true,
@@ -288,14 +297,14 @@ const makeAgentServer = (
       }
 
       if (call.tool === "roost_publish_artifact") {
-        if (!runId) throw new Error("No active run.");
+        if (!bound.runId) throw new Error("No active run.");
         const file = await Effect.runPromise(
           publishArtifact(
             agentId,
-            runId,
+            bound.runId,
             Schema.decodeUnknownSync(PublishArtifact)(call.arguments),
           ),
-          { signal: toolSignal },
+          { signal: bound.toolSignal },
         );
         return {
           success: true,
@@ -304,7 +313,7 @@ const makeAgentServer = (
       }
 
       return handleAgentTool(
-        { agentId, runId, allowMutations },
+        { agentId, runId: bound.runId, allowMutations: bound.allowMutations },
         call.tool,
         call.arguments,
       );

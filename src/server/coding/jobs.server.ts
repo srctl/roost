@@ -5,6 +5,7 @@ import { Effect, Schema } from "effect";
 import type { CodingJob, CodingJobPatch } from "../../features/coding/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { assertAvailable } from "../maintenance.server";
+import { runConversationId } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import {
@@ -214,6 +215,10 @@ export function changeCodingJob(
   db.prepare(
     "INSERT INTO runs (id,agentId,kind,prompt,status,createdAt) VALUES (?,?,'coding',?,'queued',?)",
   ).run(id, job.agentId, prompt, Date.now());
+  db.prepare("UPDATE runs SET conversationId=? WHERE id=?").run(
+    runConversationId(db, job.agentId, job.sourceRunId),
+    id,
+  );
   db.prepare(
     "INSERT INTO coding_job_updates (runId,jobId,agentId) VALUES (?,?,?)",
   ).run(id, job.id, job.agentId);
@@ -224,15 +229,20 @@ export function changeCodingJob(
     { notifiedStatus: next.status },
     next.revision,
   );
-  putMessage(db, job.agentId, {
-    id,
-    role: "notice",
-    noticeKind: "run",
-    referenceId: id,
-    title: `${job.title} · ${next.status === "review" ? "ready to review" : next.status}`,
-    text:
-      next.error || "The coding session reported back. Preparing an update.",
-  });
+  putMessage(
+    db,
+    job.agentId,
+    {
+      id,
+      role: "notice",
+      noticeKind: "run",
+      referenceId: id,
+      title: `${job.title} · ${next.status === "review" ? "ready to review" : next.status}`,
+      text:
+        next.error || "The coding session reported back. Preparing an update.",
+    },
+    runConversationId(db, job.agentId, job.sourceRunId),
+  );
   return updated;
 }
 
@@ -391,12 +401,17 @@ export const completeCodingJob = (
         { status: "completed", summary: input.summary, error: "" },
         input.revision,
       );
-      putMessage(db, agentId, {
-        id: `coding-completed:${job.id}`,
-        role: "notice",
-        title: `${job.title} completed`,
-        text: input.summary,
-      });
+      putMessage(
+        db,
+        agentId,
+        {
+          id: `coding-completed:${job.id}`,
+          role: "notice",
+          title: `${job.title} completed`,
+          text: input.summary,
+        },
+        runConversationId(db, agentId, job.sourceRunId),
+      );
       return updated;
     }),
   );

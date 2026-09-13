@@ -5,6 +5,7 @@ import { withAgentStore } from "../../server/agents/store.server";
 import { available } from "../../server/available";
 import { readConversationSnapshot } from "../../server/runs/conversation-snapshot.server";
 import { cancelRun, enqueueChat } from "../../server/runs/store.server";
+import { openReplyThread } from "../../server/runs/threads.server";
 import { ensureTimeline, startWorker } from "../../server/runs/worker.server";
 import { SendMessage } from "./schema";
 
@@ -38,6 +39,7 @@ export const getConversation = createServerFn({ method: "GET" })
     Schema.decodeUnknownSync(
       Schema.Struct({
         agentId: Schema.UUID,
+        conversationId: Schema.optional(Schema.UUID),
         since: Schema.optional(Schema.NonNegativeInt),
         before: Schema.optional(Schema.NonNegativeInt),
       }),
@@ -82,19 +84,36 @@ export const getActivityOutput = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(
     Schema.decodeUnknownSync(
-      Schema.Struct({ agentId: Schema.UUID, id: Schema.String }),
+      Schema.Struct({
+        agentId: Schema.UUID,
+        id: Schema.String,
+        conversationId: Schema.optional(Schema.UUID),
+      }),
     ),
   )
   .handler(({ data }) =>
     result(
       withAgentStore((db) => {
         const row = db
-          .prepare("SELECT message FROM timeline WHERE agentId=? AND id=?")
-          .get(data.agentId, data.id);
+          .prepare(
+            "SELECT message FROM timeline WHERE agentId=? AND conversationId=? AND id=?",
+          )
+          .get(data.agentId, data.conversationId ?? data.agentId, data.id);
 
         return row
           ? (JSON.parse(String(row.message)) as import("./schema").Message)
           : null;
       }),
     ),
+  );
+
+export const openThread = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(
+      Schema.Struct({ agentId: Schema.UUID, parentMessageId: Schema.String }),
+    ),
+  )
+  .handler(({ data }) =>
+    result(openReplyThread(data.agentId, data.parentMessageId)),
   );
