@@ -11,11 +11,13 @@ export function UserMessage({
   children,
   files,
   entering = false,
+  compact = false,
 }: {
   children: ReactNode;
   files?: readonly FileAttachment[];
   /** Plays the send animation: the bubble rises from the composer into place. */
   entering?: boolean;
+  compact?: boolean;
 }) {
   const { responseStyle } = usePreferences();
 
@@ -24,6 +26,8 @@ export function UserMessage({
       {...stylex.props(
         styles.userMessage,
         responseStyle === "messages" && styles.outgoing,
+        compact && styles.compactUser,
+        compact && responseStyle !== "messages" && styles.compactIndent,
         entering && styles.sent,
       )}
     >
@@ -39,6 +43,7 @@ export function AgentMessage({
   files,
   children,
   entering = false,
+  compact = false,
 }: {
   name: string;
   title?: string;
@@ -46,6 +51,7 @@ export function AgentMessage({
   children: string;
   /** Fades the reply in when it first arrives during this visit. */
   entering?: boolean;
+  compact?: boolean;
 }) {
   const { responseStyle } = usePreferences();
 
@@ -55,6 +61,7 @@ export function AgentMessage({
       {...stylex.props(
         styles.message,
         responseStyle === "messages" && styles.incoming,
+        compact && styles.compactAgent,
         entering && styles.received,
       )}
     >
@@ -112,6 +119,14 @@ const styles = stylex.create({
     backgroundColor: colors.action,
     color: colors.onAccent,
   },
+  compactUser: {
+    marginTop: 8,
+    marginBottom: 12,
+    paddingBlock: 8,
+    paddingInline: 12,
+  },
+  compactIndent: { marginLeft: 24 },
+  compactAgent: { marginTop: 8 },
   sent: {
     transformOrigin: "bottom right",
     animationName: rise,

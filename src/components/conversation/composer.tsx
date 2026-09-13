@@ -27,6 +27,7 @@ export function Composer({
   conversationId = agentId,
   busy,
   loading = false,
+  compact = false,
   status,
   onSend,
   onStop,
@@ -36,6 +37,7 @@ export function Composer({
   conversationId?: string;
   busy: boolean;
   loading?: boolean;
+  compact?: boolean;
   status?: string;
   onSend: (text: string, files: readonly FileAttachment[]) => Promise<boolean>;
   onStop: () => void;
@@ -201,7 +203,10 @@ export function Composer({
   }
 
   return (
-    <form onSubmit={submit} {...stylex.props(styles.composerArea)}>
+    <form
+      onSubmit={submit}
+      {...stylex.props(styles.composerArea, compact && styles.compactArea)}
+    >
       {busy && responseStyle === "codex" && (
         <Appear role="status" xstyle={styles.progress}>
           <span {...stylex.props(styles.progressDot)} />
@@ -240,7 +245,9 @@ export function Composer({
           {uploadError}
         </Appear>
       )}
-      <div {...stylex.props(styles.composer)}>
+      <div
+        {...stylex.props(styles.composer, compact && styles.compactComposer)}
+      >
         <input
           ref={fileInput}
           type="file"
@@ -277,7 +284,13 @@ export function Composer({
         <textarea
           ref={input}
           aria-label={`Message ${agentName}`}
-          placeholder={busy ? "Add a follow-up…" : `Message ${agentName}…`}
+          placeholder={
+            busy
+              ? "Add a follow-up…"
+              : compact
+                ? "Reply in thread…"
+                : `Message ${agentName}…`
+          }
           value={text}
           disabled={!hydrated}
           onChange={(event) => setText(event.target.value)}
@@ -456,6 +469,8 @@ const styles = stylex.create({
     transitionDuration: motion.base,
     transitionTimingFunction: motion.easeOut,
   },
+  compactArea: { paddingTop: 4, paddingInline: 0 },
+  compactComposer: { padding: 4, gap: 6 },
   input: {
     display: "block",
     resize: "none",

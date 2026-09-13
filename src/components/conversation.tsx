@@ -413,16 +413,23 @@ export function Conversation({
         >
           <div
             ref={history}
-            {...stylex.props(styles.history, live && styles.enter)}
+            {...stylex.props(
+              styles.history,
+              parent && styles.threadHistory,
+              live && styles.enter,
+            )}
           >
             {parent && (
               <div {...stylex.props(styles.parent)}>
-                <strong>Parent message</strong>
-                <p>{parent.role === "user" ? "You" : agent.name}</p>
+                <p {...stylex.props(styles.parentAuthor)}>
+                  {parent.role === "user" ? "You" : agent.name}
+                </p>
                 {parent.role === "user" ? (
-                  <UserMessage files={parent.files}>{parent.text}</UserMessage>
+                  <UserMessage compact files={parent.files}>
+                    {parent.text}
+                  </UserMessage>
                 ) : (
-                  <AgentMessage name={agent.name} files={parent.files}>
+                  <AgentMessage compact name={agent.name} files={parent.files}>
                     {parent.text}
                   </AgentMessage>
                 )}
@@ -471,6 +478,7 @@ export function Conversation({
                 {message.role === "user" ? (
                   <UserMessage
                     files={message.files}
+                    compact={!!parent}
                     entering={entering.has(message.id)}
                   >
                     {message.text}
@@ -489,6 +497,7 @@ export function Conversation({
                     name={agent.name}
                     title={message.title}
                     files={message.files}
+                    compact={!!parent}
                     entering={entering.has(message.id)}
                   >
                     {message.text}
@@ -613,6 +622,7 @@ export function Conversation({
         runId={runId ?? undefined}
       />
       <Composer
+        compact={!!parent}
         agentId={agent.id}
         agentName={agent.name}
         conversationId={conversationId}
@@ -650,10 +660,12 @@ const fadeIn = stylex.keyframes({
 const styles = stylex.create({
   parent: {
     borderBottom: `1px solid ${colors.border}`,
-    padding: 12,
-    marginBottom: 16,
+    paddingBottom: 12,
+    marginBottom: 12,
     overflowWrap: "anywhere",
   },
+  parentAuthor: { margin: 0, color: colors.muted, fontWeight: 500 },
+  threadHistory: { paddingBlock: 8, paddingLeft: 0 },
   conversation: {
     display: "flex",
     flexDirection: "column",
