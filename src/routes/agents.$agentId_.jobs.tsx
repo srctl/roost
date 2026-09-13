@@ -9,7 +9,9 @@ import type { Agent } from "../features/agents/schema";
 import {
   getCodingJobs,
   getCodingWorkspace,
+  inspectWorkerFailure,
   postJobFeedback,
+  postWorkerMessage,
   stopCodingJob,
   submitJobFeedback,
 } from "../features/coding/functions";
@@ -19,6 +21,7 @@ import {
   type JobFeedback,
   jobWorkflowLabel,
   previewState,
+  type WorkerMessage,
 } from "../features/coding/workspace-schema";
 import { jobsStyles as s } from "../styles/jobs.stylex";
 import { Route as RootRoute } from "./__root";
@@ -456,6 +459,8 @@ function AgentJobs({
                     agent={agent}
                     job={job}
                     feedback={loaded.detail.value.feedback}
+                    messages={loaded.detail.value.messages}
+                    queueBlockers={loaded.detail.value.queueBlockers}
                     refresh={refresh}
                   />
                 ) : (
@@ -579,14 +584,19 @@ function Discussion({
   agent,
   job,
   feedback,
+  messages,
+  queueBlockers,
   refresh,
 }: {
   job: Job;
   agent: Agent;
   feedback: JobFeedback[];
+  messages: WorkerMessage[];
+  queueBlockers: string[];
   refresh: () => Promise<void>;
 }) {
   const [discuss, setDiscuss] = useState(false);
+  const [worker, setWorker] = useState(true);
   const key = `roost-job-feedback-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState<Draft>();
   const [ready, setReady] = useState(false);
@@ -713,24 +723,44 @@ function Discussion({
       </p>
       <div {...stylex.props(s.filters)}>
         <Button
+          aria-pressed={worker}
+          xstyle={worker ? s.selected : undefined}
+          onClick={() => setWorker(true)}
+        >
+          Talk to worker
+        </Button>
+        <Button
           id="job-worker-feedback"
           disabled={!ready}
-          xstyle={!discuss ? s.selected : undefined}
-          aria-pressed={!discuss}
-          onClick={() => setDiscuss(false)}
+          xstyle={!discuss && !worker ? s.selected : undefined}
+          aria-pressed={!discuss && !worker}
+          onClick={() => {
+            setDiscuss(false);
+            setWorker(false);
+          }}
         >
           Worker feedback
         </Button>
         <Button
           disabled={!ready}
-          xstyle={discuss ? s.selected : undefined}
-          aria-pressed={discuss}
-          onClick={() => setDiscuss(true)}
+          xstyle={discuss && !worker ? s.selected : undefined}
+          aria-pressed={discuss && !worker}
+          onClick={() => {
+            setDiscuss(true);
+            setWorker(false);
+          }}
         >
           Talk to agent
         </Button>
       </div>
-      {discuss ? (
+      {worker ? (
+        <WorkerDiscussion
+          job={job}
+          messages={messages}
+          queueBlockers={queueBlockers}
+          refresh={refresh}
+        />
+      ) : discuss ? (
         <div {...stylex.props(s.conversationPanel)}>
           <Conversation
             agent={agent}
@@ -856,5 +886,293 @@ function Discussion({
         </>
       )}
     </section>
+  );
+}
+
+function WorkerDiscussion({
+  job,
+  messages,
+  queueBlockers,
+  refresh,
+}: {
+  job: Job;
+  messages: WorkerMessage[];
+  queueBlockers: string[];
+  refresh: () => Promise<void>;
+}) {
+  const key = `roost-worker-draft-${job.agentId}-${job.id}`;
+  const [draft, setDraft] = useState({ text: "", requestId: "" });
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const sending = useRef(false);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (
+        saved &&
+        typeof saved.text === "string" &&
+        typeof saved.requestId === "string"
+      )
+        setDraft(saved);
+    } catch {
+      setError(
+        "Draft storage is unavailable. Keep this page open until your message is sent.",
+      );
+    }
+    setReady(true);
+  }, [key]);
+  function edit(text: string) {
+    const next = { text, requestId: crypto.randomUUID() };
+    setDraft(next);
+    try {
+      sessionStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      setError("Could not preserve this draft across reloads.");
+    }
+  }
+  async function send() {
+    if (sending.current || !draft.text.trim()) return;
+    sending.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await postWorkerMessage({
+        data: { agentId: job.agentId, id: job.id, ...draft },
+      });
+      if (!result.ok) throw new Error(result.error);
+      setDraft({ text: "", requestId: "" });
+      try {
+        sessionStorage.removeItem(key);
+      } catch {}
+      setNotice(
+        "Queued for this worker's next safe boundary. Its current work was not interrupted.",
+      );
+      await refresh();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not send. Retry preserves the same message ID.",
+      );
+    } finally {
+      sending.current = false;
+      setBusy(false);
+      composer.current?.focus();
+    }
+  }
+  const unavailable =
+    job.cancelRequested ||
+    ["completed", "cancelled", "failed", "queued", "starting"].includes(
+      job.status,
+    ) ||
+    !job.sessionIdentity ||
+    !["working", "idle", "done"].includes(job.lastWorkerState);
+  return (
+    <div>
+      <p {...stylex.props(s.muted)}>
+        Message this job's existing worker directly. Messages wait in order
+        while it works, independently of the managing agent.
+      </p>
+      {queueBlockers
+        .filter(
+          (id) => !messages.some((m) => m.id === id && m.status === "failed"),
+        )
+        .map((inputId) => (
+          <p key={inputId} {...stylex.props(s.error)}>
+            An uncertain coordinator submission is holding this queue. Inspect
+            it in the existing worker; it will not be replayed.{" "}
+            <Button
+              onClick={async () => {
+                const result = await inspectWorkerFailure({
+                  data: { agentId: job.agentId, id: job.id, inputId },
+                });
+                if (!result.ok) setError(result.error);
+                else await refresh();
+              }}
+            >
+              I inspected the submission; release remaining queue
+            </Button>
+          </p>
+        ))}
+      <p {...stylex.props(s.muted)}>
+        Worker: {job.workerName} · {job.lastWorkerState || "not connected"}
+      </p>
+      <div
+        {...stylex.props(s.workerLog)}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable conversation must be keyboard reachable.
+        tabIndex={0}
+        aria-label="Worker conversation"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
+        {messages.map((message) => (
+          <article key={message.id} {...stylex.props(s.message)}>
+            <div {...stylex.props(s.author)}>
+              You{" "}
+              <span {...stylex.props(s.muted)}>
+                {new Date(message.createdAt).toLocaleString()}
+              </span>
+            </div>
+            <p {...stylex.props(s.messageText)}>{message.text}</p>
+            <p {...stylex.props(s.muted)}>
+              {message.status === "queued"
+                ? "Queued · waiting for a safe worker boundary"
+                : message.status === "responding"
+                  ? "Responding · worker turn in progress"
+                  : message.status === "delivered"
+                    ? "Delivered · awaiting worker activity"
+                    : message.status === "answered"
+                      ? "Answered"
+                      : message.status === "acknowledged"
+                        ? "Inspected · not replayed"
+                        : "Failed · inspect before sending a fresh instruction"}
+            </p>
+            {message.error && <p {...stylex.props(s.error)}>{message.error}</p>}
+            {message.status === "failed" && (
+              <Button
+                onClick={async () => {
+                  const result = await inspectWorkerFailure({
+                    data: {
+                      agentId: job.agentId,
+                      id: job.id,
+                      inputId: message.id,
+                    },
+                  });
+                  if (!result.ok) setError(result.error);
+                  else await refresh();
+                }}
+              >
+                I inspected this submission in Herdr; release remaining queue
+              </Button>
+            )}
+            {message.previewCheck && (
+              <>
+                <div {...stylex.props(s.author)}>Server live preview check</div>
+                <PreviewReceipt value={message.previewCheck} />
+              </>
+            )}
+            {message.response && (
+              <>
+                <div {...stylex.props(s.author)}>
+                  Worker · captured response
+                </div>
+                <p {...stylex.props(s.messageText)}>{message.response}</p>
+                <p {...stylex.props(s.muted)}>
+                  Captured worker output; preview claims require the process and
+                  endpoint evidence reported by the worker.
+                </p>
+              </>
+            )}
+          </article>
+        ))}
+      </div>
+      {unavailable && (
+        <p role="status" {...stylex.props(s.muted)}>
+          {["completed", "cancelled", "failed"].includes(job.status)
+            ? "This job has ended. Review its preserved conversation and work; this composer cannot reopen it."
+            : "Resolve approvals or restore and verify this same worker in Herdr before continuing. Messages already queued remain visible."}
+        </p>
+      )}
+      <form
+        {...stylex.props(s.composer)}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send();
+        }}
+      >
+        <label htmlFor="job-worker-message" {...stylex.props(s.label)}>
+          Message worker
+        </label>
+        <textarea
+          ref={composer}
+          id="job-worker-message"
+          aria-describedby="worker-message-help"
+          readOnly={busy}
+          disabled={!ready}
+          value={draft.text}
+          onChange={(event) => edit(event.target.value)}
+          maxLength={16000}
+          placeholder="Ask a question or give the worker an instruction…"
+          {...stylex.props(s.textarea)}
+        />
+        <p id="worker-message-help" {...stylex.props(s.muted)}>
+          Sending explicitly continues an idle or feedback-paused worker.
+          Approval prompts must be resolved in Herdr.
+        </p>
+        <div {...stylex.props(s.toolbar)}>
+          <Button
+            disabled={busy || !ready}
+            onClick={() => {
+              edit(
+                draft.text
+                  ? `${draft.text}\n\nIs the dev server running for this preview?`
+                  : "Is the dev server running for this preview?",
+              );
+              composer.current?.focus();
+            }}
+          >
+            Ask preview status
+          </Button>
+          <Button
+            type="submit"
+            disabled={!ready || busy || unavailable || !draft.text.trim()}
+          >
+            {busy ? "Queueing…" : "Send to worker"}
+          </Button>
+        </div>
+      </form>
+      {error && (
+        <p role="alert" {...stylex.props(s.error)}>
+          {error}
+        </p>
+      )}
+      <p role="status" {...stylex.props(s.muted)}>
+        {notice}
+      </p>
+    </div>
+  );
+}
+
+function PreviewReceipt({ value }: { value: string }) {
+  let check: {
+    status: string;
+    checkedAt: number;
+    url: string;
+    reportedRevision: string;
+    process: string;
+    endpoint: string;
+    blocker: string;
+  };
+  try {
+    check = JSON.parse(value);
+  } catch {
+    return (
+      <p {...stylex.props(s.muted)}>
+        Preview check could not be read. Ask the worker to check again.
+      </p>
+    );
+  }
+  return (
+    <div {...stylex.props(s.messageText)}>
+      <p>
+        {check.status === "running"
+          ? "Running · worktree process and endpoint checked"
+          : check.status === "unavailable"
+            ? "Unavailable"
+            : "Unverified"}{" "}
+        · {new Date(check.checkedAt).toLocaleString()}
+      </p>
+      {check.url && <p>Reported URL: {check.url}</p>}
+      {check.reportedRevision && (
+        <p>Last reported revision: {check.reportedRevision}</p>
+      )}
+      {check.process && <p>{check.process}</p>}
+      {check.endpoint && <p>{check.endpoint}</p>}
+      {check.blocker && <p>{check.blocker}</p>}
+    </div>
   );
 }

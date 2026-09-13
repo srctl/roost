@@ -229,7 +229,7 @@ for (const [threads, notes] of [
               upgraded
                 .prepare("SELECT MAX(version) v FROM coding_workspace_versions")
                 .get()?.v,
-              2,
+              3,
             );
           }, directory),
         );

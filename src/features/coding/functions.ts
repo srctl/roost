@@ -2,6 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 import { withAgentStore } from "../../server/agents/store.server";
 import { available } from "../../server/available";
+import {
+  acknowledgeWorkerFailure,
+  sendWorkerMessage,
+} from "../../server/coding/conversation.server";
 import { stopCodingJob as requestCodingStop } from "../../server/coding/jobs.server";
 import {
   deleteExecutionProfile,
@@ -18,7 +22,11 @@ import {
   saveJobFeedback,
 } from "../../server/coding/workspace-store.server";
 import { CodingSettings, ExecutionProfile } from "./schema";
-import { ContinueJobFeedback, JobFeedbackInput } from "./workspace-schema";
+import {
+  ContinueJobFeedback,
+  JobFeedbackInput,
+  WorkerMessageInput,
+} from "./workspace-schema";
 
 const result = <A, E extends { message: string }>(
   effect: Effect.Effect<A, E>,
@@ -114,3 +122,23 @@ export const submitJobFeedback = createServerFn({ method: "POST" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(ContinueJobFeedback))
   .handler(({ data }) => result(continueJobFeedback(data)));
+
+export const postWorkerMessage = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(WorkerMessageInput))
+  .handler(({ data }) => result(sendWorkerMessage(data)));
+
+export const inspectWorkerFailure = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(
+      Schema.Struct({
+        agentId: Schema.UUID,
+        id: Schema.UUID,
+        inputId: Schema.UUID,
+      }),
+    ),
+  )
+  .handler(({ data }) =>
+    result(acknowledgeWorkerFailure(data.agentId, data.id, data.inputId)),
+  );

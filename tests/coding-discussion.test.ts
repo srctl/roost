@@ -347,7 +347,9 @@ for (const core of [10, 13])
           db.prepare(
             "UPDATE coding_job_workspaces SET conversationId=agentId WHERE jobId=?",
           ).run(id);
-          db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
+          db.exec(
+            "DELETE FROM coding_workspace_versions WHERE version>=2; DROP TABLE coding_worker_messages; DROP TABLE coding_worker_fences",
+          );
           db.exec(
             `DROP TABLE agent_notes; DROP TABLE note_revisions; DROP TABLE note_requests; DROP TABLE note_reads; PRAGMA user_version=${core}`,
           );
@@ -387,7 +389,7 @@ for (const core of [10, 13])
               db
                 .prepare("SELECT MAX(version) v FROM coding_workspace_versions")
                 .get()!.v,
-              2,
+              3,
             );
             assert.equal(
               db
@@ -424,7 +426,9 @@ for (const core of [10, 13])
             text: "Worker report",
             title: "Ready",
           });
-          db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
+          db.exec(
+            "DELETE FROM coding_workspace_versions WHERE version>=2; DROP TABLE coding_worker_messages; DROP TABLE coding_worker_fences",
+          );
           db.prepare("DELETE FROM conversation_records WHERE id=?").run(id);
           db.exec(
             `DROP TABLE agent_notes; DROP TABLE note_revisions; DROP TABLE note_requests; DROP TABLE note_reads; PRAGMA user_version=${core}`,

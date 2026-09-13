@@ -131,3 +131,60 @@ Actual before/after captures render the original and implemented Jobs routes in
 the real App/Sidebar/AgentHeader with matched desktop/mobile data and viewport.
 Keep the task worktree/runtime during user feedback. Attach evidence to review
 PRs before final cleanup; do not create evidence branches or commit recordings.
+
+## Direct conversation with the existing worker
+
+The default **Talk to worker** tab sends a durable user message straight to the
+existing job's dispatch queue. It does not enqueue a managing-agent chat run or
+wait for its conversational slot/review checkpoint. The separate **Talk to
+agent** and saved feedback views remain available. Drafts and request IDs survive
+reload in per-job session storage; receipts and responses live in the existing
+job timeline. `coding_worker_messages` holds only receipt/identity associations
+and the terminal baseline used to isolate a response, sharing
+`coding_job_inputs` with coordinator continuations. Additive workspace migration
+v3 creates those associations and fences older runtimes from opening that store.
+
+Herdr's documented prompt operation does not accept a busy worker, so this uses
+an ordered, bounded queue (20 pending inputs per job), never claims immediate
+interruption, and dispatches direct messages only at an observed idle/done
+boundary. The original session/native identity is checked again by the transport.
+A delivered turn must settle before the next input, including coordinator inputs.
+The monitor runs independently of chat slots. It preserves feedback pauses until
+an explicit direct message resumes that same assignment. Approval dialogs are
+never answered; missing/replaced workers cannot be recreated by the composer.
+
+Queued, delivered, responding, answered and failed states are durable. Responses
+are labeled captured worker output, not a second assistant identity or proof of
+successful execution. A lost submission reply or restart during dispatch fails
+closed and fences the remaining queue. Reusing its request ID only reads that
+receipt. Once the same worker is idle and approval-free, the user may explicitly
+confirm they inspected the submission in Herdr; that abandons the uncertain input
+without replaying it and releases later queued instructions. No exactly-once
+claim is made for Herdr's non-idempotent terminal transport across a crash.
+
+Preview-status questions instruct the worker to check its actual service and
+endpoint, give UTC checked time, URL, revision, process/HTTP evidence and a
+concrete blocker, and never start/restart for a status-only question. The common
+"Is the dev server running for this preview?" request additionally gets a fresh
+server-side receipt. The bounded read-only checker supports local IPv4
+`127.0.0.1` endpoints: it matches listening socket address/port/inode to a process
+whose cwd is inside the job worktree, refuses overlapping other job worktrees,
+then makes a four-second HEAD request with redirects disabled. Ownership is
+inferred from that isolated worktree process, not an external service registry.
+Public/proxied/remote URLs, unsupported platforms, inaccessible process evidence
+or ambiguous ownership are explicitly **Unverified** and left to the existing
+worker on its execution machine. No arbitrary URL probing or service control is
+introduced. Revision is labeled **Last reported revision**, never asserted to be
+freshly served merely from saved metadata. Checks do not renew preview reports,
+complete a job, merge or deploy.
+
+`tests/coding-worker-conversation.test.ts` uses disposable stores and a simulated
+Herdr adapter for main-thread independence, busy queue delivery, same-worker
+identity, ordering/idempotency, concurrent coordinator inputs, restart fences,
+approval behavior, explicit feedback continuation and status-only instructions.
+Its preview tests use real disposable HTTP child processes for process ownership,
+wrong bind address, unrelated/overlapping worktrees, endpoint reachability,
+redirects and stopped servers. These are transport fixtures, not live Astra
+worker verification. Live verification and rendered evidence are recorded in the
+review PR; the installed Codex CLI's Astra version compatibility is a separate
+runtime prerequisite.
