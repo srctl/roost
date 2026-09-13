@@ -1,20 +1,14 @@
-# Current final placement
+# Exterior message reply action — final placement
 
-[Exterior message action and 40 matched screenshots](exterior/README.md). Both previous internal and trailing-row placements below are superseded.
+Latest feedback supersedes the inside-box layout: move the icon just outside the assistant bubble’s right edge near its bottom.
 
-# Latest refinement
+Before: PR35 `1601ac227b6ca39841fbe5af1d3561107b91ae43`. After: `415367c92219004d770c75d0838a888eac99d7ed`.
 
-[Updated message-bound placement and 40 matched screenshots](refinement/README.md). The original trailing-row approach below is superseded.
+40 actual rendered matched screenshots from isolated synthetic fixtures. Desktop1440×1000 rest/hover/focus; mobile-touch390×844 rest/focus; document and bubble, light and dark. No user data or real providers.
 
-# Reply action visual evidence
+Final behavior: a neutral group reserves a 4px exterior gap, 40px control, and focus-ring space. Article padding is restored to normal. The group includes message/gap/control in the hover area, so pointer travel preserves visibility. Short replies fit their content; the group remains capped to available width on mobile. The target ends 4px above the article bottom; there is no row below. The create/reopen icon stays mounted across thread refresh, and historical count/unread navigation remains visible.
 
-Actual rendered Chromium screenshots using only a local synthetic Roost fixture and fake provider. No live user data. Before: origin/main ed3ca2e. After: fix/thread-reply-action.
-
-Matched desktop viewport: 1440 × 1000. Matched mobile touch viewport: 390 × 844. Desktop states: rest, hover, keyboard focus. Light and dark themes; default document and Messages/bubble presentation.
-
-The assistant creation icon uses a reserved trailing-right row to preserve full message width and avoid hover/focus layout shifts. Historical user and assistant thread counts remain visible.
-
-| Presentation / theme / state | Before | After |
+| State | Before (inside box) | After (exterior gutter) |
 | --- | --- | --- |
 | desktop-dark-focus | ![Before: desktop-dark-focus](before-desktop-dark-focus.png) | ![After: desktop-dark-focus](after-desktop-dark-focus.png) |
 | desktop-dark-hover | ![Before: desktop-dark-hover](before-desktop-dark-hover.png) | ![After: desktop-dark-hover](after-desktop-dark-hover.png) |
@@ -28,7 +22,11 @@ The assistant creation icon uses a reserved trailing-right row to preserve full 
 | messages-desktop-light-focus | ![Before: messages-desktop-light-focus](before-messages-desktop-light-focus.png) | ![After: messages-desktop-light-focus](after-messages-desktop-light-focus.png) |
 | messages-desktop-light-hover | ![Before: messages-desktop-light-hover](before-messages-desktop-light-hover.png) | ![After: messages-desktop-light-hover](after-messages-desktop-light-hover.png) |
 | messages-desktop-light-rest | ![Before: messages-desktop-light-rest](before-messages-desktop-light-rest.png) | ![After: messages-desktop-light-rest](after-messages-desktop-light-rest.png) |
+| messages-mobile-touch-dark-focus | ![Before: messages-mobile-touch-dark-focus](before-messages-mobile-touch-dark-focus.png) | ![After: messages-mobile-touch-dark-focus](after-messages-mobile-touch-dark-focus.png) |
 | messages-mobile-touch-dark-rest | ![Before: messages-mobile-touch-dark-rest](before-messages-mobile-touch-dark-rest.png) | ![After: messages-mobile-touch-dark-rest](after-messages-mobile-touch-dark-rest.png) |
+| messages-mobile-touch-light-focus | ![Before: messages-mobile-touch-light-focus](before-messages-mobile-touch-light-focus.png) | ![After: messages-mobile-touch-light-focus](after-messages-mobile-touch-light-focus.png) |
 | messages-mobile-touch-light-rest | ![Before: messages-mobile-touch-light-rest](before-messages-mobile-touch-light-rest.png) | ![After: messages-mobile-touch-light-rest](after-messages-mobile-touch-light-rest.png) |
+| mobile-touch-dark-focus | ![Before: mobile-touch-dark-focus](before-mobile-touch-dark-focus.png) | ![After: mobile-touch-dark-focus](after-mobile-touch-dark-focus.png) |
 | mobile-touch-dark-rest | ![Before: mobile-touch-dark-rest](before-mobile-touch-dark-rest.png) | ![After: mobile-touch-dark-rest](after-mobile-touch-dark-rest.png) |
+| mobile-touch-light-focus | ![Before: mobile-touch-light-focus](before-mobile-touch-light-focus.png) | ![After: mobile-touch-light-focus](after-mobile-touch-light-focus.png) |
 | mobile-touch-light-rest | ![Before: mobile-touch-light-rest](before-mobile-touch-light-rest.png) | ![After: mobile-touch-light-rest](after-mobile-touch-light-rest.png) |
