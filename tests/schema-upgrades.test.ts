@@ -1,18 +1,28 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { Effect } from "effect";
 import { withAgentStore } from "../src/server/agents/store.server";
 
-for (const shape of ["base-v8", "datasets-v9", "models-v9"] as const) {
+for (const shape of [
+  "base-v8",
+  "datasets-v9",
+  "models-v9",
+  "current-v10",
+] as const) {
   test(`combined migration preserves data from ${shape} and is repeatable`, async () => {
     const directory = mkdtempSync("/tmp/roost-schema-upgrade-");
     try {
-      await Effect.runPromise(withAgentStore(() => {}, directory));
       const db = new DatabaseSync(join(directory, "roost.sqlite"));
       try {
+        db.exec(
+          readFileSync(new URL("./fixtures/v8.sql", import.meta.url), "utf8"),
+        );
+        db.exec(
+          `CREATE TABLE dashboard_datasets (agentId TEXT NOT NULL,key TEXT NOT NULL,content TEXT NOT NULL,revision INTEGER NOT NULL,updatedAt INTEGER NOT NULL,PRIMARY KEY(agentId,key)); ALTER TABLE automations ADD COLUMN model TEXT`,
+        );
         db.exec(`
           INSERT INTO agents(id,name,instructions,character,model,createdAt)
             VALUES('saved','Scout','Keep my instructions','moss','fake','2026-09-08');
@@ -27,10 +37,13 @@ for (const shape of ["base-v8", "datasets-v9", "models-v9"] as const) {
           UPDATE dashboard_settings SET enabled=1;
           UPDATE runtime_control SET maintenance=1;
         `);
-        if (shape !== "models-v9")
+        if (shape !== "models-v9" && shape !== "current-v10")
           db.exec("ALTER TABLE automations DROP COLUMN model");
-        if (shape !== "datasets-v9") db.exec("DROP TABLE dashboard_datasets");
-        db.exec(`PRAGMA user_version=${shape === "base-v8" ? 8 : 9}`);
+        if (shape !== "datasets-v9" && shape !== "current-v10")
+          db.exec("DROP TABLE dashboard_datasets");
+        db.exec(
+          `PRAGMA user_version=${shape === "base-v8" ? 8 : shape === "current-v10" ? 10 : 9}`,
+        );
         const tables = db
           .prepare(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
@@ -51,7 +64,7 @@ for (const shape of ["base-v8", "datasets-v9", "models-v9"] as const) {
             withAgentStore((upgraded) => {
               assert.equal(
                 upgraded.prepare("PRAGMA user_version").get()?.user_version,
-                10,
+                13,
               );
               for (const { name, columns, rows } of snapshots) {
                 assert.deepEqual(
@@ -68,13 +81,15 @@ for (const shape of ["base-v8", "datasets-v9", "models-v9"] as const) {
                 upgraded
                   .prepare("SELECT model FROM automations WHERE id='task'")
                   .get()?.model,
-                shape === "models-v9" ? "gpt-5.6-luna" : null,
+                shape === "models-v9" || shape === "current-v10"
+                  ? "gpt-5.6-luna"
+                  : null,
               );
               assert.equal(
                 upgraded
                   .prepare("SELECT count(*) AS total FROM dashboard_datasets")
                   .get()?.total,
-                shape === "datasets-v9" ? 1 : 0,
+                shape === "datasets-v9" || shape === "current-v10" ? 1 : 0,
               );
             }, directory),
           );
