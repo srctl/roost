@@ -310,7 +310,7 @@ for (const legacy of [
             );
             if (legacy === "core14")
               db.exec(
-                "DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;",
+                "DROP TABLE agent_navigation_layout; DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;",
               );
           }, directory),
         );
@@ -324,7 +324,7 @@ for (const legacy of [
             );
             for (const [table, version] of [
               ["agent_deletion_versions", 1],
-              ["agent_navigation_versions", 1],
+              ["agent_navigation_versions", 3],
               ["coding_workspace_versions", 3],
             ] as const)
               assert.equal(

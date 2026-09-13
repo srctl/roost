@@ -7,6 +7,7 @@ import { Button } from "./components/ui/button";
 import { Icon } from "./components/ui/primitives";
 import { ResizeHandle } from "./components/ui/resize-handle";
 import { AgentActivityProvider } from "./features/agents/activity";
+import { AgentNavigationProvider } from "./features/agents/navigation";
 import { useAgentStartup } from "./features/agents/use-agent-startup";
 import { useMarkLoaded } from "./features/motion";
 import { PreferencesProvider } from "./features/settings/preferences";
@@ -128,66 +129,68 @@ export function App() {
   return (
     <PreferencesProvider>
       <AgentActivityProvider>
-        <div ref={shell} data-roost-shell {...stylex.props(styles.app)}>
-          {/* The sidebar stays mounted while collapsed so its width can animate
+        <AgentNavigationProvider>
+          <div ref={shell} data-roost-shell {...stylex.props(styles.app)}>
+            {/* The sidebar stays mounted while collapsed so its width can animate
               shut. Inert keeps the hidden links out of the tab order. */}
-          <div
-            ref={navigation}
-            inert={collapsed}
-            {...stylex.props(
-              styles.desktopNavigation,
-              collapsed && styles.navigationCollapsed,
-            )}
-            style={
-              {
-                "--sidebar-width": `${preferredSidebarWidth}px`,
-              } as CSSProperties
-            }
-          >
-            <Sidebar
-              agents={agents.ok ? agents.value : []}
-              onCollapse={() => setCollapsed(true)}
-            />
-            <ResizeHandle
-              label="Resize agents sidebar"
-              controls="agent-sidebar"
-              pane={navigation}
-              value={sidebarWidth}
-              min={sidebarMinWidth}
-              max={maxSidebarWidth}
-              onResize={resizeSidebar}
-            />
-          </div>
-          {collapsed && (
-            <div {...stylex.props(styles.expand)}>
-              <Button
-                aria-label="Expand sidebar"
-                aria-expanded={false}
-                aria-controls="agent-sidebar"
-                onClick={() => setCollapsed(false)}
-              >
-                <Icon name="panel" />
-              </Button>
+            <div
+              ref={navigation}
+              inert={collapsed}
+              {...stylex.props(
+                styles.desktopNavigation,
+                collapsed && styles.navigationCollapsed,
+              )}
+              style={
+                {
+                  "--sidebar-width": `${preferredSidebarWidth}px`,
+                } as CSSProperties
+              }
+            >
+              <Sidebar
+                agents={agents.ok ? agents.value : []}
+                onCollapse={() => setCollapsed(true)}
+              />
+              <ResizeHandle
+                label="Resize agents sidebar"
+                controls="agent-sidebar"
+                pane={navigation}
+                value={sidebarWidth}
+                min={sidebarMinWidth}
+                max={maxSidebarWidth}
+                onResize={resizeSidebar}
+              />
             </div>
-          )}
-          {!agentPage && (
-            <header {...stylex.props(styles.mobileHeader)}>
-              <MobileNavigation />
-              <Link to="/" {...stylex.props(styles.brand)}>
-                roost
-              </Link>
-            </header>
-          )}
-          <main
-            {...stylex.props(
-              styles.workspace,
-              agentPage && styles.chatWorkspace,
+            {collapsed && (
+              <div {...stylex.props(styles.expand)}>
+                <Button
+                  aria-label="Expand sidebar"
+                  aria-expanded={false}
+                  aria-controls="agent-sidebar"
+                  onClick={() => setCollapsed(false)}
+                >
+                  <Icon name="panel" />
+                </Button>
+              </div>
             )}
-          >
-            {!agents.ok && <p role="alert">{agents.error}</p>}
-            <Outlet />
-          </main>
-        </div>
+            {!agentPage && (
+              <header {...stylex.props(styles.mobileHeader)}>
+                <MobileNavigation />
+                <Link to="/" {...stylex.props(styles.brand)}>
+                  roost
+                </Link>
+              </header>
+            )}
+            <main
+              {...stylex.props(
+                styles.workspace,
+                agentPage && styles.chatWorkspace,
+              )}
+            >
+              {!agents.ok && <p role="alert">{agents.error}</p>}
+              <Outlet />
+            </main>
+          </div>
+        </AgentNavigationProvider>
       </AgentActivityProvider>
     </PreferencesProvider>
   );

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Schema } from "effect";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Name } from "../features/agents/schema";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
@@ -10,13 +10,22 @@ export function DisplayNameEditor({
   label,
   onSave,
   onCancel,
+  focusOnMount = false,
 }: {
   name: string;
   label: string;
   onSave: (name: string) => Promise<void>;
   onCancel?: () => void;
+  focusOnMount?: boolean;
 }) {
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focusOnMount) {
+      input.current?.focus();
+      input.current?.select();
+    }
+  }, [focusOnMount]);
   const [value, setValue] = useState(name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +59,7 @@ export function DisplayNameEditor({
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
+        ref={input}
         value={value}
         disabled={saving}
         aria-invalid={!!error}

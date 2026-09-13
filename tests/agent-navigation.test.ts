@@ -17,6 +17,10 @@ import {
   RenameAgentInput,
 } from "../src/features/agents/navigation-schema";
 import {
+  applyNavigationChange,
+  orderedSections,
+} from "../src/features/agents/navigation-state";
+import {
   changeAgentNavigation,
   readAgentNavigation,
   renameAgent,
@@ -38,7 +42,7 @@ const noteTables = [
   "note_reads",
 ];
 const dropNavigation =
-  "DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;";
+  "DROP TABLE agent_navigation_layout; DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;";
 
 const run = Effect.runPromise;
 
@@ -187,6 +191,8 @@ test("core14 navigation installation, rename and sections preserve actual Notes,
     assert.deepEqual(await run(readAgentNavigation(directory)), {
       sections: [],
       memberships: {},
+      agentOrder: [agent.id, second.id],
+      ungroupedPosition: 0,
     });
     await run(
       renameAgent({ agentId: agent.id, name: "  New Scout  " }, directory),
@@ -204,6 +210,8 @@ test("core14 navigation installation, rename and sections preserve actual Notes,
         { id: other, name: "Personal", position: 1, collapsed: false },
       ],
       memberships: { [agent.id]: section },
+      agentOrder: [second.id, agent.id],
+      ungroupedPosition: 2,
     });
     await change({ action: "move", agentId: agent.id, sectionId: other });
     assert.deepEqual((await run(readAgentNavigation(directory))).memberships, {
@@ -362,7 +370,7 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
     db.exec("COMMIT");
     // The navigation feature does not advance core's version or install Notes.
     assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 13);
-    db.exec("INSERT INTO agent_navigation_versions VALUES(2)");
+    db.exec("INSERT INTO agent_navigation_versions VALUES(4)");
     await assert.rejects(
       run(readAgentNavigation(directory)),
       /Agent navigation needs a newer version of Roost/,
@@ -375,11 +383,13 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
         undefined,
       );
     db.exec(
-      "DELETE FROM agent_navigation_versions WHERE version=2;" + dropNavigation,
+      "DELETE FROM agent_navigation_versions WHERE version=4;" + dropNavigation,
     );
     assert.deepEqual(await run(readAgentNavigation(directory)), {
       sections: [],
       memberships: {},
+      agentOrder: [legacyAgent.id],
+      ungroupedPosition: 0,
     });
     assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 14);
     for (const table of noteTables)
@@ -401,7 +411,7 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
     migrateAgentNavigation(db);
     writer.exec("ROLLBACK");
     writer.close();
-    db.exec("INSERT INTO agent_navigation_versions VALUES(2); BEGIN IMMEDIATE");
+    db.exec("INSERT INTO agent_navigation_versions VALUES(4); BEGIN IMMEDIATE");
     assert.throws(() => migrateAgentNavigation(db), /newer version/);
     db.exec("CREATE TABLE outer_transaction_survives(id TEXT); ROLLBACK");
     assert.equal(
@@ -413,12 +423,179 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
       undefined,
     );
     db.exec(
-      "DELETE FROM agent_navigation_versions WHERE version=2; DROP TABLE note_reads",
+      "DELETE FROM agent_navigation_versions WHERE version=4; DROP TABLE note_reads",
     );
     await assert.rejects(
       run(readAgentNavigation(directory)),
       /Unsupported database shape \(partial Notes\)/,
     );
+    db.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("saved agent order upgrades v1 and supports atomic placement within and across sections", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "roost-navigation-order-"));
+  try {
+    for (const name of ["A", "B", "C", "D"]) {
+      await run(
+        saveAgent(
+          {
+            id: randomUUID(),
+            name,
+            instructions: "Fixture",
+            character: "moss",
+            model: "fixture",
+          },
+          directory,
+        ),
+      );
+    }
+    const original = await run(listAgents(directory));
+    const [a, b, c, d] = original.map((agent) => agent.id) as [
+      string,
+      string,
+      string,
+      string,
+    ];
+    const db = new DatabaseSync(join(directory, "roost.sqlite"));
+    db.exec(
+      "DELETE FROM agent_navigation_versions WHERE version>=2; DROP TABLE agent_navigation_layout; ALTER TABLE agents DROP COLUMN navigationPosition",
+    );
+    const read = () => run(readAgentNavigation(directory));
+    const change = (data: NavigationChange) =>
+      run(changeAgentNavigation(data, directory));
+    assert.deepEqual((await read()).agentOrder, [a, b, c, d]);
+    assert.equal(
+      db.prepare("SELECT MAX(version) v FROM agent_navigation_versions").get()
+        ?.v,
+      3,
+    );
+    const section = randomUUID();
+    await change({ action: "create", id: section, name: "Work" });
+    await change({ action: "move", agentId: c, sectionId: section });
+    await change({ action: "move", agentId: b, sectionId: section });
+    await change({
+      action: "move",
+      agentId: a,
+      sectionId: section,
+      beforeAgentId: b,
+    });
+    const members = async (sectionId: string | null) => {
+      const nav = await read();
+      return nav.agentOrder.filter(
+        (id) => (nav.memberships[id] ?? null) === sectionId,
+      );
+    };
+    assert.deepEqual(await members(section), [c, a, b]);
+    await change({
+      action: "move",
+      agentId: b,
+      sectionId: section,
+      beforeAgentId: c,
+    });
+    assert.deepEqual(await members(section), [b, c, a]);
+    await change({
+      action: "move",
+      agentId: a,
+      sectionId: null,
+      beforeAgentId: d,
+    });
+    assert.deepEqual(await members(null), [a, d]);
+    const before = await read();
+    for (const beforeAgentId of [randomUUID(), d, b]) {
+      await assert.rejects(
+        change({
+          action: "move",
+          agentId: b,
+          sectionId: section,
+          beforeAgentId,
+        }),
+      );
+      assert.deepEqual(
+        await read(),
+        before,
+        "bad or stale placement leaves membership and order unchanged",
+      );
+    }
+    await change({
+      action: "move",
+      agentId: a,
+      sectionId: null,
+      beforeAgentId: null,
+    });
+    assert.deepEqual(await members(null), [d, a]);
+    assert.deepEqual(
+      await run(listAgents(directory)),
+      original,
+      "creation order and agent records returned by the API stay unchanged",
+    );
+    const added = await run(
+      saveAgent({ ...original[0]!, id: randomUUID(), name: "New" }, directory),
+    );
+    assert.deepEqual(await members(null), [d, a, added.id]);
+    await change({ action: "delete", id: section });
+    assert.equal(new Set((await read()).agentOrder).size, 5);
+    db.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("section ordering includes Ungrouped and survives create, delete and v2 upgrade", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "roost-section-order-"));
+  try {
+    const a = randomUUID(),
+      b = randomUUID(),
+      c = randomUUID();
+    const change = (data: NavigationChange) =>
+      run(changeAgentNavigation(data, directory));
+    const read = () => run(readAgentNavigation(directory));
+    await change({ action: "create", id: a, name: "A" });
+    await change({ action: "create", id: b, name: "B" });
+    const db = new DatabaseSync(join(directory, "roost.sqlite"));
+    db.exec(
+      "DROP TABLE agent_navigation_layout; DELETE FROM agent_navigation_versions WHERE version=3; UPDATE agent_navigation_sections SET position=position+4",
+    );
+    let expected = await read();
+    assert.deepEqual(
+      orderedSections(expected).map((section) => section.id),
+      [a, b, ""],
+    );
+    for (const action of [
+      { action: "place-section", id: null, targetId: a, edge: "before" },
+      { action: "place-section", id: null, targetId: b, edge: "after" },
+      { action: "place-section", id: a, targetId: null, edge: "after" },
+      { action: "place-section", id: a, targetId: b, edge: "before" },
+      { action: "reorder-section", id: null, direction: "up" },
+      { action: "reorder-section", id: null, direction: "up" },
+      { action: "reorder-section", id: null, direction: "up" },
+      { action: "reorder-section", id: a, direction: "up" },
+      { action: "create", id: c, name: "C" },
+      { action: "delete", id: a },
+      { action: "reorder-section", id: null, direction: "down" },
+      { action: "reorder-section", id: b, direction: "down" },
+      { action: "collapse", id: b, collapsed: true },
+      { action: "delete", id: c },
+    ] satisfies NavigationChange[]) {
+      expected = applyNavigationChange(expected, action);
+      await change(action);
+      assert.deepEqual(await read(), expected, JSON.stringify(action));
+    }
+    const snapshot = await read();
+    await assert.rejects(
+      change({
+        action: "place-section",
+        id: b,
+        targetId: randomUUID(),
+        edge: "before",
+      }),
+    );
+    await assert.rejects(
+      change({ action: "reorder-section", id: randomUUID(), direction: "up" }),
+    );
+    assert.deepEqual(await read(), snapshot);
     db.close();
   } finally {
     rmSync(directory, { recursive: true, force: true });
