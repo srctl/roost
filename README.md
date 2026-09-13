@@ -14,3 +14,7 @@ The after state renames “Research assistant” to “Project researcher” and
 | Mobile navigation | ![Before mobile navigation](before-mobile-navigation.png) | ![After mobile navigation](after-mobile-navigation.png) |
 
 This evidence-only branch is separate from the feature PR source diff.
+
+## Plain default navigation refinement
+
+Final feature head: `185063234c9870160a76d76cdec0f85ee9de62e1`. All after images refreshed on this head. [Zero/with-section desktop/mobile before-and-after gallery](plain-default/README.md). [Final verification and coordinator handoff](VERIFICATION.md). Older captures remain in branch history.
