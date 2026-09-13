@@ -136,7 +136,7 @@ try {
   );
   assert.match(
     rootStyles,
-    /display:flex/,
+    /display:\s*flex/,
     "Root CSS includes application layout rules",
   );
   assert.ok(
