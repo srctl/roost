@@ -1,6 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
 import {
-  Fragment,
   lazy,
   Suspense,
   useCallback,
@@ -12,7 +11,10 @@ import {
 } from "react";
 import { useAgentActivity } from "../features/agents/activity";
 import type { Agent } from "../features/agents/schema";
-import type { InitialConversation } from "../features/chat/functions";
+import {
+  type InitialConversation,
+  openThread,
+} from "../features/chat/functions";
 import { useConversation } from "../features/chat/use-conversation";
 import { computerPreviewAnchor } from "../features/computer/preview";
 import { useLiveEntries, useMountedAfterLoad } from "../features/motion";
@@ -55,16 +57,27 @@ export function Conversation({
   agent,
   initialConversation,
   embedded = false,
+  title,
   onClose,
+  conversationId = agent.id,
+  parent: initialParent,
+  onOpenThread,
 }: {
   agent: Agent;
   initialConversation?: InitialConversation;
   embedded?: boolean;
+  title?: string;
   onClose?: () => void;
+  conversationId?: string;
+  parent?: import("../features/chat/schema").Message;
+  onOpenThread?: (id: string) => void;
 }) {
   const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
     messages,
+    threads,
+    runStatus,
+    active,
     computerAnchor: savedComputerAnchor,
     busy,
     runId,
@@ -76,7 +89,52 @@ export function Conversation({
     loadingOlder,
     before,
     loadOlder,
-  } = useConversation(agent.id, initialConversation);
+  } = useConversation(agent.id, initialConversation, conversationId);
+  const parent =
+    threads.find((thread) => thread.id === conversationId)?.parent ??
+    initialParent;
+  const [threadError, setThreadError] = useState<string>();
+  const [seen, setSeen] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try {
+      setSeen(
+        JSON.parse(localStorage.getItem(`roost:seen:${agent.id}`) ?? "{}"),
+      );
+    } catch {}
+  }, [agent.id]);
+  useEffect(() => {
+    if (
+      conversationId === agent.id ||
+      loading ||
+      document.visibilityState !== "visible"
+    )
+      return;
+    const activity =
+      threads.find((t) => t.id === conversationId)?.activity ?? 0;
+    try {
+      const current = JSON.parse(
+        localStorage.getItem(`roost:seen:${agent.id}`) ?? "{}",
+      );
+      current[conversationId] = activity;
+      localStorage.setItem(`roost:seen:${agent.id}`, JSON.stringify(current));
+      window.dispatchEvent(new Event("roost-thread-read"));
+    } catch {}
+  }, [threads, conversationId, agent.id, loading]);
+  useEffect(() => {
+    const update = () => {
+      try {
+        setSeen(
+          JSON.parse(localStorage.getItem(`roost:seen:${agent.id}`) ?? "{}"),
+        );
+      } catch {}
+    };
+    window.addEventListener("storage", update);
+    window.addEventListener("roost-thread-read", update);
+    return () => {
+      window.removeEventListener("storage", update);
+      window.removeEventListener("roost-thread-read", update);
+    };
+  }, [agent.id]);
   const [showLoading, setShowLoading] = useState(false);
   useEffect(() => {
     if (!loading) {
@@ -113,6 +171,108 @@ export function Conversation({
   }, []);
   const { responseStyle, showActivityDetails } = usePreferences();
   const followReply = useRef(true);
+  const restoredScroll = useRef(false);
+  const resolvedAnchor = useRef<string | undefined>(undefined);
+  const [locationKey, setLocationKey] = useState("");
+  useEffect(() => {
+    const update = () => setLocationKey(location.search + location.hash);
+    update();
+    window.addEventListener("hashchange", update);
+    window.addEventListener("popstate", update);
+    return () => {
+      window.removeEventListener("hashchange", update);
+      window.removeEventListener("popstate", update);
+    };
+  }, []);
+  useEffect(() => {
+    const selected =
+      new URLSearchParams(location.search).get("conversation") || agent.id;
+    const key = selected + location.hash;
+    if (
+      loading ||
+      !location.hash ||
+      selected !== conversationId ||
+      resolvedAnchor.current === key
+    )
+      return;
+    let id: string;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      resolvedAnchor.current = key;
+      return;
+    }
+    const target = viewport.current?.querySelector(`[id="${CSS.escape(id)}"]`);
+    followReply.current = false;
+    if (target) {
+      target.scrollIntoView({ block: "center" });
+      resolvedAnchor.current = key;
+    } else if (before !== null && !loadingOlder) void loadOlder();
+    else if (before === null) resolvedAnchor.current = key;
+  }, [
+    messages,
+    loading,
+    before,
+    loadingOlder,
+    loadOlder,
+    conversationId,
+    agent.id,
+    locationKey,
+  ]);
+  const restoreTarget = useRef<
+    { top: number; anchor?: string; offset?: number } | null | undefined
+  >(undefined);
+  useLayoutEffect(() => {
+    if (loading || restoredScroll.current || !viewport.current) return;
+    const selected =
+      new URLSearchParams(location.search).get("conversation") || agent.id;
+    if (selected === conversationId && location.hash) {
+      restoredScroll.current = true;
+      followReply.current = false;
+      return;
+    }
+    if (restoreTarget.current === undefined) {
+      try {
+        const raw = JSON.parse(
+          sessionStorage.getItem(`roost:scroll:${conversationId}`) ?? "null",
+        );
+        restoreTarget.current = typeof raw === "number" ? { top: raw } : raw;
+      } catch {
+        restoreTarget.current = null;
+      }
+    }
+    const saved = restoreTarget.current;
+    if (!saved) {
+      restoredScroll.current = true;
+      return;
+    }
+    followReply.current = false;
+    const element = viewport.current;
+    const anchor = saved.anchor
+      ? element.querySelector<HTMLElement>(
+          `[data-message-id="${CSS.escape(saved.anchor)}"]`,
+        )
+      : null;
+    if (saved.anchor && !anchor && before !== null) {
+      if (!loadingOlder) void loadOlder();
+      return;
+    }
+    restoredScroll.current = true;
+    element.scrollTop = anchor
+      ? element.scrollTop +
+        anchor.getBoundingClientRect().top -
+        element.getBoundingClientRect().top -
+        (saved.offset ?? 0)
+      : saved.top;
+  }, [
+    loading,
+    conversationId,
+    messages,
+    before,
+    loadingOlder,
+    loadOlder,
+    agent.id,
+  ]);
   // Sending scrolls smoothly so the new bubble glides up from the composer.
   // Streaming updates keep jumping instantly; a smooth scroll every poll would
   // fight the reader. While a smooth scroll settles, scroll events are ours.
@@ -183,21 +343,38 @@ export function Conversation({
     };
   }, [updateBottomButton]);
 
+  function replyLabel(messageId: string) {
+    const thread = threads.find((t) => t.parentMessageId === messageId);
+    return thread
+      ? `${thread.replyCount} ${thread.replyCount === 1 ? "reply" : "replies"}${thread.activity > (seen[thread.id] ?? 0) ? " · Unread" : ""}${thread.status ? ` · ${thread.status}` : ""}`
+      : "Reply in thread";
+  }
+
   return (
     <section
       {...stylex.props(styles.conversation, embedded && styles.embedded)}
-      aria-label={`Conversation with ${agent.name}`}
+      aria-label={
+        parent ? `Thread with ${agent.name}` : `Conversation with ${agent.name}`
+      }
     >
       {embedded ? (
         <header {...stylex.props(styles.chatHeader)}>
-          <h2 {...stylex.props(styles.chatTitle)}>Conversation</h2>
-          <Button
-            onClick={onClose}
-            aria-label="Close chat"
-            xstyle={styles.closeChat}
-          >
-            <Icon name="close" />
-          </Button>
+          <h2 {...stylex.props(styles.chatTitle)}>
+            {title ?? (parent ? "Thread" : "Conversation")}
+          </h2>
+          {onClose && (
+            <Button
+              onClick={onClose}
+              aria-label={
+                conversationId !== agent.id ? "Close thread" : "Close chat"
+              }
+              xstyle={
+                conversationId !== agent.id ? undefined : styles.closeChat
+              }
+            >
+              <Icon name="close" />
+            </Button>
+          )}
         </header>
       ) : (
         <AgentHeader agent={agent}>
@@ -218,6 +395,20 @@ export function Conversation({
           viewportRef={viewport}
           onScroll={(event) => {
             const element = event.currentTarget;
+            if (restoredScroll.current) {
+              const top = element.getBoundingClientRect().top;
+              const anchor = [
+                ...element.querySelectorAll<HTMLElement>("[data-message-id]"),
+              ].find((node) => node.getBoundingClientRect().bottom > top);
+              sessionStorage.setItem(
+                `roost:scroll:${conversationId}`,
+                JSON.stringify({
+                  top: element.scrollTop,
+                  anchor: anchor?.dataset.messageId,
+                  offset: anchor ? anchor.getBoundingClientRect().top - top : 0,
+                }),
+              );
+            }
             const distance =
               element.scrollHeight - element.scrollTop - element.clientHeight;
             updateBottomButton();
@@ -232,6 +423,19 @@ export function Conversation({
             ref={history}
             {...stylex.props(styles.history, live && styles.enter)}
           >
+            {parent && (
+              <div {...stylex.props(styles.parent)}>
+                <strong>Parent message</strong>
+                <p>{parent.role === "user" ? "You" : agent.name}</p>
+                {parent.role === "user" ? (
+                  <UserMessage files={parent.files}>{parent.text}</UserMessage>
+                ) : (
+                  <AgentMessage name={agent.name} files={parent.files}>
+                    {parent.text}
+                  </AgentMessage>
+                )}
+              </div>
+            )}
             {loading && showLoading && (
               <p role="status">Loading conversation… You can start typing.</p>
             )}
@@ -255,15 +459,23 @@ export function Conversation({
             )}
             {!loading && !messages.length && (
               <div {...stylex.props(styles.empty)}>
-                <h2>Say hello to {agent.name}.</h2>
+                <h2>
+                  {parent ? "No replies yet" : `Say hello to ${agent.name}.`}
+                </h2>
                 <p>
-                  Ask a question, share an idea, or tell your agent what you
-                  need.
+                  {parent
+                    ? "Reply to this message to continue the discussion."
+                    : "Ask a question, share an idea, or tell your agent what you need."}
                 </p>
               </div>
             )}
+            {threadError && <p role="alert">{threadError}</p>}
             {messages.map((message) => (
-              <Fragment key={message.id}>
+              <div
+                key={message.id}
+                id={message.id}
+                data-message-id={message.id}
+              >
                 {message.role === "user" ? (
                   <UserMessage
                     files={message.files}
@@ -275,6 +487,7 @@ export function Conversation({
                   <ConversationNotice agentId={agent.id} message={message} />
                 ) : message.role === "activity" ? (
                   <ToolActivity
+                    conversationId={conversationId}
                     agentId={agent.id}
                     message={message}
                     entering={entering.has(message.id)}
@@ -289,6 +502,40 @@ export function Conversation({
                     {message.text}
                   </AgentMessage>
                 )}
+                {onOpenThread &&
+                  (message.role === "user" || message.role === "assistant") && (
+                    <Button
+                      aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
+                      onClick={async () => {
+                        const existing = threads.find(
+                          (thread) => thread.parentMessageId === message.id,
+                        );
+                        if (existing) {
+                          setThreadError(undefined);
+                          onOpenThread(existing.id);
+                          return;
+                        }
+                        try {
+                          const result = await openThread({
+                            data: {
+                              agentId: agent.id,
+                              parentMessageId: message.id,
+                            },
+                          });
+                          if (result.ok) {
+                            setThreadError(undefined);
+                            onOpenThread(result.value.id);
+                          } else setThreadError(result.error);
+                        } catch {
+                          setThreadError(
+                            "Could not open this thread. Please retry.",
+                          );
+                        }
+                      }}
+                    >
+                      {replyLabel(message.id)}
+                    </Button>
+                  )}
                 {computerEnabled &&
                   computerOpen &&
                   message.id === computerAnchor && (
@@ -299,7 +546,7 @@ export function Conversation({
                       />
                     </Suspense>
                   )}
-              </Fragment>
+              </div>
             ))}
             {computerEnabled &&
               computerOpen &&
@@ -311,9 +558,12 @@ export function Conversation({
                   />
                 </Suspense>
               )}
-            {busy && !waitingForApproval && responseStyle === "messages" && (
-              <TypingIndicator name={agent.name} />
-            )}
+            {busy &&
+              runStatus !== "queued" &&
+              !waitingForApproval &&
+              responseStyle === "messages" && (
+                <TypingIndicator name={agent.name} />
+              )}
           </div>
         </ScrollArea>
         {showBottomButton && (
@@ -355,17 +605,34 @@ export function Conversation({
           </Button>
         </Appear>
       )}
-      <ApprovalRequests agentId={agent.id} busy={busy} />
+      {active && active.conversationId !== conversationId && (
+        <p role="status">
+          Agent is working in another conversation. New messages will queue.
+        </p>
+      )}
+      {runStatus === "queued" && (
+        <p role="status">
+          Queued — waiting for the agent’s active conversation.
+        </p>
+      )}
+      <ApprovalRequests
+        agentId={agent.id}
+        busy={busy}
+        runId={runId ?? undefined}
+      />
       <Composer
         agentId={agent.id}
         agentName={agent.name}
+        conversationId={conversationId}
         busy={busy}
         loading={loading}
         status={
           busy
-            ? waitingForApproval
-              ? "Waiting for you"
-              : liveStatus
+            ? runStatus === "queued"
+              ? "Queued"
+              : waitingForApproval
+                ? "Waiting for you"
+                : liveStatus
             : undefined
         }
         onSend={(text, files) => {
@@ -389,6 +656,12 @@ const fadeIn = stylex.keyframes({
 });
 
 const styles = stylex.create({
+  parent: {
+    borderBottom: `1px solid ${colors.border}`,
+    padding: 12,
+    marginBottom: 16,
+    overflowWrap: "anywhere",
+  },
   conversation: {
     display: "flex",
     flexDirection: "column",

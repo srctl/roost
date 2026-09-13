@@ -13,6 +13,7 @@ const FileAttachment = Schema.Struct({
 export const SendMessage = Schema.Struct({
   agentId: Schema.UUID,
   messageId: Schema.UUID,
+  conversationId: Schema.optional(Schema.UUID),
   text: Schema.Trim.pipe(Schema.maxLength(32000)),
   attachmentIds: Schema.optional(
     Schema.Array(Schema.UUID).pipe(Schema.maxItems(MAX_ATTACHMENTS)),
@@ -22,6 +23,7 @@ export const SendMessage = Schema.Struct({
 export type SendMessage = typeof SendMessage.Type;
 
 export const Message = Schema.Struct({
+  nativeThreadId: Schema.optional(Schema.String),
   id: Schema.String,
   role: Schema.Literal("user", "assistant", "notice", "activity"),
   text: Schema.String,

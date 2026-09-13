@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Conversation } from "../components/conversation";
+import { ThreadConversations } from "../components/thread-conversations";
 import { getConversationSnapshot } from "../features/chat/functions";
 import { Route as RootRoute } from "./__root";
 
@@ -33,7 +33,7 @@ function AgentPage() {
     : undefined;
   if (!agent) return <p>Agent not found.</p>;
   return (
-    <Conversation
+    <ThreadConversations
       key={agentId}
       agent={agent}
       initialConversation={initialConversation}

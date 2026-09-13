@@ -11,11 +11,15 @@ import { type Entry, mergeEntries } from "./timeline";
 export function useConversation(
   agentId: string,
   initialConversation?: InitialConversation,
+  conversationId = agentId,
 ) {
   const initial = initialConversation?.ok
     ? initialConversation.value
     : undefined;
   const ready = !!initial && !initial.needsImport;
+  const [threads, setThreads] = useState(initial?.threads ?? []);
+  const [runStatus, setRunStatus] = useState(initial?.status ?? null);
+  const [active, setActive] = useState(initial?.active);
   const [entries, setEntries] = useState<readonly Entry[]>(
     initial?.entries ?? [],
   );
@@ -48,7 +52,7 @@ export function useConversation(
     const version = ++generation.current;
     try {
       const result = await getConversation({
-        data: { agentId, since: cursor.current },
+        data: { agentId, conversationId, since: cursor.current },
       });
       if (!mounted.current || version !== generation.current) return;
       if (!result.ok) {
@@ -74,13 +78,16 @@ export function useConversation(
       );
       setLoading(false);
       setBusy(result.value.busy);
+      setThreads(result.value.threads);
+      setRunStatus(result.value.status);
+      setActive(result.value.active);
       setComputerAnchor(result.value.computerAnchor);
       setRunId(result.value.runId);
     } catch {
       if (mounted.current && version === generation.current)
         setError("Disconnected from Roost. Your run continues on the server.");
     }
-  }, [agentId]);
+  }, [agentId, conversationId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -107,7 +114,9 @@ export function useConversation(
     setLoadingOlder(true);
     const revision = cursor.current;
     try {
-      const result = await getConversation({ data: { agentId, before } });
+      const result = await getConversation({
+        data: { agentId, conversationId, before },
+      });
       if (!mounted.current) return;
       if (!result.ok) {
         setError(result.error);
@@ -135,7 +144,21 @@ export function useConversation(
     submitting.current = true;
     setBusy(true);
     setError(undefined);
-    const messageId = crypto.randomUUID();
+    const signature = JSON.stringify({
+      text,
+      files: files.map((file) => file.id),
+    });
+    const pendingKey = `roost:pending:${conversationId}`;
+    let pending: { id: string; signature: string } | undefined;
+    try {
+      pending = JSON.parse(sessionStorage.getItem(pendingKey) ?? "null");
+    } catch {}
+    const messageId =
+      pending?.signature === signature ? pending.id : crypto.randomUUID();
+    sessionStorage.setItem(
+      pendingKey,
+      JSON.stringify({ id: messageId, signature }),
+    );
     if (!busy) setRunId(messageId);
     setEntries((entries) => [
       ...entries,
@@ -153,6 +176,7 @@ export function useConversation(
       const result = await sendMessage({
         data: {
           agentId,
+          conversationId,
           messageId,
           text,
           attachmentIds: files.map((file) => file.id),
@@ -160,6 +184,7 @@ export function useConversation(
       });
       if (!result.ok) throw new Error(result.error);
       setRunId(result.value.id);
+      sessionStorage.removeItem(pendingKey);
       return true;
     } catch {
       if (mounted.current)
@@ -183,6 +208,9 @@ export function useConversation(
   }
 
   return {
+    threads,
+    runStatus,
+    active,
     messages,
     computerAnchor,
     busy,

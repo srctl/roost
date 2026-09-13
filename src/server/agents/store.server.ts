@@ -3,7 +3,11 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
-import { migrateCodingWorkspace } from "../coding/workspace-migration.server";
+import {
+  assertCodingWorkspaceUpgradeReady,
+  CodingWorkspaceMigrationError,
+  migrateCodingWorkspace,
+} from "../coding/workspace-migration.server";
 
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
@@ -22,10 +26,11 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 10)
+        if (version > 13)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
+        assertCodingWorkspaceUpgradeReady(db);
         if (version === 0) {
           db.exec("BEGIN IMMEDIATE");
           try {
@@ -233,6 +238,64 @@ export function withAgentStore<A>(
             throw error;
           }
         }
+        if (version < 11) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE conversation_records (
+              id TEXT PRIMARY KEY, agentId TEXT NOT NULL,
+              parentConversationId TEXT, parentMessageId TEXT, parent TEXT,
+              createdAt INTEGER NOT NULL, deletedAt INTEGER,
+              UNIQUE(agentId,parentConversationId,parentMessageId)
+            );
+            INSERT INTO conversation_records(id,agentId,createdAt)
+              SELECT id,id,0 FROM agents;
+            CREATE TABLE conversation_sessions (
+              conversationId TEXT PRIMARY KEY, agentId TEXT NOT NULL,
+              threadId TEXT NOT NULL, archive TEXT NOT NULL
+            );
+            INSERT INTO conversation_sessions SELECT agentId,agentId,threadId,archive FROM agent_sessions;
+            ALTER TABLE runs ADD COLUMN conversationId TEXT NOT NULL DEFAULT '';
+            UPDATE runs SET conversationId=agentId;
+            CREATE TRIGGER runs_main_conversation AFTER INSERT ON runs WHEN NEW.conversationId='' BEGIN
+              UPDATE runs SET conversationId=NEW.agentId WHERE id=NEW.id;
+            END;
+            DROP TRIGGER timeline_insert_revision;
+            DROP TRIGGER timeline_update_revision;
+            ALTER TABLE timeline RENAME TO timeline_legacy;
+            CREATE TABLE timeline (
+              position INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL,
+              agentId TEXT NOT NULL, conversationId TEXT NOT NULL,
+              message TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0,
+              createdAt INTEGER NOT NULL DEFAULT 0,
+              UNIQUE(agentId,conversationId,id)
+            );
+            INSERT INTO timeline(position,id,agentId,conversationId,message,revision)
+              SELECT position,id,agentId,agentId,message,revision FROM timeline_legacy;
+            DROP TABLE timeline_legacy;
+            CREATE INDEX timeline_agent_position ON timeline(agentId,conversationId,position);
+            CREATE INDEX timeline_agent_revision ON timeline(agentId,conversationId,revision);
+            CREATE TRIGGER timeline_insert_revision AFTER INSERT ON timeline BEGIN
+              UPDATE timeline_revision SET value=value+1 WHERE id=1;
+              UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
+            END;
+            CREATE TRIGGER timeline_update_revision AFTER UPDATE OF message ON timeline WHEN OLD.message != NEW.message BEGIN
+              UPDATE timeline_revision SET value=value+1 WHERE id=1;
+              UPDATE timeline SET revision=(SELECT value FROM timeline_revision WHERE id=1) WHERE position=NEW.position;
+            END;
+            PRAGMA user_version = 11;
+            COMMIT;`);
+        }
+        if (version < 12)
+          db.exec(`BEGIN IMMEDIATE;
+          ALTER TABLE conversation_sessions ADD COLUMN provider TEXT NOT NULL DEFAULT 'codex';
+          ALTER TABLE conversation_sessions ADD COLUMN model TEXT;
+          UPDATE conversation_sessions SET model=(SELECT model FROM agents WHERE agents.id=conversation_sessions.agentId);
+          PRAGMA user_version=12;
+          COMMIT;`);
+        if (version < 13)
+          db.exec(`BEGIN IMMEDIATE;
+          CREATE TABLE provider_message_ids(agentId TEXT NOT NULL,conversationId TEXT NOT NULL,threadId TEXT NOT NULL,nativeId TEXT NOT NULL,messageId TEXT NOT NULL,PRIMARY KEY(agentId,conversationId,threadId,nativeId));
+          INSERT OR IGNORE INTO provider_message_ids SELECT t.agentId,t.conversationId,COALESCE(s.threadId,c.threadId),t.id,t.id FROM timeline t LEFT JOIN conversation_sessions s ON s.conversationId=t.conversationId LEFT JOIN conversations c ON c.agentId=t.agentId WHERE COALESCE(s.threadId,c.threadId) IS NOT NULL AND json_extract(t.message,'$.role') IN ('assistant','activity');
+          PRAGMA user_version=13; COMMIT;`);
         migrateCodingWorkspace(db);
         return run(db, directory);
       } finally {
@@ -240,12 +303,14 @@ export function withAgentStore<A>(
       }
     },
     catch: (error) =>
-      error instanceof AgentStoreError
-        ? error
-        : new AgentStoreError({
-            message:
-              "Could not access agent storage. Check the Roost data directory permissions.",
-          }),
+      error instanceof CodingWorkspaceMigrationError
+        ? new AgentStoreError({ message: error.message })
+        : error instanceof AgentStoreError
+          ? error
+          : new AgentStoreError({
+              message:
+                "Could not access agent storage. Check the Roost data directory permissions.",
+            }),
   });
 }
 
@@ -301,6 +366,9 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
         agent.createdAt,
         agent.kind,
       );
+      db.prepare(
+        "INSERT INTO conversation_records(id,agentId,createdAt) VALUES (?,?,?)",
+      ).run(agent.id, agent.id, Date.now());
       db.exec("COMMIT");
 
       return agent;
@@ -310,15 +378,24 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
     }
   }, directory);
 
-export const getAgentConversation = (id: string) =>
+export const getAgentConversation = (id: string, conversationId = id) =>
   withAgentStore((db, root) => {
     const agent = db.prepare("SELECT * FROM agents WHERE id = ?").get(id);
     if (!agent) throw new AgentStoreError({ message: "Agent not found." });
     const session = db
       .prepare(
-        "SELECT s.threadId, s.archive, i.instructions FROM agent_sessions s LEFT JOIN conversation_instructions i ON i.threadId = s.threadId WHERE s.agentId = ?",
+        "SELECT s.threadId, s.archive, s.provider, s.model, i.instructions FROM conversation_sessions s LEFT JOIN conversation_instructions i ON i.threadId = s.threadId WHERE s.agentId = ? AND s.conversationId = ?",
       )
-      .get(id);
+      .get(id, conversationId);
+    if (
+      conversationId !== id &&
+      !db
+        .prepare(
+          "SELECT id FROM conversation_records WHERE id=? AND agentId=? AND deletedAt IS NULL",
+        )
+        .get(conversationId, id)
+    )
+      throw new AgentStoreError({ message: "Conversation not found." });
     const row = db
       .prepare("SELECT threadId FROM conversations WHERE agentId = ?")
       .get(id);
@@ -328,6 +405,8 @@ export const getAgentConversation = (id: string) =>
       workspace: join(root, "workspaces", id),
       codexHome: join(root, "agents", id, "codex"),
       soulPath: join(root, "agents", id, "SOUL.md"),
+      provider: session ? String(session.provider) : "codex",
+      sessionModel: session?.model ? String(session.model) : null,
       threadId: session ? String(session.threadId) : null,
       toolVersion: session
         ? Number(
@@ -338,7 +417,8 @@ export const getAgentConversation = (id: string) =>
               .get(String(session.threadId))?.version ?? 0,
           )
         : 0,
-      legacyThreadId: !session && row ? String(row.threadId) : null,
+      legacyThreadId:
+        conversationId === id && !session && row ? String(row.threadId) : null,
       archive: session ? String(session.archive) : "[]",
       appliedInstructions:
         typeof session?.instructions === "string" ? session.instructions : null,
@@ -349,13 +429,18 @@ export const saveConversationThread = (
   agentId: string,
   threadId: string,
   archive = "[]",
+  conversationId = agentId,
 ) =>
   withAgentStore((db) => {
     db.prepare(
-      "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
-    ).run(agentId, threadId, archive);
+      "INSERT INTO conversation_sessions(conversationId,agentId,threadId,archive,model) VALUES (?,?,?,?,(SELECT model FROM agents WHERE id=?)) ON CONFLICT(conversationId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
+    ).run(conversationId, agentId, threadId, archive, agentId);
+    if (conversationId === agentId)
+      db.prepare(
+        "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
+      ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,12)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,14)",
     ).run(threadId);
   });
 
