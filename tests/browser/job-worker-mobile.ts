@@ -104,20 +104,29 @@ try {
           "conversation has no nested scrolling trap",
         );
       }
-      const responseHeading = page
-        .getByText("Worker · captured response", { exact: true })
-        .first();
-      if (await responseHeading.count()) {
-        const paragraph = responseHeading
-          .locator("xpath=following-sibling::*[1]")
-          .locator("p")
-          .first();
+      const workerResponse = page.locator("[data-worker-response]").first();
+      if (await workerResponse.count()) {
+        const paragraph = workerResponse.locator("p").first();
         assert.equal(
           await paragraph.evaluate((node) => getComputedStyle(node).whiteSpace),
           "normal",
           "terminal soft wraps reflow in worker paragraphs",
         );
       }
+      assert.equal(
+        await page
+          .getByRole("heading", { name: "Discussion", exact: true })
+          .count(),
+        0,
+        "the conversation does not add a competing title",
+      );
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Saved feedback", exact: true })
+          .isVisible(),
+        false,
+        "secondary conversations are tucked away",
+      );
       const draft =
         "Unsent mobile review draft. " +
         "Keep long instructions readable and the send control reachable. ".repeat(
@@ -132,6 +141,53 @@ try {
         "polling retains typing focus",
       );
       assert.equal(await editor.inputValue(), draft);
+      const navigation = page.getByRole("navigation", {
+        name: "Other job conversations",
+      });
+      await navigation.locator("summary").focus();
+      await page.keyboard.press("Enter");
+      await page
+        .getByRole("button", { name: "Saved feedback", exact: true })
+        .click();
+      await page.waitForFunction(
+        () => document.activeElement?.id === "job-feedback",
+      );
+      await page
+        .getByRole("button", { name: "← Worker conversation", exact: true })
+        .click();
+      await page.waitForFunction(
+        (text) =>
+          document.querySelector<HTMLTextAreaElement>("#job-worker-message")
+            ?.value === text,
+        draft,
+      );
+      await page.waitForFunction(
+        () => document.activeElement?.id === "job-worker-message",
+      );
+      assert.equal(
+        await editor.inputValue(),
+        draft,
+        "switching views preserves the unsent draft",
+      );
+      await navigation.locator("summary").focus();
+      await page.keyboard.press("Enter");
+      await page
+        .getByRole("button", { name: "Talk to managing agent", exact: true })
+        .click();
+      await page.waitForFunction(
+        () => document.activeElement?.id === "job-agent-heading",
+      );
+      await page
+        .getByRole("button", { name: "← Worker conversation", exact: true })
+        .click();
+      await page.waitForFunction(
+        () => document.activeElement?.id === "job-worker-message",
+      );
+      assert.equal(
+        await editor.inputValue(),
+        draft,
+        "agent discussion navigation preserves the draft",
+      );
       await page.reload();
       await page.waitForFunction(
         (text) =>

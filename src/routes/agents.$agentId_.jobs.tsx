@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -145,16 +146,10 @@ function AgentJobs({
   const metadata = useRef<HTMLDetailsElement | null>(null);
   const attachMetadata = useCallback((node: HTMLDetailsElement | null) => {
     metadata.current = node;
-    if (node) node.open = !window.matchMedia("(max-width:700px)").matches;
+    if (node) node.open = false;
   }, []);
   useEffect(() => {
-    const media = window.matchMedia("(max-width:700px)");
-    const update = () => {
-      if (metadata.current) metadata.current.open = !media.matches;
-    };
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    if (metadata.current) metadata.current.open = false;
   }, [selected]);
   const [now, setClock] = useState(Date.now);
   useEffect(() => {
@@ -311,17 +306,6 @@ function AgentJobs({
               <div {...stylex.props(s.actions)}>
                 <Primary job={job} now={now} />
                 <Button
-                  xstyle={s.desktopOnly}
-                  onClick={() => {
-                    document.getElementById("job-worker-feedback")?.click();
-                    requestAnimationFrame(() =>
-                      document.getElementById("job-feedback")?.focus(),
-                    );
-                  }}
-                >
-                  Leave feedback ↓
-                </Button>
-                <Button
                   disabled={!interactive || busy}
                   onClick={() => void manualRefresh()}
                 >
@@ -330,10 +314,28 @@ function AgentJobs({
               </div>
             </div>
             <div {...stylex.props(s.workspace)}>
+              <div {...stylex.props(s.discussionColumn)}>
+                {loaded.detail?.ok ? (
+                  <Discussion
+                    key={job.id}
+                    agent={agent}
+                    job={job}
+                    feedback={loaded.detail.value.feedback}
+                    messages={loaded.detail.value.messages}
+                    queueBlockers={loaded.detail.value.queueBlockers}
+                    refresh={refresh}
+                  />
+                ) : (
+                  <p role="alert">
+                    {loaded.detail && !loaded.detail.ok
+                      ? loaded.detail.error
+                      : "Loading discussion…"}
+                  </p>
+                )}
+              </div>
               <details
                 {...stylex.props(s.workspaceDetails)}
                 ref={attachMetadata}
-                open
               >
                 <summary {...stylex.props(s.workspaceDetailsSummary)}>
                   Preview & job details
@@ -482,25 +484,6 @@ function AgentJobs({
                   )}
                 </details>
               </details>
-              <div {...stylex.props(s.discussionColumn)}>
-                {loaded.detail?.ok ? (
-                  <Discussion
-                    key={job.id}
-                    agent={agent}
-                    job={job}
-                    feedback={loaded.detail.value.feedback}
-                    messages={loaded.detail.value.messages}
-                    queueBlockers={loaded.detail.value.queueBlockers}
-                    refresh={refresh}
-                  />
-                ) : (
-                  <p role="alert">
-                    {loaded.detail && !loaded.detail.ok
-                      ? loaded.detail.error
-                      : "Loading discussion…"}
-                  </p>
-                )}
-              </div>
             </div>
           </>
         ) : (
@@ -626,6 +609,17 @@ function Discussion({
   refresh: () => Promise<void>;
 }) {
   const [discuss, setDiscuss] = useState(false);
+  const navigation = useRef<HTMLDetailsElement>(null);
+  const [focusTarget, setFocusTarget] = useState<
+    "worker" | "feedback" | "agent" | null
+  >(null);
+  const finishRequestedFocus = useCallback(() => setFocusTarget(null), []);
+  function showConversation(view: "worker" | "feedback" | "agent") {
+    setWorker(view === "worker");
+    setDiscuss(view === "agent");
+    setFocusTarget(view);
+    if (navigation.current) navigation.current.open = false;
+  }
   const [worker, setWorker] = useState(true);
   const key = `roost-job-feedback-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState<Draft>();
@@ -635,6 +629,16 @@ function Discussion({
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const sending = useRef(false);
+  useEffect(() => {
+    if (!focusTarget || focusTarget === "worker" || worker) return;
+    if (focusTarget === "feedback" && (discuss || !ready || busy)) return;
+    if (focusTarget === "agent" && !discuss) return;
+    const target = document.getElementById(
+      focusTarget === "feedback" ? "job-feedback" : "job-agent-heading",
+    );
+    target?.focus();
+    if (target && document.activeElement === target) finishRequestedFocus();
+  }, [focusTarget, worker, discuss, ready, busy, finishRequestedFocus]);
   const continuation = useRef<
     { requestId: string; messageIds: string[] } | undefined
   >(undefined);
@@ -745,56 +749,61 @@ function Discussion({
     ["idle", "done"].includes(job.lastWorkerState) &&
     Boolean(job.sessionIdentity) &&
     !job.cancelRequested;
+  const navigationControls = (
+    <nav
+      aria-label="Other job conversations"
+      {...stylex.props(s.secondaryNavigation)}
+    >
+      <details ref={navigation}>
+        <summary {...stylex.props(s.secondarySummary)}>More</summary>
+        <div {...stylex.props(s.secondaryActions)}>
+          <Button onClick={() => showConversation("worker")}>
+            Worker conversation
+          </Button>
+          <Button
+            id="job-worker-feedback"
+            disabled={!ready}
+            onClick={() => showConversation("feedback")}
+          >
+            Saved feedback
+          </Button>
+          <Button disabled={!ready} onClick={() => showConversation("agent")}>
+            Talk to managing agent
+          </Button>
+        </div>
+      </details>
+    </nav>
+  );
   return (
     <section {...stylex.props(s.discussion)}>
-      <h3 {...stylex.props(s.sectionTitle)}>Discussion</h3>
-      <p {...stylex.props(s.muted, s.desktopOnly)}>
-        Feedback and replies stay with this assignment.
-      </p>
-      <div {...stylex.props(s.filters)}>
+      {!worker && navigationControls}
+      {!worker && (
         <Button
-          aria-pressed={worker}
-          xstyle={worker ? s.selected : undefined}
-          onClick={() => setWorker(true)}
+          xstyle={s.backToWorker}
+          onClick={() => showConversation("worker")}
         >
-          <span {...stylex.props(s.desktopOnly)}>Talk to worker</span>
-          <span {...stylex.props(s.mobileOnly)}>Worker</span>
+          ← Worker conversation
         </Button>
-        <Button
-          id="job-worker-feedback"
-          disabled={!ready}
-          xstyle={!discuss && !worker ? s.selected : undefined}
-          aria-pressed={!discuss && !worker}
-          onClick={() => {
-            setDiscuss(false);
-            setWorker(false);
-          }}
-        >
-          <span {...stylex.props(s.desktopOnly)}>Worker feedback</span>
-          <span {...stylex.props(s.mobileOnly)}>Feedback</span>
-        </Button>
-        <Button
-          disabled={!ready}
-          xstyle={discuss && !worker ? s.selected : undefined}
-          aria-pressed={discuss && !worker}
-          onClick={() => {
-            setDiscuss(true);
-            setWorker(false);
-          }}
-        >
-          <span {...stylex.props(s.desktopOnly)}>Talk to agent</span>
-          <span {...stylex.props(s.mobileOnly)}>Managing agent</span>
-        </Button>
-      </div>
+      )}
       {worker ? (
         <WorkerDiscussion
           job={job}
           messages={messages}
           queueBlockers={queueBlockers}
           refresh={refresh}
+          navigationControls={navigationControls}
+          focusRequested={focusTarget === "worker"}
+          onRequestedFocus={finishRequestedFocus}
         />
       ) : discuss ? (
         <div {...stylex.props(s.conversationPanel)}>
+          <h3
+            id="job-agent-heading"
+            tabIndex={-1}
+            {...stylex.props(s.sectionTitle)}
+          >
+            Managing agent
+          </h3>
           <Conversation
             agent={agent}
             conversationId={job.workspace.conversationId}
@@ -927,11 +936,17 @@ function WorkerDiscussion({
   messages,
   queueBlockers,
   refresh,
+  navigationControls,
+  focusRequested,
+  onRequestedFocus,
 }: {
   job: Job;
   messages: WorkerMessage[];
   queueBlockers: string[];
   refresh: () => Promise<void>;
+  navigationControls: ReactNode;
+  focusRequested: boolean;
+  onRequestedFocus: () => void;
 }) {
   const key = `roost-worker-draft-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState({ text: "", requestId: "" });
@@ -941,19 +956,11 @@ function WorkerDiscussion({
   const [notice, setNotice] = useState("");
   const sending = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
-  const history = useRef<HTMLDetailsElement | null>(null);
-  const attachHistory = useCallback((node: HTMLDetailsElement | null) => {
-    history.current = node;
-    if (node) node.open = !window.matchMedia("(max-width:700px)").matches;
-  }, []);
   useEffect(() => {
-    const media = window.matchMedia("(max-width:700px)");
-    const update = () => {
-      if (history.current) history.current.open = !media.matches;
-    };
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
+    if (!ready || !focusRequested || !composer.current) return;
+    composer.current.focus();
+    if (document.activeElement === composer.current) onRequestedFocus();
+  }, [ready, focusRequested, onRequestedFocus]);
   useEffect(() => {
     const scroll = composer.current?.closest("[data-job-scroll]");
     if (!scroll) return;
@@ -1067,29 +1074,41 @@ function WorkerDiscussion({
   const earlierMessages = messages.slice(0, historyEnd);
   const currentMessages = messages.slice(historyEnd);
   const renderMessage = (message: WorkerMessage) => (
-    <article key={message.id} {...stylex.props(s.message)}>
+    <article
+      key={message.id}
+      data-worker-message={message.id}
+      data-delivery-state={message.status}
+      {...stylex.props(s.workerExchange)}
+    >
       <div {...stylex.props(s.author)}>
         You{" "}
-        <span {...stylex.props(s.muted)}>
-          {new Date(message.createdAt).toLocaleString()}
-        </span>
+        <time
+          dateTime={new Date(message.createdAt).toISOString()}
+          title={new Date(message.createdAt).toLocaleString()}
+          {...stylex.props(s.messageTime)}
+        >
+          {new Date(message.createdAt).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
+        </time>
       </div>
-      <p {...stylex.props(s.messageText)}>{message.text}</p>
-      <p {...stylex.props(s.muted)}>
-        {message.status === "queued"
-          ? "Queued · waiting for a safe worker boundary"
-          : message.status === "responding"
-            ? "Responding · worker turn in progress"
-            : message.status === "delivered"
-              ? "Delivered · awaiting worker activity"
-              : message.status === "answered"
-                ? "Answered"
+      <p {...stylex.props(s.messageText, s.workerPrompt)}>{message.text}</p>
+      {message.status !== "answered" && (
+        <p {...stylex.props(s.deliveryState)}>
+          {message.status === "queued"
+            ? "Queued · waiting for a safe worker boundary"
+            : message.status === "responding"
+              ? "Responding"
+              : message.status === "delivered"
+                ? "Delivered · awaiting response"
                 : message.status === "response_unavailable"
                   ? "Turn finished · response unavailable"
                   : message.status === "acknowledged"
                     ? "Inspected · not replayed"
                     : "Failed · inspect before sending a fresh instruction"}
-      </p>
+        </p>
+      )}
       {message.error && <p {...stylex.props(s.error)}>{message.error}</p>}
       {message.status === "failed" && (
         <Button
@@ -1109,43 +1128,32 @@ function WorkerDiscussion({
           I inspected this submission in Herdr; release remaining queue
         </Button>
       )}
-      {message.previewCheck && (
-        <>
-          <div {...stylex.props(s.author)}>Server live preview check</div>
-          <PreviewReceipt value={message.previewCheck} />
-        </>
-      )}
+      {message.previewCheck && <PreviewReceipt value={message.previewCheck} />}
       {message.response && (
         <>
-          <div {...stylex.props(s.author)}>
+          <div {...stylex.props(s.workerAuthor)}>
             {message.status === "response_unavailable"
               ? "Response capture notice"
-              : "Worker · captured response"}
+              : "Worker"}
           </div>
           {message.status === "response_unavailable" ? (
             <p {...stylex.props(s.messageText)}>{message.response}</p>
           ) : (
-            <div {...stylex.props(s.messageText, s.workerResponse)}>
+            <div
+              data-worker-response
+              {...stylex.props(s.messageText, s.workerResponse)}
+            >
               <MessageContent reflowParagraphs>
                 {message.response}
               </MessageContent>
             </div>
           )}
-          <p {...stylex.props(s.muted, s.desktopOnly)}>
-            {message.status === "response_unavailable"
-              ? "Delivery completed; terminal prompts and prior output are not shown as a new answer."
-              : "Captured worker output; preview claims require the process and endpoint evidence reported by the worker."}
-          </p>
         </>
       )}
     </article>
   );
   return (
     <div {...stylex.props(s.workerDiscussion)}>
-      <p {...stylex.props(s.muted, s.desktopOnly)}>
-        Message this job's existing worker directly. Messages wait in order
-        while it works, independently of the managing agent.
-      </p>
       {queueBlockers
         .filter(
           (id) => !messages.some((m) => m.id === id && m.status === "failed"),
@@ -1168,9 +1176,6 @@ function WorkerDiscussion({
             </Button>
           </p>
         ))}
-      <p {...stylex.props(s.muted, s.desktopOnly)}>
-        Worker: {job.workerName} · {job.lastWorkerState || "not connected"}
-      </p>
       {unavailable && (
         <p role="status" {...stylex.props(s.muted)}>
           {["completed", "cancelled", "failed"].includes(job.status)
@@ -1185,7 +1190,7 @@ function WorkerDiscussion({
           void send();
         }}
       >
-        <label htmlFor="job-worker-message" {...stylex.props(s.label)}>
+        <label htmlFor="job-worker-message" {...stylex.props(s.srOnly)}>
           Message worker
         </label>
         <textarea
@@ -1197,15 +1202,21 @@ function WorkerDiscussion({
           value={draft.text}
           onChange={(event) => edit(event.target.value)}
           maxLength={16000}
-          placeholder="Ask a question or give the worker an instruction…"
+          placeholder="Message this worker…"
           {...stylex.props(s.textarea, s.workerTextarea)}
         />
-        <p id="worker-message-help" {...stylex.props(s.composerHelp)}>
+        <p id="worker-message-help" {...stylex.props(s.srOnly)}>
           Queued while busy; sending resumes paused work. Approvals stay in
           Herdr.
         </p>
+        {job.workspace.workflow === "feedback" && (
+          <p {...stylex.props(s.composerHelp)}>
+            Sending resumes this paused job.
+          </p>
+        )}
         <div {...stylex.props(s.composerActions)}>
           <Button
+            aria-label="Ask preview status"
             disabled={busy || !ready}
             onMouseDown={keepInputFocus}
             xstyle={s.composerButton}
@@ -1218,16 +1229,18 @@ function WorkerDiscussion({
               composer.current?.focus();
             }}
           >
-            Ask preview status
+            Preview status
           </Button>
+          {navigationControls}
           <Button
             type="submit"
+            aria-label="Send to worker"
             onMouseDown={keepInputFocus}
             xstyle={s.sendButton}
             style={{ backgroundColor: colors.accent, color: colors.onAccent }}
             disabled={!ready || busy || unavailable || !draft.text.trim()}
           >
-            {busy ? "Queueing…" : "Send to worker"}
+            {busy ? "Sending…" : "Send"}
           </Button>
         </div>
       </form>
@@ -1241,7 +1254,7 @@ function WorkerDiscussion({
         aria-relevant="additions text"
       >
         {earlierMessages.length > 0 && (
-          <details {...stylex.props(s.history)} ref={attachHistory} open>
+          <details {...stylex.props(s.history)}>
             <summary {...stylex.props(s.historySummary)}>
               Earlier messages ({earlierMessages.length})
             </summary>
@@ -1293,15 +1306,16 @@ function PreviewReceipt({ value }: { value: string }) {
     );
   }
   return (
-    <div {...stylex.props(s.messageText)}>
-      <p>
+    <details {...stylex.props(s.previewReceipt)}>
+      <summary {...stylex.props(s.receiptSummary)}>
+        Preview ·
         {check.status === "running"
-          ? "Running · worktree process and endpoint checked"
+          ? "Running"
           : check.status === "unavailable"
             ? "Unavailable"
             : "Unverified"}{" "}
         · {new Date(check.checkedAt).toLocaleString()}
-      </p>
+      </summary>
       {check.url && <p>Reported URL: {check.url}</p>}
       {check.reportedRevision && (
         <p>Last reported revision: {check.reportedRevision}</p>
@@ -1309,6 +1323,6 @@ function PreviewReceipt({ value }: { value: string }) {
       {check.process && <p>{check.process}</p>}
       {check.endpoint && <p>{check.endpoint}</p>}
       {check.blocker && <p>{check.blocker}</p>}
-    </div>
+    </details>
   );
 }
