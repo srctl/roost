@@ -43,6 +43,11 @@ export const readConversationSnapshot = (
 
     return {
       ...page,
+      job: db
+        .prepare("SELECT id,title FROM coding_jobs WHERE id=? AND agentId=?")
+        .get(options.conversationId ?? agentId, agentId) as
+        | { id: string; title: string }
+        | undefined,
       conversationId: options.conversationId ?? agentId,
       threads: threadSummaries(db, agentId),
       active: db

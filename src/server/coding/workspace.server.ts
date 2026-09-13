@@ -1,10 +1,13 @@
 import { Schema } from "effect";
 import {
   ContinueJobFeedback,
+  PREVIEW_REPORT_TTL_MS,
   UpdateCodingWorkspace,
 } from "../../features/coding/workspace-schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { assertAvailable } from "../maintenance.server";
+import { requireConversation } from "../runs/threads.server";
+import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import { queueCodingContinuation, requireCodingRun } from "./jobs.server";
 import {
@@ -26,6 +29,7 @@ export const reportCodingWorkspace = (
       const data = Schema.decodeUnknownSync(UpdateCodingWorkspace)(input);
       requireCodingRun(db, agentId, runId, "continue", data.id);
       const job = requireWorkspaceJob(db, agentId, data.id);
+      requireConversation(db, agentId, job.id);
       const current = readCodingWorkspace(db, agentId, job.id);
       if (current.revision !== data.revision)
         throw new AgentStoreError({
@@ -69,7 +73,37 @@ export const reportCodingWorkspace = (
           message:
             "A follow-up is still pending. Wait before pausing for feedback.",
         });
-      return writeCodingWorkspace(db, { ...current, ...data });
+      const now = Date.now();
+      const next = writeCodingWorkspace(db, {
+        ...current,
+        ...data,
+        previewReportedAt: now,
+        previewExpiresAt:
+          data.previewAvailability === "running"
+            ? now + PREVIEW_REPORT_TTL_MS
+            : 0,
+      });
+      if (
+        current.latestChanges !== next.latestChanges ||
+        current.workflow !== next.workflow
+      )
+        putMessage(
+          db,
+          agentId,
+          {
+            id: `workspace:${job.id}:${next.revision}`,
+            role: "notice",
+            title:
+              next.workflow === "feedback"
+                ? "Ready for feedback"
+                : next.workflow === "review"
+                  ? "Ready for review"
+                  : "Job update",
+            text: next.latestChanges || "Workspace updated.",
+          },
+          next.conversationId,
+        );
+      return next;
     }),
   );
 
@@ -79,6 +113,7 @@ export const continueJobFeedback = (input: typeof ContinueJobFeedback.Type) =>
       assertAvailable(db);
       const data = Schema.decodeUnknownSync(ContinueJobFeedback)(input);
       const job = requireWorkspaceJob(db, data.agentId, data.id);
+      requireConversation(db, data.agentId, data.id);
       if (new Set(data.messageIds).size !== data.messageIds.length)
         throw new AgentStoreError({
           message: "Choose each feedback message only once.",
@@ -143,6 +178,17 @@ export const continueJobFeedback = (input: typeof ContinueJobFeedback.Type) =>
         db.prepare(
           "UPDATE coding_job_feedback SET inputId=? WHERE messageId=? AND jobId=?",
         ).run(data.requestId, item.id, data.id);
+      putMessage(
+        db,
+        data.agentId,
+        {
+          id: `continuation:${data.requestId}`,
+          role: "notice",
+          title: "Feedback submitted",
+          text: "Selected feedback was queued for the existing assignment worker. Delivery status is shown with each feedback message.",
+        },
+        data.id,
+      );
       return result;
     }),
   );
