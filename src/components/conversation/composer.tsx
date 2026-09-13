@@ -24,6 +24,7 @@ import { Icon } from "../ui/primitives";
 export function Composer({
   agentId,
   agentName,
+  conversationId = agentId,
   busy,
   loading = false,
   status,
@@ -32,6 +33,7 @@ export function Composer({
 }: {
   agentId: string;
   agentName: string;
+  conversationId?: string;
   busy: boolean;
   loading?: boolean;
   status?: string;
@@ -43,6 +45,26 @@ export function Composer({
   const [text, setText] = useState("");
   const hasText = text.trim().length > 0;
   const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => {
+    try {
+      const draft = JSON.parse(
+        sessionStorage.getItem(`roost:draft:${conversationId}`) ?? "null",
+      );
+      if (draft) {
+        setText(draft.text ?? "");
+        setFiles(draft.files ?? []);
+      }
+    } catch {}
+    setDraftReady(true);
+  }, [conversationId]);
+  useLayoutEffect(() => {
+    if (draftReady)
+      sessionStorage.setItem(
+        `roost:draft:${conversationId}`,
+        JSON.stringify({ text, files }),
+      );
+  }, [text, files, conversationId, draftReady]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const submitting = useRef(false);
@@ -165,6 +187,7 @@ export function Composer({
     const submittedIds = new Set(files.map((file) => file.id));
     try {
       if (await onSend(text.trim(), files)) {
+        sessionStorage.removeItem(`roost:draft:${conversationId}`);
         setText((current) => (current === submittedText ? "" : current));
         setFiles((current) =>
           current.filter((file) => !submittedIds.has(file.id)),

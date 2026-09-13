@@ -16,10 +16,12 @@ import { ScrollArea } from "../ui/scroll-area";
 
 export const ToolActivity = memo(function ToolActivity({
   agentId,
+  conversationId,
   message: preview,
   entering = false,
 }: {
   agentId?: string;
+  conversationId?: string;
   message: Message;
   /** Fades the row in when it first appears during this visit. */
   entering?: boolean;
@@ -83,7 +85,7 @@ export const ToolActivity = memo(function ToolActivity({
                 setError(false);
                 try {
                   const result = await getActivityOutput({
-                    data: { agentId, id: message.id },
+                    data: { agentId, conversationId, id: message.id },
                   });
                   if (result.ok && result.value)
                     setFull({ preview, message: result.value });

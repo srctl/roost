@@ -85,10 +85,19 @@ self.addEventListener("notificationclick", (event) => {
   let url = new URL("/", self.location.origin);
   try {
     const target = new URL(event.notification.data?.url, self.location.origin);
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const conversation = target.searchParams.get("conversation");
+    const allowedSearch =
+      !target.search ||
+      (target.searchParams.size === 1 &&
+        conversation !== null &&
+        uuid.test(conversation));
     if (
       target.origin === self.location.origin &&
-      /^\/agents\/[0-9a-f-]{36}$/i.test(target.pathname) &&
-      !target.search &&
+      target.pathname.startsWith("/agents/") &&
+      uuid.test(target.pathname.slice(8)) &&
+      allowedSearch &&
       !target.hash
     )
       url = target;

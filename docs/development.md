@@ -62,6 +62,9 @@ ROOST_CODEX_BINARY=/path/to/codex corepack pnpm dev
 The model list comes from that executable and the connected account. Different
 Codex versions can expose different models.
 
+See [Message threads](message-threads.md#verification) for the isolated desktop/mobile
+browser regression harness.
+
 ## Public websites
 
 The marketing and documentation sites live in `sites/marketing` and `sites/docs`.
