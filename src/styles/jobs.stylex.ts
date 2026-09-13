@@ -3,6 +3,7 @@ import { motion } from "./motion.stylex";
 import { colors } from "./tokens.stylex";
 
 export const jobsStyles = stylex.create({
+  conversationPanel: { height: 580, minWidth: 0, maxHeight: "75svh" },
   page: {
     display: "flex",
     flexDirection: "column",

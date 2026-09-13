@@ -3,7 +3,11 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
-import { migrateCodingWorkspace } from "../coding/workspace-migration.server";
+import {
+  assertCodingWorkspaceUpgradeReady,
+  CodingWorkspaceMigrationError,
+  migrateCodingWorkspace,
+} from "../coding/workspace-migration.server";
 
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
@@ -26,6 +30,7 @@ export function withAgentStore<A>(
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
+        assertCodingWorkspaceUpgradeReady(db);
         if (version === 0) {
           db.exec("BEGIN IMMEDIATE");
           try {
@@ -298,12 +303,14 @@ export function withAgentStore<A>(
       }
     },
     catch: (error) =>
-      error instanceof AgentStoreError
-        ? error
-        : new AgentStoreError({
-            message:
-              "Could not access agent storage. Check the Roost data directory permissions.",
-          }),
+      error instanceof CodingWorkspaceMigrationError
+        ? new AgentStoreError({ message: error.message })
+        : error instanceof AgentStoreError
+          ? error
+          : new AgentStoreError({
+              message:
+                "Could not access agent storage. Check the Roost data directory permissions.",
+            }),
   });
 }
 
@@ -433,7 +440,7 @@ export const saveConversationThread = (
         "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
       ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,13)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,14)",
     ).run(threadId);
   });
 

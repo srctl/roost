@@ -70,6 +70,8 @@ export async function readCodingWorker(
       const w = readCodingWorkspace(db, String(job.agentId), worker.jobId);
       writeCodingWorkspace(db, {
         ...w,
+        previewReportedAt: Date.now(),
+        previewExpiresAt: Date.now() + 15 * 60 * 1000,
         workflow: "feedback",
         previewRevision: `demo-${Date.now().toString(36)}`,
         latestChanges:

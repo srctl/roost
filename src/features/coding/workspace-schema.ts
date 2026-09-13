@@ -40,6 +40,8 @@ export const CodingWorkspace = Schema.Struct({
   conversationId: Schema.UUID,
   revision: Schema.NonNegativeInt,
   updatedAt: Schema.Number,
+  previewReportedAt: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+  previewExpiresAt: Schema.optionalWith(Schema.Number, { default: () => 0 }),
 });
 export type CodingWorkspace = typeof CodingWorkspace.Type;
 export const UpdateCodingWorkspace = Schema.Struct({
@@ -88,4 +90,19 @@ export function jobWorkflowLabel(job: CodingJob, workspace: CodingWorkspace) {
   if (job.status === "review" && workspace.workflow === "review")
     return "Ready for review";
   return "Working";
+}
+
+// A report is a bounded lease, not an HTTP health check. Old records without a
+// lease expire immediately; unrelated workflow writes must never extend it.
+export const PREVIEW_REPORT_TTL_MS = 15 * 60 * 1000;
+export function previewState(workspace: CodingWorkspace, now = Date.now()) {
+  if (workspace.previewAvailability !== "running")
+    return workspace.previewAvailability;
+  return workspace.previewReportedAt > 0 &&
+    workspace.previewReportedAt <= now &&
+    workspace.previewExpiresAt > now &&
+    workspace.previewExpiresAt <=
+      workspace.previewReportedAt + PREVIEW_REPORT_TTL_MS
+    ? "running"
+    : "unknown";
 }

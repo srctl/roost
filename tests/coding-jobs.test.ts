@@ -396,7 +396,7 @@ test("new user requests during coding updates keep their own conversation permis
     );
   }));
 
-test("delayed coding outcomes retain the originating child after other conversations run", async () =>
+test("delayed coding outcomes stay in the dedicated job discussion and preserve originating child provenance", async () =>
   fixture(async (agentId, runId) => {
     const { putMessage, readTimeline } = await import(
       "../src/server/runs/timeline.server"
@@ -440,15 +440,17 @@ test("delayed coding outcomes retain the originating child after other conversat
           db
             .prepare("SELECT conversationId FROM runs WHERE kind='coding'")
             .get()!.conversationId,
-          child.id,
+          job.id,
         ),
       ),
     );
     assert.ok(
-      (await run(readTimeline(agentId, child.id))).some((m) =>
+      (await run(readTimeline(agentId, job.id))).some((m) =>
         m.title?.includes("ready to review"),
       ),
     );
+    assert.equal((await run(getCodingJob(agentId, job.id))).sourceRunId, runId);
+    assert.equal((await run(readTimeline(agentId, child.id))).length, 0);
     assert.ok(
       !(await run(readTimeline(agentId))).some((m) =>
         m.title?.includes("ready to review"),

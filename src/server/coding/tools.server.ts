@@ -46,7 +46,7 @@ export const codingTools: DynamicToolSpec[] = [
   ),
   spec(
     "roost_report_coding_workspace",
-    "Persist a job's preview URL/current revision and availability, latest changes and workflow. Read workspace first and use its revision. Use feedback only after worker is idle and pause further finalization until a new user continuation; keep the preview available. Use review only after verifying implementation and supplying PR URLs and verification evidence. Integration verification is separate. Never infer completion from preview liveness. This records reported metadata; it does not start/stop previews or deploy.",
+    "Persist a job's preview URL/current revision and availability, latest changes and workflow. Read workspace first and use its revision. Use feedback only after worker is idle and pause further finalization until a new user continuation; keep the preview available. Use review only after verifying implementation and supplying PR URLs and verification evidence. Integration verification is separate. Never infer completion from preview liveness. A running report expires after 15 minutes; refresh it only after confirming availability. Expiry is independent of the feedback pause. No background model polling or server URL probing is performed. This records reported metadata; it does not start/stop previews or deploy.",
     UpdateCodingWorkspace,
   ),
   spec(
