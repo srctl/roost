@@ -5,6 +5,7 @@ import { App } from "../app";
 import { getAgents } from "../features/agents/functions";
 import { getComputerStatus } from "../features/computer/functions";
 import { getDashboardSetting } from "../features/dashboards/functions";
+import { getNoteSetting } from "../features/notes/functions";
 import { getDisplayPreferences } from "../features/settings/display-functions";
 import { getSidebarPreferences } from "../features/settings/sidebar-functions";
 import { ThemeDocument, ThemeMeta } from "../features/settings/theme-provider";
@@ -61,12 +62,14 @@ export const Route = createRootRoute({
       sidebarPreferences,
       displayPreferences,
       dashboards,
+      notes,
       computer,
     ] = await Promise.all([
       getAgents(),
       getSidebarPreferences(),
       getDisplayPreferences(),
       getDashboardSetting().catch(() => null),
+      getNoteSetting().catch(() => null),
       getComputerStatus().catch(() => null),
     ]);
     return {
@@ -74,6 +77,7 @@ export const Route = createRootRoute({
       sidebarPreferences,
       displayPreferences,
       dashboardsEnabled: dashboards?.ok ? dashboards.value.enabled : false,
+      notesEnabled: notes?.ok ? notes.value.enabled : false,
       computerEnabled: computer?.enabled ?? false,
     };
   },

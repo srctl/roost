@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AgentHeader } from "../components/agent-header";
 import { NoteWorkspace } from "../components/note-workspace";
 import { getNote } from "../features/notes/functions";
+import { useNotesEnabled } from "../features/notes/preference";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/agents/$agentId_/note")({
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/agents/$agentId_/note")({
 });
 
 function NotePage() {
+  const notesEnabled = useNotesEnabled();
   const { agentId } = Route.useParams();
   const loaded = Route.useLoaderData();
   const agents = RootRoute.useLoaderData();
@@ -26,7 +28,15 @@ function NotePage() {
   return (
     <section {...stylex.props(styles.page)}>
       <AgentHeader agent={agent} />
-      {loaded.ok ? (
+      {!notesEnabled ? (
+        <p>
+          Notes are off.{" "}
+          <Link to="/settings" search={{ group: "appearance" }}>
+            Open settings
+          </Link>{" "}
+          to enable them.
+        </p>
+      ) : loaded.ok ? (
         <NoteWorkspace key={agentId} initial={loaded.value} />
       ) : (
         <p role="alert">

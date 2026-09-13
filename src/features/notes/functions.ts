@@ -2,12 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 import { available } from "../../server/available";
 import {
+  getNotePreference,
   noteHistory,
   readNote,
   readNoteRevision,
   restoreNote,
   saveNote,
   saveNoteInstructions,
+  setNotePreference,
 } from "../../server/notes/store.server";
 import { NoteInstructionWrite, NoteRestore, NoteWrite } from "./schema";
 
@@ -75,3 +77,14 @@ export const getNoteRevision = createServerFn({ method: "GET" })
     ),
   )
   .handler(({ data }) => result(readNoteRevision(data.agentId, data.revision)));
+
+export const getNoteSetting = createServerFn({ method: "GET" })
+  .middleware([available])
+  .handler(() => result(getNotePreference()));
+
+export const changeNoteSetting = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(
+    Schema.decodeUnknownSync(Schema.Struct({ enabled: Schema.Boolean })),
+  )
+  .handler(({ data }) => result(setNotePreference(data.enabled)));

@@ -27,6 +27,7 @@ test("search finds existing controls, conditional options, and vocabulary across
     ["save theme", "theme"],
     ["cancel palette", "theme"],
     ["trackers", "dashboards"],
+    ["shared notes", "notes"],
     ["dashboard updates", "dashboards"],
     ["turn completed", "notifications"],
     ["agent updates", "notifications"],
@@ -45,13 +46,13 @@ test("search finds existing controls, conditional options, and vocabulary across
   }
   assert.deepEqual(
     findSettings("appearance").map((entry) => entry.id),
-    ["theme", "conversation", "dashboards"],
+    ["theme", "conversation", "notes", "dashboards"],
   );
   assert.deepEqual(
     findSettings("codex").map((entry) => entry.id),
     ["conversation", "account"],
   );
-  assert.equal(findSettings(" \n ").length, 5);
+  assert.equal(findSettings(" \n ").length, 6);
   assert.equal(findSettings("nothing-matches-this").length, 0);
   assert.equal(findSettings("passkeys trackers").length, 0);
 });

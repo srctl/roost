@@ -128,6 +128,8 @@ try {
   )?.[1];
   assert.ok(id, "Find the built desktop server-function ID");
   for (const name of [
+    "getNoteSetting",
+    "changeNoteSetting",
     "getNote",
     "getNoteHistory",
     "getNoteRevision",

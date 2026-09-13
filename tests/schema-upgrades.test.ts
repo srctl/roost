@@ -51,7 +51,7 @@ for (const shape of ["base-v8", "datasets-v9", "models-v9"] as const) {
             withAgentStore((upgraded) => {
               assert.equal(
                 upgraded.prepare("PRAGMA user_version").get()?.user_version,
-                11,
+                12,
               );
               for (const { name, columns, rows } of snapshots) {
                 assert.deepEqual(

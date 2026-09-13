@@ -21,7 +21,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 11)
+        if (version > 12)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -239,6 +239,13 @@ export function withAgentStore<A>(
             CREATE TABLE IF NOT EXISTS note_requests (agentId TEXT NOT NULL, requestId TEXT NOT NULL, fingerprint TEXT NOT NULL, snapshot TEXT NOT NULL, PRIMARY KEY(agentId,requestId));
             CREATE TABLE IF NOT EXISTS note_reads (token TEXT PRIMARY KEY, agentId TEXT NOT NULL, scope TEXT NOT NULL, revision INTEGER NOT NULL, expiresAt INTEGER NOT NULL);
             PRAGMA user_version = 11;
+            COMMIT;`);
+        }
+        if (version < 12) {
+          db.exec(`BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS note_settings (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 1);
+            INSERT OR IGNORE INTO note_settings(id,enabled) VALUES(1,1);
+            PRAGMA user_version = 12;
             COMMIT;`);
         }
         return run(db, directory);

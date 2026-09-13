@@ -2,7 +2,7 @@ export const settingsGroups = [
   {
     id: "appearance",
     label: "Appearance",
-    description: "Color themes, conversation display, and dashboards.",
+    description: "Color themes, conversation display, notes, and dashboards.",
   },
   {
     id: "notifications",
@@ -36,6 +36,12 @@ export const settingsEntries = [
     group: "appearance",
     terms:
       "Response style Messages Codex conversation chat bubbles preview Show activity details tool inputs outputs calls thinking summaries compact rows browser",
+  },
+  {
+    id: "notes",
+    group: "appearance",
+    terms:
+      "Note shared notes editor agent instructions enabled disable all devices saved content",
   },
   {
     id: "dashboards",

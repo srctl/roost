@@ -8,6 +8,7 @@ import { CodexConnection } from "../components/codex-connection";
 import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
+import { NoteSetting } from "../components/note-setting";
 import { PasskeySetting } from "../components/passkey-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { ThemeSetting } from "../components/theme-setting";
@@ -123,7 +124,8 @@ function SettingsPage() {
             hidden={
               !visible("theme") &&
               !visible("conversation") &&
-              !visible("dashboards")
+              !visible("dashboards") &&
+              !visible("notes")
             }
             aria-label="Appearance"
           >
@@ -135,6 +137,9 @@ function SettingsPage() {
             </div>
             <div hidden={!visible("conversation")}>
               <ConversationSettings />
+            </div>
+            <div hidden={!visible("notes")}>
+              <NoteSetting />
             </div>
             <div hidden={!visible("dashboards")}>
               <DashboardSetting />
