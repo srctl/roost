@@ -233,6 +233,17 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
               });
       turn.items[1].text = JSON.stringify(result.result ?? result.error);
     }
+    if (params.input[0].text === "shared-context") {
+      const result = await requestTool({
+        threadId: thread.id,
+        turnId: turn.id,
+        namespace: null,
+        tool: "roost_read_conversations",
+        arguments: { query: "decision", newest: true, limit: 12 },
+      });
+      if (!result.result?.success) throw new Error(JSON.stringify(result));
+      turn.items[1].text = `Retrieved shared conversation context: ${result.result.contentItems[0].text}`;
+    }
     if (params.input[0].text.startsWith("delegate:")) {
       const target = params.input[0].text.slice("delegate:".length);
       const delegated = await requestTool({
@@ -345,6 +356,10 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     }
     thread.turns.push(turn);
     persist();
+    if (params.input[0].text === "stream") {
+      acknowledged = true;
+      send({ id, result: { turn: { ...turn, status: "inProgress" } } });
+    }
     // Deliberately notify before acknowledging turn/start to exercise the race.
     send({
       method: "item/agentMessage/delta",
@@ -355,6 +370,8 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         delta: "Hello ",
       },
     });
+    if (params.input[0].text === "stream")
+      await new Promise((resolve) => setTimeout(resolve, 3000));
     send({
       method: "item/agentMessage/delta",
       params: {

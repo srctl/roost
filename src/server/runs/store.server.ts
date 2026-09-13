@@ -5,18 +5,20 @@ import type { Message, SendMessage } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { expireApprovals } from "../approvals/store.server";
 import { nextOccurrence, scheduleWindow } from "../automations/schedule";
-import { readAutomations, requireAgent } from "../automations/store.server";
+import { readAutomations } from "../automations/store.server";
 import { deliverDelegationResults } from "../delegations/store.server";
 import { linkAttachments, readRunFiles } from "../files/store.server";
 import { assertAvailable, isMaintenance } from "../maintenance.server";
 import { notifyRunFinished } from "../notifications/push.server";
 import { scheduleReflections } from "../reflections/store.server";
 import { writeTransaction } from "../transaction.server";
+import { requireConversation } from "./threads.server";
 import { putMessage } from "./timeline.server";
 
 export type Run = {
   id: string;
   agentId: string;
+  conversationId: string;
   kind:
     | "chat"
     | "automation"
@@ -50,6 +52,7 @@ export function insertRun(
     id: string;
     agentId: string;
     prompt: string;
+    conversationId?: string;
     automation?: Automation;
     scheduledFor?: number;
   },
@@ -57,7 +60,7 @@ export function insertRun(
 ) {
   assertAvailable(db);
   db.prepare(
-    "INSERT OR IGNORE INTO runs (id,agentId,kind,prompt,status,automationId,scheduledFor,createdAt,automationSnapshot) VALUES (?,?,?,?,'queued',?,?,?,?)",
+    "INSERT OR IGNORE INTO runs (id,agentId,kind,prompt,status,automationId,scheduledFor,createdAt,automationSnapshot,conversationId) VALUES (?,?,?,?,'queued',?,?,?,?,?)",
   ).run(
     run.id,
     run.agentId,
@@ -67,49 +70,52 @@ export function insertRun(
     run.scheduledFor ?? null,
     now,
     run.automation ? JSON.stringify(run.automation) : null,
+    run.conversationId ?? run.agentId,
   );
 }
 
 export const enqueueChat = (input: SendMessage) =>
-  withAgentStore((db) => {
-    requireAgent(db, input.agentId);
-    if (!input.text.trim() && !input.attachmentIds?.length)
-      throw new AgentStoreError({
-        message: "Write a message or attach a file.",
-      });
-    const existing = db
-      .prepare("SELECT * FROM runs WHERE id=?")
-      .get(input.messageId) as Run | undefined;
-    if (
-      existing &&
-      (existing.agentId !== input.agentId ||
-        existing.prompt !== input.text ||
-        existing.kind !== "chat")
-    )
-      throw new AgentStoreError({
-        message: "This message ID has already been used.",
-      });
-    if (existing) {
-      const files = readRunFiles(
-        db,
-        input.agentId,
-        input.messageId,
-        "attachment",
-      );
-      const ids = input.attachmentIds ?? [];
+  withAgentStore((db) =>
+    writeTransaction(db, () => {
+      requireConversation(db, input.agentId, input.conversationId);
+      if (!input.text.trim() && !input.attachmentIds?.length)
+        throw new AgentStoreError({
+          message: "Write a message or attach a file.",
+        });
+      const existing = db
+        .prepare("SELECT * FROM runs WHERE id=?")
+        .get(input.messageId) as Run | undefined;
       if (
-        files.length !== ids.length ||
-        files.some((file) => !ids.includes(file.id))
+        existing &&
+        (existing.agentId !== input.agentId ||
+          existing.conversationId !== (input.conversationId ?? input.agentId) ||
+          existing.prompt !== input.text ||
+          existing.kind !== "chat")
       )
         throw new AgentStoreError({
-          message: "This message has already been sent with different files.",
+          message: "This message ID has already been used.",
         });
-    }
-    return writeTransaction(db, () => {
+      if (existing) {
+        const files = readRunFiles(
+          db,
+          input.agentId,
+          input.messageId,
+          "attachment",
+        );
+        const ids = input.attachmentIds ?? [];
+        if (
+          files.length !== ids.length ||
+          files.some((file) => !ids.includes(file.id))
+        )
+          throw new AgentStoreError({
+            message: "This message has already been sent with different files.",
+          });
+      }
       insertRun(db, {
         id: input.messageId,
         agentId: input.agentId,
         prompt: input.text,
+        conversationId: input.conversationId,
       });
       const files = linkAttachments(
         db,
@@ -117,21 +123,26 @@ export const enqueueChat = (input: SendMessage) =>
         input.messageId,
         input.attachmentIds,
       );
-      putMessage(db, input.agentId, {
-        id: input.messageId,
-        role: "user",
-        text: input.text,
-        ...(files.length ? { files } : {}),
-      });
+      putMessage(
+        db,
+        input.agentId,
+        {
+          id: input.messageId,
+          role: "user",
+          text: input.text,
+          ...(files.length ? { files } : {}),
+        },
+        input.conversationId,
+      );
 
       const active = db
         .prepare(
-          "SELECT id FROM runs WHERE agentId=? AND status='running' AND kind IN ('chat','handoff') AND cancelRequested=0",
+          "SELECT id FROM runs WHERE agentId=? AND conversationId=? AND status='running' AND kind IN ('chat','handoff') AND cancelRequested=0",
         )
-        .get(input.agentId);
+        .get(input.agentId, input.conversationId ?? input.agentId);
       return { id: active ? String(active.id) : input.messageId };
-    });
-  });
+    }),
+  );
 
 export const runAutomationNow = (
   agentId: string,
@@ -229,7 +240,7 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
           );
           if (run.kind !== "automation" && run.kind !== "reflection")
             for (const message of messages)
-              putMessage(db, run.agentId, message);
+              putMessage(db, run.agentId, message, run.conversationId);
           db.prepare(
             "UPDATE runs SET status='interrupted',messages=?,finishedAt=?,error=? WHERE id=?",
           ).run(
@@ -238,14 +249,19 @@ export const schedulerTick = (owner: string, now = Date.now()) =>
             "Roost restarted during this run. It was not retried automatically.",
             run.id,
           );
-          putMessage(db, run.agentId, {
-            id: `run:${run.id}`,
-            role: "notice",
-            noticeKind: "run",
-            referenceId: run.id,
-            title: "Run interrupted",
-            text: "Roost restarted during this run. Check its history before running it again.",
-          });
+          putMessage(
+            db,
+            run.agentId,
+            {
+              id: `run:${run.id}`,
+              role: "notice",
+              noticeKind: "run",
+              referenceId: run.id,
+              title: "Run interrupted",
+              text: "Roost restarted during this run. Check its history before running it again.",
+            },
+            run.conversationId,
+          );
           queueMicrotask(() => notifyRunFinished(run.id));
         }
       }
@@ -330,13 +346,14 @@ export const claimSteeringRun = (run: Run) =>
     (db) =>
       db
         .prepare(
-          "UPDATE runs SET status='steering',owner=?,startedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE id=(SELECT q.id FROM runs q WHERE q.agentId=? AND q.kind='chat' AND q.status='queued' AND q.cancelRequested=0 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=? AND r.owner=? AND r.status='running' AND r.kind IN ('chat','handoff') AND r.cancelRequested=0) AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) ORDER BY q.createdAt,q.rowid LIMIT 1) RETURNING *",
+          "UPDATE runs SET status='steering',owner=?,startedAt=?,threadId=(SELECT threadId FROM runs WHERE id=?) WHERE id=(SELECT q.id FROM runs q WHERE q.agentId=? AND q.conversationId=? AND q.kind='chat' AND q.status='queued' AND q.cancelRequested=0 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=? AND r.owner=? AND r.status='running' AND r.kind IN ('chat','handoff') AND r.cancelRequested=0) AND EXISTS (SELECT 1 FROM worker_lease WHERE owner=? AND heartbeat>?) ORDER BY q.createdAt,q.rowid LIMIT 1) RETURNING *",
         )
         .get(
           run.owner,
           Date.now(),
           run.id,
           run.agentId,
+          run.conversationId,
           run.id,
           run.owner,
           run.owner,
@@ -360,7 +377,8 @@ export const persistRun = (run: Run, messages: readonly Message[]) =>
         run.id,
       );
       if (run.kind !== "automation" && run.kind !== "reflection")
-        for (const message of messages) putMessage(db, run.agentId, message);
+        for (const message of messages)
+          putMessage(db, run.agentId, message, run.conversationId);
     }),
   );
 
@@ -420,19 +438,25 @@ export const finishRun = (
       );
       expireApprovals(db);
       if (run.kind !== "automation" && run.kind !== "reflection")
-        for (const message of messages) putMessage(db, run.agentId, message);
+        for (const message of messages)
+          putMessage(db, run.agentId, message, run.conversationId);
       if (
         status === "completed" &&
         run.kind === "reflection" &&
         answer &&
         answer !== "ROOST_NO_UPDATE"
       ) {
-        putMessage(db, run.agentId, {
-          id: `result:${run.id}`,
-          role: "assistant",
-          title: "Reflection",
-          text: answer,
-        });
+        putMessage(
+          db,
+          run.agentId,
+          {
+            id: `result:${run.id}`,
+            role: "assistant",
+            title: "Reflection",
+            text: answer,
+          },
+          run.conversationId,
+        );
       }
       if (status === "completed" && run.kind === "automation") {
         const automation = JSON.parse(run.automationSnapshot!) as Automation;
@@ -443,28 +467,38 @@ export const finishRun = (
             answer === "ROOST_NO_UPDATE"
           )
         )
-          putMessage(db, run.agentId, {
-            id: `result:${run.id}`,
-            role: "assistant",
-            title: automation.name,
-            text: answer,
-          });
+          putMessage(
+            db,
+            run.agentId,
+            {
+              id: `result:${run.id}`,
+              role: "assistant",
+              title: automation.name,
+              text: answer,
+            },
+            run.conversationId,
+          );
       }
       if (status !== "completed")
-        putMessage(db, run.agentId, {
-          id: `run:${run.id}`,
-          role: "notice",
-          noticeKind: "run",
-          referenceId: run.id,
-          title:
-            status === "cancelled"
-              ? "Run stopped"
-              : status === "failed"
-                ? "Run failed"
-                : "Run interrupted",
-          text:
-            error ??
-            "This run was stopped. Its partial output is available in run history.",
-        });
+        putMessage(
+          db,
+          run.agentId,
+          {
+            id: `run:${run.id}`,
+            role: "notice",
+            noticeKind: "run",
+            referenceId: run.id,
+            title:
+              status === "cancelled"
+                ? "Run stopped"
+                : status === "failed"
+                  ? "Run failed"
+                  : "Run interrupted",
+            text:
+              error ??
+              "This run was stopped. Its partial output is available in run history.",
+          },
+          run.conversationId,
+        );
     }),
   );

@@ -5,6 +5,7 @@ import type { Message } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
 import { assertAvailable } from "../maintenance.server";
+import { runConversationId } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 
 export const DelegateTask = Schema.Struct({
@@ -87,14 +88,19 @@ export const delegateTask = (
           db.prepare("SELECT name FROM agents WHERE id=?").get(data.agentId)!
             .name,
         );
-        putMessage(db, sourceAgentId, {
-          id: `delegation:${data.requestId}`,
-          role: "notice",
-          noticeKind: "delegation",
-          title: `Assigned to ${targetName}`,
-          text: data.task,
-          referenceId: data.agentId,
-        });
+        putMessage(
+          db,
+          sourceAgentId,
+          {
+            id: `delegation:${data.requestId}`,
+            role: "notice",
+            noticeKind: "delegation",
+            title: `Assigned to ${targetName}`,
+            text: data.task,
+            referenceId: data.agentId,
+          },
+          runConversationId(db, sourceAgentId, sourceRunId),
+        );
         putMessage(db, data.agentId, {
           id: data.requestId,
           role: "notice",
@@ -148,25 +154,51 @@ export function deliverDelegationResults(db: DatabaseSync, now: number) {
     db.prepare(
       "INSERT INTO runs (id,agentId,kind,prompt,status,createdAt) VALUES (?,?,'handoff',?,'queued',?)",
     ).run(id, String(task.sourceAgentId), prompt, now);
+    db.prepare("UPDATE runs SET conversationId=? WHERE id=?").run(
+      runConversationId(
+        db,
+        String(task.sourceAgentId),
+        String(task.sourceRunId),
+      ),
+      id,
+    );
     db.prepare("UPDATE delegations SET resultRunId=? WHERE id=?").run(
       id,
       String(task.id),
     );
-    putMessage(db, String(task.sourceAgentId), {
-      id: `delegation:${task.id}`,
-      role: "notice",
-      noticeKind: "delegation",
-      title: `${task.name} · ${task.status}`,
-      text: String(task.task),
-      referenceId: String(task.targetAgentId),
-    });
-    putMessage(db, String(task.sourceAgentId), {
-      id,
-      role: "notice",
-      noticeKind: "delegation",
-      title: `${task.name} reported back`,
-      text: `Task ${task.status}. Preparing an update.`,
-      referenceId: String(task.targetAgentId),
-    });
+    putMessage(
+      db,
+      String(task.sourceAgentId),
+      {
+        id: `delegation:${task.id}`,
+        role: "notice",
+        noticeKind: "delegation",
+        title: `${task.name} · ${task.status}`,
+        text: String(task.task),
+        referenceId: String(task.targetAgentId),
+      },
+      runConversationId(
+        db,
+        String(task.sourceAgentId),
+        String(task.sourceRunId),
+      ),
+    );
+    putMessage(
+      db,
+      String(task.sourceAgentId),
+      {
+        id,
+        role: "notice",
+        noticeKind: "delegation",
+        title: `${task.name} reported back`,
+        text: `Task ${task.status}. Preparing an update.`,
+        referenceId: String(task.targetAgentId),
+      },
+      runConversationId(
+        db,
+        String(task.sourceAgentId),
+        String(task.sourceRunId),
+      ),
+    );
   }
 }
