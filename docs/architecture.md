@@ -67,8 +67,10 @@ back up the whole directory. `.roost` is ignored by Git.
 
 Creating an agent is transactional and uses a stable request ID: retrying the
 same request returns the saved agent, while reusing its ID with different
-settings is rejected. The `agent_sessions` table maps each agent to its private
-Codex thread and any archived chat from before memory isolation. The first
+settings is rejected. The `conversation_records` and `conversation_sessions` tables map each product
+conversation to its native Codex session and archive. The legacy `agent_sessions`
+rows are retained for lossless migration. See [Message threads](message-threads.md)
+for parent identity, shared context, queue routing and regression tests. The first
 accepted turn establishes the mapping, because empty Codex threads cannot be
 resumed after the app-server exits.
 

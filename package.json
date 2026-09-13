@@ -30,7 +30,8 @@
     "check:sites": "pnpm typecheck:sites && pnpm test:sites && pnpm build:sites",
     "test:sites": "node --import tsx --test sites/docs/*.test.tsx",
     "test:auth": "pnpm build && pnpm test:auth:production",
-    "test:auth:production": "node --import tsx scripts/test-auth-production.ts"
+    "test:auth:production": "node --import tsx scripts/test-auth-production.ts",
+    "test:threads:browser": "node --import tsx tests/browser/threads.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
@@ -64,6 +65,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "babel-plugin-react-compiler": "1.0.0",
     "nitro": "3.0.260903-beta",
+    "playwright": "1.58.2",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
     "unplugin": "2.3.11",
