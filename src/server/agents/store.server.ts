@@ -8,6 +8,7 @@ import {
   CodingWorkspaceMigrationError,
   migrateCodingWorkspace,
 } from "../coding/workspace-migration.server";
+import { migrateAgentDeletion } from "./deletion-migration.server";
 import {
   FeatureMigrationError,
   inspectFeatureShape,
@@ -314,6 +315,7 @@ export function withAgentStore<A>(
           migrateNotes(db);
           migrateCodingWorkspace(db);
           migrateAgentNavigation(db);
+          migrateAgentDeletion(db);
           db.exec("PRAGMA user_version=14; COMMIT");
         } catch (error) {
           db.exec("ROLLBACK");
@@ -352,6 +354,10 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
     const data = Schema.decodeUnknownSync(CreateAgentInput)(input);
     db.exec("BEGIN IMMEDIATE");
     try {
+      if (db.prepare("SELECT id FROM deleted_agents WHERE id=?").get(data.id))
+        throw new AgentStoreError({
+          message: "This agent was deleted. Create a new agent instead.",
+        });
       const existing = db
         .prepare("SELECT * FROM agents WHERE id = ?")
         .get(data.id);

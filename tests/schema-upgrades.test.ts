@@ -275,3 +275,113 @@ for (const damage of [
     }
   });
 }
+
+for (const legacy of [
+  "deletion-v11",
+  "core14",
+  "core14-with-navigation",
+] as const) {
+  test(`deletion feature migration preserves ${legacy} and installs the cumulative contracts`, async () => {
+    const directory = mkdtempSync("/tmp/roost-delete-upgrade-");
+    try {
+      if (legacy === "deletion-v11") {
+        const db = new DatabaseSync(join(directory, "roost.sqlite"));
+        db.exec(
+          readFileSync(new URL("./fixtures/v8.sql", import.meta.url), "utf8"),
+        );
+        db.exec(`CREATE TABLE dashboard_datasets(agentId TEXT NOT NULL,key TEXT NOT NULL,content TEXT NOT NULL,revision INTEGER NOT NULL,updatedAt INTEGER NOT NULL,PRIMARY KEY(agentId,key));
+          ALTER TABLE automations ADD COLUMN model TEXT;
+          CREATE TABLE deleted_agents(id TEXT PRIMARY KEY,deletedAt INTEGER NOT NULL);
+          INSERT INTO deleted_agents VALUES('deleted',123);
+          INSERT INTO agents(id,name,instructions,character,model,createdAt) VALUES('saved','Scout','Keep','moss','fake','today');
+          PRAGMA user_version=11;`);
+        db.close();
+      } else {
+        await Effect.runPromise(
+          withAgentStore((db) => {
+            const triggers = db
+              .prepare(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'deleted_%'",
+              )
+              .all();
+            for (const { name } of triggers) db.exec(`DROP TRIGGER ${name}`);
+            db.exec(
+              "DROP TABLE agent_deletion_versions; DROP TABLE deleted_agents;",
+            );
+            if (legacy === "core14")
+              db.exec(
+                "DROP TABLE agent_navigation_memberships; DROP TABLE agent_navigation_sections; DROP TABLE agent_navigation_versions;",
+              );
+          }, directory),
+        );
+      }
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await Effect.runPromise(
+          withAgentStore((db) => {
+            assert.equal(
+              db.prepare("PRAGMA user_version").get()?.user_version,
+              14,
+            );
+            for (const [table, version] of [
+              ["agent_deletion_versions", 1],
+              ["agent_navigation_versions", 1],
+              ["coding_workspace_versions", 3],
+            ] as const)
+              assert.equal(
+                db.prepare(`SELECT MAX(version) v FROM ${table}`).get()?.v,
+                version,
+              );
+            if (legacy === "deletion-v11") {
+              assert.equal(
+                db
+                  .prepare(
+                    "SELECT deletedAt FROM deleted_agents WHERE id='deleted'",
+                  )
+                  .get()?.deletedAt,
+                123,
+              );
+              assert.equal(
+                db.prepare("SELECT name FROM agents WHERE id='saved'").get()
+                  ?.name,
+                "Scout",
+              );
+              assert.throws(
+                () =>
+                  db.exec(
+                    "INSERT INTO note_reads VALUES('late','deleted','scope',0,0)",
+                  ),
+                /deleted/,
+              );
+            }
+          }, directory),
+        );
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const corrupt of ["future-deletion", "malformed-tombstones"] as const) {
+  test(`${corrupt} refuses migration without modifying the database`, async () => {
+    const directory = mkdtempSync("/tmp/roost-delete-refusal-");
+    try {
+      await Effect.runPromise(
+        withAgentStore((db) => {
+          if (corrupt === "future-deletion")
+            db.exec("INSERT INTO agent_deletion_versions VALUES(99)");
+          else db.exec("ALTER TABLE deleted_agents ADD COLUMN unexpected TEXT");
+        }, directory),
+      );
+      const path = join(directory, "roost.sqlite");
+      const before = readFileSync(path);
+      await assert.rejects(
+        Effect.runPromise(withAgentStore(() => {}, directory)),
+        /newer version|Unsupported database shape/,
+      );
+      assert.deepEqual(readFileSync(path), before);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+}

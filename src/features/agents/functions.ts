@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 import { readAgentActivity } from "../../server/agents/activity.server";
+import { DeleteAgentInput } from "../../server/agents/delete.server";
 import {
   listSoulChanges,
   readAgentMemory,
@@ -11,6 +12,7 @@ import {
 } from "../../server/agents/soul.server";
 import { listAgents, saveAgent } from "../../server/agents/store.server";
 import { available } from "../../server/available";
+import { deleteAgent } from "../../server/codex/agent-runtime.server";
 import {
   CodexError,
   getCodexConnection,
@@ -119,3 +121,8 @@ export const reflectAgentNow = createServerFn({ method: "POST" })
   .handler(({ data }) =>
     result(runReflectionNow(data.agentId, data.requestId)),
   );
+
+export const removeAgent = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(DeleteAgentInput))
+  .handler(({ data }) => result(deleteAgent(data)));
