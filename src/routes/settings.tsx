@@ -402,11 +402,7 @@ const styles = stylex.create({
     color: colors.accent,
   },
   agentHint: {
-    marginTop: 32,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.border,
+    marginTop: 24,
     fontSize: 12,
     lineHeight: 1.6,
     color: colors.muted,
