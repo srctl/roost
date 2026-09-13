@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Data, Effect, Schema } from "effect";
 import { Agent, CreateAgentInput } from "../../features/agents/schema";
+import { migrateCodingWorkspace } from "../coding/workspace-migration.server";
 
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
@@ -290,6 +291,7 @@ export function withAgentStore<A>(
           CREATE TABLE provider_message_ids(agentId TEXT NOT NULL,conversationId TEXT NOT NULL,threadId TEXT NOT NULL,nativeId TEXT NOT NULL,messageId TEXT NOT NULL,PRIMARY KEY(agentId,conversationId,threadId,nativeId));
           INSERT OR IGNORE INTO provider_message_ids SELECT t.agentId,t.conversationId,COALESCE(s.threadId,c.threadId),t.id,t.id FROM timeline t LEFT JOIN conversation_sessions s ON s.conversationId=t.conversationId LEFT JOIN conversations c ON c.agentId=t.agentId WHERE COALESCE(s.threadId,c.threadId) IS NOT NULL AND json_extract(t.message,'$.role') IN ('assistant','activity');
           PRAGMA user_version=13; COMMIT;`);
+        migrateCodingWorkspace(db);
         return run(db, directory);
       } finally {
         db.close();
