@@ -99,5 +99,29 @@ Open technical dependency: exact job-thread origin representation, authoritative
 preview reporter and heartbeat/expiry rules. Choose within the original task's
 scope after UI feedback; do not merge the dependent stacks as a shortcut.
 
-The new CSS is intentionally isolated to this prototype. Production integration
-should use the existing StyleX tokens and locally owned Base UI controls.
+## Design-system iteration r04
+
+The accepted workflow remains fixture-only. The preview now imports the production
+`Button`, `Avatar`, and `Icon` components and the Base UI Dialog primitive
+used by Roost’s existing dialogs. `theme.stylex.ts` bridges the actual
+Roost color and motion tokens into the isolated layout, including system dark
+mode and custom `--roost-*` overrides. No independent color palette is maintained.
+The 13px app font stack, 216px sidebar, agent identity, underlined view navigation,
+28px desktop/44px mobile buttons, compact text hierarchy, and 14px composer with
+focus-within treatment follow App, Sidebar, AgentHeader and Composer.
+
+The shell is a fixture adapter of those layouts, not the live App/Sidebar:
+those components import router loaders, activity and settings that must remain
+outside this client-only preview. Conversation is a noninteractive context label;
+only Jobs and the fixture agent are navigable. Sidebar collapse and the mobile
+navigation dialog are local interactions. Notes and execution settings remain
+outside this iteration. The former decorative copy, monogram, mock browser,
+serif illustration and separate green button palette were removed.
+
+Desktop/mobile screenshots compare r03 with r04 at identical viewport dimensions,
+fixture state and browser color preference. The old r03 did not implement dark
+mode. Keyboard checks cover modal focus containment/return, mobile navigation,
+sidebar toggle focus, task navigation and feedback field focus. Preserve this
+iteration's evidence alongside the original milestone evidence until eventual
+PR attachments are uploaded. Production backend and full app integration checks
+remain outside this feedback milestone.

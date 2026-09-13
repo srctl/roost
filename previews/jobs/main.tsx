@@ -1,6 +1,11 @@
+import { Dialog } from "@base-ui/react/dialog";
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Button } from "../../src/components/ui/button";
+import { Avatar, Icon } from "../../src/components/ui/primitives";
 import { fixtures, type Job, type WorkState } from "./fixtures";
+import { theme } from "./theme.stylex";
 import "./style.css";
 
 type Saved = Record<
@@ -25,12 +30,16 @@ function Badge({ state }: { state: WorkState }) {
 function App() {
   const [selected, setSelected] = useState(location.hash.slice(1));
   const [saved, setSaved] = useState<Saved>(readSaved);
+  const [collapsed, setCollapsed] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const navigationOpener = useRef<HTMLButtonElement>(null);
   const [filter, setFilter] = useState("All work");
   const [notice, setNotice] = useState("");
   const [sample, setSample] = useState<Job>();
   const [sampleReview, setSampleReview] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
+  const lastDetail = useRef("");
+  const sampleOpener = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const changed = () => {
       setSelected(location.hash.slice(1));
@@ -40,7 +49,16 @@ function App() {
     return () => window.removeEventListener("hashchange", changed);
   }, []);
   useEffect(() => {
-    if (selected) heading.current?.focus();
+    if (fixtures.some((item) => item.id === selected)) {
+      heading.current?.focus();
+      lastDetail.current = selected;
+    } else if (lastDetail.current) {
+      document
+        .querySelector<HTMLAnchorElement>(
+          `a.job-title[href="#${lastDetail.current}"]`,
+        )
+        ?.focus();
+    }
   }, [selected]);
   useEffect(() => {
     try {
@@ -51,9 +69,6 @@ function App() {
       );
     }
   }, [saved]);
-  useEffect(() => {
-    if (sample) dialog.current?.showModal();
-  }, [sample]);
   const jobs = fixtures.map((job) => ({
     ...job,
     state: saved[job.id]?.state ?? job.state,
@@ -66,6 +81,7 @@ function App() {
     }));
   }
   function action(item: Job, review = false) {
+    sampleOpener.current = document.activeElement as HTMLElement;
     setSample(item);
     setSampleReview(review);
     setNotice(
@@ -77,31 +93,31 @@ function App() {
   function primary(item: Job) {
     if (item.state === "Ready for review" || item.state === "Completed")
       return (
-        <button
+        <Button
           className="primary"
           type="button"
           onClick={() => action(item, true)}
         >
           {item.state === "Completed" ? "View PR" : "Review PR"} ↗
-        </button>
+        </Button>
       );
     if (item.preview === "Running")
       return (
-        <button className="primary" type="button" onClick={() => action(item)}>
+        <Button className="primary" type="button" onClick={() => action(item)}>
           Open preview ↗
-        </button>
+        </Button>
       );
     return <span className="unavailable">Preview unavailable</span>;
   }
   return (
-    <>
+    <div className={`${stylex.props(theme.tokens).className} preview-app`}>
       <div className="demo">
-        <strong>Design preview · r03</strong>
+        <strong>Design preview · r04</strong>
         <span>
           Example jobs. Feedback is saved in this tab only. No workers are
           controlled.
         </span>
-        <button
+        <Button
           type="button"
           onClick={() => {
             setSaved({});
@@ -109,48 +125,94 @@ function App() {
           }}
         >
           Reset demo
-        </button>
+        </Button>
       </div>
       <div className="shell">
-        <aside className="sidebar">
-          <a className="brand" href="#all">
-            roost<span>◒</span>
-          </a>
-          <div className="space-label">YOUR WORKSPACE</div>
-          <div className="project">
-            <span className="avatar">R</span>
-            <div>
-              Roost<small>Coding agent</small>
+        {!collapsed && (
+          <aside className="sidebar" aria-label="Agents">
+            <div className="brand-row">
+              <a className="brand" href="#all">
+                roost
+              </a>
+              <Button
+                aria-label="Collapse sidebar"
+                aria-expanded={true}
+                onClick={() => {
+                  setCollapsed(true);
+                  requestAnimationFrame(() =>
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        'button[aria-label="Expand sidebar"]',
+                      )
+                      ?.focus(),
+                  );
+                }}
+              >
+                <Icon name="panel" />
+              </Button>
             </div>
+            <div className="sidebar-heading">Agents</div>
+            <nav aria-label="Agents">
+              <a className="agent-row" href="#all">
+                <Avatar character="moss" size={24} />
+                Roost
+              </a>
+            </nav>
+          </aside>
+        )}
+        {collapsed && (
+          <div className="expand-sidebar">
+            <Button
+              aria-label="Expand sidebar"
+              aria-expanded={false}
+              onClick={() => {
+                setCollapsed(false);
+                requestAnimationFrame(() =>
+                  document
+                    .querySelector<HTMLButtonElement>(
+                      'button[aria-label="Collapse sidebar"]',
+                    )
+                    ?.focus(),
+                );
+              }}
+            >
+              <Icon name="panel" />
+            </Button>
           </div>
-          <nav aria-label="Workspace">
-            <a className="nav-active" href="#all">
-              ☷ <span>Jobs</span>
-              <span className="count">6</span>
-            </a>
-          </nav>
-          <div className="sidebar-foot">
-            A little room for work in progress.
-          </div>
-        </aside>
+        )}
         <main>
           <header className="topbar">
-            <span>
-              Roost <span className="muted">/ Coding</span>
-            </span>
-            <span className="muted">Preview workspace</span>
+            <div className="identity">
+              <Button
+                className="mobile-menu"
+                ref={navigationOpener}
+                aria-label="Open navigation"
+                onClick={() => setNavigationOpen(true)}
+              >
+                <Icon name="menu" />
+              </Button>
+              <Avatar character="moss" />
+              <span>Roost</span>
+            </div>
+            <nav className="agent-tabs" aria-label="Roost views">
+              <span
+                className="inactive-tab"
+                title="Conversation is not connected in this fixture"
+              >
+                Conversation
+              </span>
+              <a href="#all" aria-current="page">
+                Jobs
+              </a>
+            </nav>
           </header>
           {!job ? (
             <div className="content list-content">
-              <div className="page-title">
-                <div className="eyebrow">PICK UP WHERE YOU LEFT OFF</div>
-                <h1>Jobs</h1>
-                <p>Ongoing work, a little closer to done.</p>
-              </div>
+              <h1 className="sr-only">Jobs</h1>
               <div className="list-toolbar">
                 <nav className="filters" aria-label="Filter jobs">
                   {["All work", "Needs you", "Completed"].map((label) => (
-                    <button
+                    <Button
                       type="button"
                       key={label}
                       aria-pressed={filter === label}
@@ -168,7 +230,7 @@ function App() {
                           }
                         </span>
                       )}
-                    </button>
+                    </Button>
                   ))}
                 </nav>
                 <span className="muted">Latest activity first</span>
@@ -194,13 +256,13 @@ function App() {
                         <div className="row-meta">
                           <Badge state={item.state} />
                           {item.pr && (
-                            <button
+                            <Button
                               className="text-button"
                               type="button"
                               onClick={() => action(item, true)}
                             >
                               PR {item.pr}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -227,9 +289,6 @@ function App() {
               </a>
               <div className="detail-heading">
                 <div>
-                  <div className="eyebrow">
-                    ROOST / JOB {job.id.toUpperCase()}
-                  </div>
                   <h1 ref={heading} tabIndex={-1}>
                     {job.title}
                   </h1>
@@ -237,17 +296,17 @@ function App() {
                 </div>
                 <div className="detail-actions">
                   {primary(job)}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => document.getElementById("feedback")?.focus()}
                   >
                     Leave feedback ↓
-                  </button>
+                  </Button>
                   {job.state === "Ready for review" &&
                     job.preview === "Running" && (
-                      <button type="button" onClick={() => action(job)}>
+                      <Button type="button" onClick={() => action(job)}>
                         Open preview ↗
-                      </button>
+                      </Button>
                     )}
                 </div>
               </div>
@@ -263,49 +322,20 @@ function App() {
                       </span>
                     </div>
                     {job.preview === "Running" ? (
-                      <button
-                        className="preview-surface"
-                        type="button"
-                        onClick={() => action(job)}
-                        aria-label={`Open example preview for ${job.title}`}
-                      >
-                        <div className="mini-browser">
-                          <i />
-                          <i />
-                          <i />
-                          <span>roost / {job.id} · example</span>
+                      <div className="preview-surface">
+                        <Icon name="monitor" size={24} />
+                        <div>
+                          <h3>Revision {job.revision}</h3>
+                          <p>Example preview · {job.id}</p>
                         </div>
-                        <div className="mini-app">
-                          <div className="mini-nav">
-                            roost
-                            <br />
-                            <br />⌂<br />☷<br />⚙
-                          </div>
-                          <div className="mini-content">
-                            <span className="eyebrow">YOUR WORK, IN VIEW</span>
-                            <h3>
-                              {job.id === "jobs"
-                                ? "A place to keep going."
-                                : job.title}
-                            </h3>
-                            <div className="mini-row">
-                              <span>Current work</span>
-                              <span>Ready to try ↗</span>
-                            </div>
-                            <div className="mini-row">
-                              <span>Latest changes</span>
-                              <span>Revision {job.revision}</span>
-                            </div>
-                            <div className="mini-row">
-                              <span>Feedback</span>
-                              <span>Keep the conversation going</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="preview-caption">
-                          Explore example preview <span>↗</span>
-                        </div>
-                      </button>
+                        <Button
+                          onClick={() => action(job)}
+                          aria-label={`Open example preview for ${job.title}`}
+                        >
+                          <Icon name="expand" />
+                          Open
+                        </Button>
+                      </div>
                     ) : (
                       <div className="preview-missing">
                         <h3>
@@ -364,7 +394,7 @@ function App() {
                   </div>
                   <div className="message">
                     <div className="author">
-                      <span className="avatar small">R</span>
+                      <Avatar character="moss" size={24} />
                       <strong>Roost</strong>
                       <span className="muted">Example update</span>
                     </div>
@@ -381,7 +411,7 @@ function App() {
                   ))}
                   {job.state === "Ready for feedback" && (
                     <p className="pause-note">
-                      Ⅱ Waiting for your feedback. The worker stays paused; the
+                      Waiting for your feedback. The worker stays paused; the
                       current preview remains available while running.
                     </p>
                   )}
@@ -417,16 +447,16 @@ function App() {
                     />
                     <div className="composer-footer">
                       <span className="muted">On revision {job.revision}</span>
-                      <button
+                      <Button
                         type="submit"
                         disabled={!saved[job.id]?.draft.trim()}
                       >
                         Save feedback
-                      </button>
+                      </Button>
                     </div>
                   </form>
                   {["Ready for feedback", "Blocked"].includes(job.state) && (
-                    <button
+                    <Button
                       className="continue"
                       type="button"
                       disabled={!saved[job.id]?.messages.length}
@@ -438,11 +468,11 @@ function App() {
                       }}
                     >
                       Continue with feedback <span>→</span>
-                    </button>
+                    </Button>
                   )}
                   <p className="discussion-help">
-                    Saving feedback keeps work paused. Continue resumes this
-                    same assignment in the demo.
+                    Feedback stays with this assignment. Paused work resumes
+                    only when you choose Continue.
                   </p>
                 </section>
               </div>
@@ -453,37 +483,74 @@ function App() {
           </div>
         </main>
       </div>
-      <dialog
-        className="example-dialog"
-        ref={dialog}
-        onClose={() => setSample(undefined)}
+      <Dialog.Root
+        open={Boolean(sample)}
+        onOpenChange={(open) => {
+          if (!open) setSample(undefined);
+        }}
       >
-        <div className="section-heading">
-          <span className="eyebrow">INTERACTIVE FIXTURE</span>
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            aria-label="Close example"
+        <Dialog.Portal {...stylex.props(theme.tokens)}>
+          <Dialog.Backdrop className="dialog-backdrop" />
+          <Dialog.Popup className="example-dialog" finalFocus={sampleOpener}>
+            <div className="section-heading">
+              <span className="muted">Example destination</span>
+              <Button
+                type="button"
+                onClick={() => setSample(undefined)}
+                aria-label="Close example"
+              >
+                <Icon name="close" />
+              </Button>
+            </div>
+            <Dialog.Title>{sample?.title}</Dialog.Title>
+            <p>
+              {sampleReview && sample?.pr
+                ? `Example PR stack: ${sample.pr}. Standalone review readiness is separate from integration verification.`
+                : "This is a simulated preview destination. The Jobs workspace is the interactive design being reviewed."}
+            </p>
+            <p>No real worker, repository or external preview is connected.</p>
+            <Button
+              className="primary"
+              type="button"
+              onClick={() => setSample(undefined)}
+            >
+              Return to workspace
+            </Button>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+      <Dialog.Root open={navigationOpen} onOpenChange={setNavigationOpen}>
+        <Dialog.Portal {...stylex.props(theme.tokens)}>
+          <Dialog.Backdrop className="dialog-backdrop" />
+          <Dialog.Popup
+            className="navigation-dialog"
+            finalFocus={navigationOpener}
           >
-            ✕
-          </button>
-        </div>
-        <h2>{sample?.title}</h2>
-        <p>
-          {sampleReview && sample?.pr
-            ? `Example PR stack: ${sample.pr}. Standalone review readiness is separate from integration verification.`
-            : "This is a simulated preview destination. The Jobs workspace is the interactive design being reviewed."}
-        </p>
-        <p>No real worker, repository or external preview is connected.</p>
-        <button
-          className="primary"
-          type="button"
-          onClick={() => dialog.current?.close()}
-        >
-          Return to workspace
-        </button>
-      </dialog>
-    </>
+            <Dialog.Title className="sr-only">Agents navigation</Dialog.Title>
+            <div className="brand-row">
+              <span className="brand">roost</span>
+              <Button
+                aria-label="Close navigation"
+                onClick={() => setNavigationOpen(false)}
+              >
+                <Icon name="close" />
+              </Button>
+            </div>
+            <div className="sidebar-heading">Agents</div>
+            <Button
+              className="agent-row"
+              onClick={() => {
+                location.hash = "all";
+                setNavigationOpen(false);
+              }}
+            >
+              <Avatar character="moss" size={24} />
+              Roost
+            </Button>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </div>
   );
 }
 
