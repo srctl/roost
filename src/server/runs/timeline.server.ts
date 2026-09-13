@@ -76,12 +76,12 @@ export function readTimelinePage(
     const rows = incremental
       ? db
           .prepare(
-            `SELECT position, revision, ${preview} AS message FROM timeline WHERE agentId=? AND conversationId=? AND revision>? ORDER BY revision LIMIT 61`,
+            `SELECT position, revision, createdAt, ${preview} AS message FROM timeline WHERE agentId=? AND conversationId=? AND revision>? ORDER BY revision LIMIT 61`,
           )
           .all(agentId, options.conversationId ?? agentId, options.since!)
       : db
           .prepare(
-            `SELECT position, revision, ${preview} AS message FROM timeline WHERE agentId=? AND conversationId=? AND position<? ORDER BY position DESC LIMIT 61`,
+            `SELECT position, revision, createdAt, ${preview} AS message FROM timeline WHERE agentId=? AND conversationId=? AND position<? ORDER BY position DESC LIMIT 61`,
           )
           .all(
             agentId,
@@ -97,7 +97,12 @@ export function readTimelinePage(
     const entries = selected
       .map((row) => ({
         position: Number(row.position),
-        message: JSON.parse(String(row.message)) as Message,
+        message: {
+          ...(JSON.parse(String(row.message)) as Message),
+          ...(Number(row.createdAt) > 0
+            ? { createdAt: Number(row.createdAt) }
+            : {}),
+        },
       }))
       .sort((a, b) => a.position - b.position);
     db.exec("COMMIT");

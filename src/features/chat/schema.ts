@@ -24,6 +24,8 @@ export type SendMessage = typeof SendMessage.Type;
 
 export const Message = Schema.Struct({
   nativeThreadId: Schema.optional(Schema.String),
+  /** Persisted timeline time; absent for legacy and optimistic messages. */
+  createdAt: Schema.optional(Schema.Number),
   id: Schema.String,
   role: Schema.Literal("user", "assistant", "notice", "activity"),
   text: Schema.String,
