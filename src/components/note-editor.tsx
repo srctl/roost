@@ -9,8 +9,9 @@ import {
   Extension,
   useEditor,
 } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   fromEditor,
   sanitizeNotePaste,
@@ -68,13 +69,11 @@ function apply(editor: Editor, index: number) {
 
 export function NoteEditor({
   blocks,
-  controls,
   onChange,
   onFocusChange,
   onError,
 }: {
   blocks: NoteSnapshot["blocks"];
-  controls: ReactNode;
   onChange: (blocks: NoteSnapshot["blocks"]) => void;
   onFocusChange: (focused: boolean) => void;
   onError: (message: string) => void;
@@ -85,7 +84,8 @@ export function NoteEditor({
     query: string;
   } | null>(null);
   const [selected, setSelected] = useState(0);
-  const [selection, setSelection] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDetailsElement>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const linkInput = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -141,6 +141,17 @@ export function NoteEditor({
         spellcheck: "true",
       },
       handleKeyDown: (view, event) => {
+        if (
+          event.altKey &&
+          event.key === "F10" &&
+          !view.state.selection.empty
+        ) {
+          event.preventDefault();
+          toolbarRef.current
+            ?.querySelector<HTMLButtonElement>("button")
+            ?.focus();
+          return true;
+        }
         const menu = slashRef.current;
         if (!menu) return false;
         const choices = commands
@@ -189,8 +200,7 @@ export function NoteEditor({
       );
       setSelected(0);
     },
-    onSelectionUpdate: ({ editor: current }) =>
-      setSelection(!current.state.selection.empty),
+    onSelectionUpdate: () => setLinkOpen(false),
     onFocus: () => onFocusChange(true),
     onBlur: () => onFocusChange(false),
   });
@@ -228,133 +238,126 @@ export function NoteEditor({
     );
   return (
     <div {...stylex.props(styles.container)}>
-      <div
-        role="toolbar"
-        aria-label={selection ? "Selected text formatting" : "Note formatting"}
-        {...stylex.props(styles.toolbar)}
+      <BubbleMenu
+        editor={editor}
+        options={{
+          placement: "top",
+          offset: 8,
+          shift: { padding: 8 },
+          flip: true,
+          scrollTarget:
+            editor.view.dom.closest<HTMLElement>("article")?.parentElement ??
+            window,
+        }}
+        updateDelay={0}
+        {...stylex.props(styles.bubble)}
       >
-        <NoteButton
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          aria-label="Bold"
-          aria-pressed={editor.isActive("bold")}
-          xstyle={[styles.tool, editor.isActive("bold") && styles.highlight]}
-        >
-          <strong>B</strong>
-        </NoteButton>
-        <NoteButton
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          aria-label="Italic"
-          aria-pressed={editor.isActive("italic")}
-          xstyle={[styles.tool, editor.isActive("italic") && styles.highlight]}
-        >
-          <em>I</em>
-        </NoteButton>
-        <NoteButton
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            setHref(editor.getAttributes("link").href ?? "");
-            setLinkOpen(!linkOpen);
-          }}
-          aria-expanded={linkOpen}
-          xstyle={styles.tool}
-        >
-          Link
-        </NoteButton>
-        <span {...stylex.props(styles.divider)} />
-        <NoteButton
-          type="button"
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          xstyle={styles.tool}
-        >
-          Undo
-        </NoteButton>
-        <NoteButton
-          type="button"
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          xstyle={styles.tool}
-        >
-          Redo
-        </NoteButton>
-        <NoteButton
-          type="button"
-          aria-expanded={!!slash}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            setSlash(
-              slash
-                ? null
-                : {
-                    from: editor.state.selection.from,
-                    to: editor.state.selection.from,
-                    query: "",
-                  },
-            );
-            setSelected(0);
-          }}
-          xstyle={styles.tool}
-        >
-          + Block
-        </NoteButton>
-        {controls}
-      </div>
-      {linkOpen && (
-        <form
+        <div
+          ref={toolbarRef}
+          role="toolbar"
+          aria-label="Selected text formatting"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
-              event.preventDefault();
               setLinkOpen(false);
               editor.commands.focus();
+              editor.commands.setTextSelection(editor.state.selection.to);
             }
           }}
-          {...stylex.props(styles.linkForm)}
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (href && !safeNoteUrl(href)) {
-              setLinkError("Use an https, http, or mailto URL.");
-              return;
-            }
-            if (href)
-              editor
-                .chain()
-                .focus()
-                .extendMarkRange("link")
-                .setLink({ href })
-                .run();
-            else
-              editor.chain().focus().extendMarkRange("link").unsetLink().run();
-            setLinkOpen(false);
-            setLinkError("");
-          }}
+          {...stylex.props(styles.toolbar)}
         >
-          <label>
-            Link URL{" "}
-            <input
-              ref={linkInput}
-              value={href}
-              onChange={(event) => setHref(event.target.value)}
-              placeholder="https://example.com"
-            />
-          </label>
-          <NoteButton type="submit">Apply</NoteButton>
           <NoteButton
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            aria-label="Bold"
+            aria-pressed={editor.isActive("bold")}
+            xstyle={[styles.tool, editor.isActive("bold") && styles.highlight]}
+          >
+            <strong>B</strong>
+          </NoteButton>
+          <NoteButton
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            aria-label="Italic"
+            aria-pressed={editor.isActive("italic")}
+            xstyle={[
+              styles.tool,
+              editor.isActive("italic") && styles.highlight,
+            ]}
+          >
+            <em>I</em>
+          </NoteButton>
+          <NoteButton
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
+              setHref(editor.getAttributes("link").href ?? "");
+              setLinkOpen(!linkOpen);
+            }}
+            aria-expanded={linkOpen}
+            xstyle={styles.tool}
+          >
+            Link
+          </NoteButton>
+        </div>
+        {linkOpen && (
+          <form
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setLinkOpen(false);
+                editor.commands.focus();
+              }
+            }}
+            {...stylex.props(styles.linkForm)}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (href && !safeNoteUrl(href)) {
+                setLinkError("Use an https, http, or mailto URL.");
+                return;
+              }
+              if (href)
+                editor
+                  .chain()
+                  .focus()
+                  .extendMarkRange("link")
+                  .setLink({ href })
+                  .run();
+              else
+                editor
+                  .chain()
+                  .focus()
+                  .extendMarkRange("link")
+                  .unsetLink()
+                  .run();
               setLinkOpen(false);
-              editor.commands.focus();
+              setLinkError("");
             }}
           >
-            Cancel
-          </NoteButton>
-          {linkError && <span role="alert">{linkError}</span>}
-        </form>
-      )}
+            <label>
+              Link URL{" "}
+              <input
+                ref={linkInput}
+                value={href}
+                onChange={(event) => setHref(event.target.value)}
+                placeholder="https://example.com"
+              />
+            </label>
+            <NoteButton type="submit">Apply</NoteButton>
+            <NoteButton
+              type="button"
+              onClick={() => {
+                setLinkOpen(false);
+                editor.commands.focus();
+              }}
+            >
+              Cancel
+            </NoteButton>
+            {linkError && <span role="alert">{linkError}</span>}
+          </form>
+        )}
+      </BubbleMenu>
       {slash && (
         <div
           ref={menuRef}
@@ -425,9 +428,55 @@ export function NoteEditor({
         </div>
       )}
       <EditorContent editor={editor} />
-      <p {...stylex.props(styles.help)}>
-        Type / for blocks · Markdown shortcuts supported
-      </p>
+      <div {...stylex.props(styles.footer)}>
+        <details ref={actionsRef} {...stylex.props(styles.actions)}>
+          <summary
+            aria-label="Editing actions"
+            {...stylex.props(styles.actionsToggle)}
+          >
+            •••
+          </summary>
+          <div {...stylex.props(styles.actionMenu)}>
+            <NoteButton
+              type="button"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+              xstyle={styles.tool}
+            >
+              Undo
+            </NoteButton>
+            <NoteButton
+              type="button"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+              xstyle={styles.tool}
+            >
+              Redo
+            </NoteButton>
+            <NoteButton
+              type="button"
+              aria-expanded={!!slash}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setSlash(
+                  slash
+                    ? null
+                    : {
+                        from: editor.state.selection.from,
+                        to: editor.state.selection.from,
+                        query: "",
+                      },
+                );
+                setSelected(0);
+                if (actionsRef.current) actionsRef.current.open = false;
+              }}
+              xstyle={styles.tool}
+            >
+              + Block
+            </NoteButton>
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
@@ -436,9 +485,6 @@ const styles = stylex.create({
   container: { position: "relative", minWidth: 0, color: colors.foreground },
   loading: { padding: 24, color: noteColors.secondary },
   toolbar: {
-    position: "sticky",
-    top: 0,
-    zIndex: 2,
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
@@ -457,11 +503,48 @@ const styles = stylex.create({
     cursor: "pointer",
     opacity: { default: 1, ":disabled": 0.45 },
   },
-  divider: {
-    width: 1,
-    height: 18,
-    backgroundColor: colors.border,
-    marginInline: 4,
+  bubble: {
+    zIndex: 5,
+    maxWidth: "calc(100vw - 32px)",
+    padding: 4,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    boxShadow: "0 4px 16px #0002",
+  },
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  actions: { position: "relative" },
+  actionsToggle: {
+    listStyle: "none",
+    cursor: "pointer",
+    color: noteColors.secondary,
+    minWidth: 44,
+    minHeight: 44,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionMenu: {
+    position: "absolute",
+    bottom: "100%",
+    right: 0,
+    display: "flex",
+    zIndex: 3,
+    padding: 4,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    boxShadow: "0 4px 16px #0002",
+    whiteSpace: "nowrap",
   },
   menu: {
     position: "fixed",
@@ -493,12 +576,11 @@ const styles = stylex.create({
   },
   highlight: { backgroundColor: colors.selected },
   hint: { color: noteColors.secondary },
-  help: { fontSize: 11, color: noteColors.secondary, marginBlock: 4 },
   linkForm: {
     display: "flex",
     flexWrap: "wrap",
     gap: 8,
-    paddingBlock: 12,
+    padding: 8,
     fontSize: 13,
   },
 });

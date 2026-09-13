@@ -51,6 +51,7 @@ type Pending =
 export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
   const [base, setBase] = useState(initial);
   const [blocks, setBlocks] = useState(initial.blocks);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructions, setInstructions] = useState(initial.instructions);
   const [status, setStatus] = useState("Saved");
   const [error, setError] = useState("");
@@ -402,7 +403,52 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
   return (
     <div {...stylex.props(styles.scroll)}>
       <article aria-label="Shared note" {...stylex.props(styles.paper)}>
-        {recovery && controls}
+        <div {...stylex.props(styles.metadata)}>
+          <NoteButton
+            type="button"
+            aria-expanded={instructionsOpen}
+            aria-controls="note-instructions-panel"
+            onClick={() => setInstructionsOpen((open) => !open)}
+            xstyle={styles.instructionToggle}
+          >
+            <span aria-hidden="true">{instructionsOpen ? "⌄" : "›"}</span>
+            Agent instructions
+          </NoteButton>
+          {controls}
+        </div>
+        {instructionsOpen && (
+          <div
+            id="note-instructions-panel"
+            {...stylex.props(styles.instructions)}
+          >
+            <textarea
+              id="note-instructions"
+              aria-label="Agent instructions"
+              disabled={!!recovery}
+              maxLength={8000}
+              rows={4}
+              value={instructions}
+              onFocus={() => {
+                focused.current = true;
+              }}
+              onBlur={() => {
+                focused.current = false;
+              }}
+              onChange={(event) => {
+                setInstructions(event.target.value);
+                setError("");
+                setStatus("Unsaved changes");
+              }}
+              placeholder="For example: keep the next steps current and preserve my personal notes."
+              {...stylex.props(styles.textarea)}
+            />
+            {instructions.length >= 7200 && (
+              <p {...stylex.props(styles.description)}>
+                {instructions.length.toLocaleString()} / 8,000 characters
+              </p>
+            )}
+          </div>
+        )}
         {recovery && (
           <div {...stylex.props(styles.notice)}>
             <strong>Recover your unsaved draft</strong>
@@ -521,7 +567,6 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
           <NoteEditor
             key={version}
             blocks={blocks}
-            controls={controls}
             onChange={(value) => {
               setBlocks(value);
               setStatus("Unsaved changes");
@@ -536,47 +581,6 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
             }}
           />
         )}
-
-        <details {...stylex.props(styles.instructions)}>
-          <summary {...stylex.props(styles.summary)}>
-            Maintenance instructions{" "}
-            <span {...stylex.props(styles.optional)}>Optional</span>
-          </summary>
-          <p {...stylex.props(styles.description)}>
-            Tell your agent how to keep this note useful. These instructions
-            apply only to note maintenance and never authorize external actions.
-          </p>
-          <label
-            htmlFor="note-instructions"
-            {...stylex.props(styles.description)}
-          >
-            How should your agent maintain this note?
-          </label>
-          <textarea
-            id="note-instructions"
-            disabled={!!recovery}
-            maxLength={8000}
-            rows={4}
-            value={instructions}
-            onFocus={() => {
-              focused.current = true;
-            }}
-            onBlur={() => {
-              focused.current = false;
-            }}
-            onChange={(event) => {
-              setInstructions(event.target.value);
-              setError("");
-              setStatus("Unsaved changes");
-            }}
-            placeholder="For example: keep the next steps current and preserve my personal notes."
-            {...stylex.props(styles.textarea)}
-          />
-          <p {...stylex.props(styles.description)}>
-            Saved separately from the note ·{" "}
-            {instructions.length.toLocaleString()} / 8,000
-          </p>
-        </details>
       </article>
     </div>
   );
@@ -628,20 +632,26 @@ const styles = stylex.create({
     lineHeight: 1.6,
     overflowWrap: "anywhere",
   },
-  instructions: { marginTop: 8 },
-  summary: {
-    cursor: "pointer",
-    fontSize: 12,
-    color: noteColors.secondary,
-    paddingBlock: 10,
-    minHeight: { default: 36, "@media (max-width: 700px)": 44 },
-    outline: {
-      default: "none",
-      ":focus-visible": `2px solid ${colors.foreground}`,
-    },
-    outlineOffset: 2,
+  metadata: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+    marginBottom: 12,
   },
-  optional: { marginLeft: 8, fontSize: 11, color: noteColors.secondary },
+  instructionToggle: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    paddingInline: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    color: noteColors.secondary,
+    fontSize: 12,
+    cursor: "pointer",
+  },
+  instructions: { marginBottom: 20 },
   description: { color: noteColors.secondary, fontSize: 12, lineHeight: 1.6 },
   textarea: {
     display: "block",

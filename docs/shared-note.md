@@ -9,14 +9,18 @@ Use the note for a shared plan, reference details, or next steps. Paragraphs,
 three heading levels, bullet and numbered lists, and interactive to-dos are
 supported. Type `# `, `## `, `### `, `- `, `1. `, or `[] ` to start a block.
 Type `/` to search the block menu; use arrows and Enter, or tap a choice. The
-**+ Block** button opens the same menu without typing. Escape closes it. Select
-text to apply bold, italic, or a link from the toolbar. Undo and Redo work during
+**+ Block** button in the `•••` editing menu below the note opens the same menu
+without typing. Escape closes it. Select text to reveal the floating bold, italic,
+and link toolbar; Alt+F10 moves keyboard focus into it. Undo and Redo are also
+available in the editing menu and through keyboard shortcuts. They work during
 an editing session, including after successful autosaves. Remote adoption,
 explicit reload, merge, and restore start a fresh undo history; Undo cannot
 remove an agent update from a previous editing session. Use revision history
 to restore older saved content.
 
-**Maintenance instructions** are optional, collapsible, and saved separately.
+**Agent instructions** sit above the note beside save status and History. They
+are optional, collapsed by default, and saved separately. The character count
+appears only near the 8,000-character limit.
 They tell the agent how to maintain the note; they never replace the note or
 permit purchases, messages, deployments, or other external actions. Only the
 user can edit these instructions. Agents must read both the current note and
