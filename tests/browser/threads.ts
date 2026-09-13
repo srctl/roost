@@ -15,6 +15,250 @@ import {
 import { openReplyThread } from "../../src/server/runs/threads.server";
 import { putMessage } from "../../src/server/runs/timeline.server";
 
+async function verifyReplyActions(browser: Browser, base: string) {
+  for (const responseStyle of ["codex", "messages"]) {
+    for (const [label, width, height, hasTouch] of [
+      ["desktop", 1440, 1000, false],
+      ["mobile-touch", 390, 844, true],
+      ["desktop-touch", 1440, 1000, true],
+    ] as const) {
+      const id = randomUUID();
+      await Effect.runPromise(
+        saveAgent({
+          id,
+          name: "Reply actions",
+          instructions: "Local fixture only",
+          character: "moss",
+          model: "fake",
+        }),
+      );
+      await Effect.runPromise(
+        withAgentStore((db) => {
+          db.prepare("INSERT INTO timeline_imports VALUES (?)").run(id);
+          for (const message of [
+            {
+              id: "old-user",
+              role: "user" as const,
+              text: "Historical user thread",
+            },
+            {
+              id: "empty-user",
+              role: "user" as const,
+              text: "Historical empty thread",
+            },
+            {
+              id: "old-assistant",
+              role: "assistant" as const,
+              text: "Historical assistant thread",
+            },
+            {
+              id: "new-user",
+              role: "user" as const,
+              text: "A new user message",
+            },
+            {
+              id: "new-assistant",
+              role: "assistant" as const,
+              text:
+                "A full width response with a long link: https://example.test/" +
+                "long-path-".repeat(40),
+            },
+          ])
+            putMessage(db, id, message);
+          if (hasTouch)
+            putMessage(db, id, {
+              id: "touch-assistant",
+              role: "assistant",
+              text: "Another response for touch creation",
+            });
+        }),
+      );
+      const threads = new Map<string, string>();
+      for (const root of ["old-user", "empty-user", "old-assistant"]) {
+        const child = await Effect.runPromise(openReplyThread(id, root));
+        threads.set(root, child.id);
+        if (root !== "empty-user")
+          await Effect.runPromise(
+            withAgentStore((db) =>
+              putMessage(
+                db,
+                id,
+                {
+                  id: `${root}-reply`,
+                  role: "assistant",
+                  text: "Historical reply",
+                },
+                child.id,
+              ),
+            ),
+          );
+      }
+      const context = await browser.newContext({
+        viewport: { width, height },
+        hasTouch,
+      });
+      await context.addCookies([
+        { name: "roost.responseStyle", value: responseStyle, url: base },
+      ]);
+      const page = await context.newPage();
+      await page.goto(`${base}/agents/${id}`);
+      const main = page.getByRole("region", {
+        name: "Conversation with Reply actions",
+        exact: true,
+      });
+      const row = main.locator('[data-message-id="new-assistant"]');
+      const action = row.getByRole("button", {
+        name: "Reply in thread",
+        exact: true,
+      });
+      await action.waitFor();
+      assert.equal(
+        await main
+          .locator('[data-message-id="new-user"]')
+          .getByRole("button")
+          .count(),
+        0,
+      );
+      assert.equal(await action.innerText(), "");
+      assert.equal(await action.locator("svg[aria-hidden=true]").count(), 1);
+      assert.equal(await action.getAttribute("title"), "Reply in thread");
+      await action.scrollIntoViewIfNeeded();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(200);
+      const opacity = () =>
+        action.evaluate((el) => getComputedStyle(el).opacity);
+      assert.equal(
+        await page.evaluate(() => matchMedia("(hover: hover)").matches),
+        !hasTouch,
+      );
+      assert.equal(await opacity(), hasTouch ? "1" : "0");
+      const geometry = () =>
+        row.evaluate((el) => ({
+          row: el.getBoundingClientRect().toJSON(),
+          content: el
+            .querySelector("article")!
+            .getBoundingClientRect()
+            .toJSON(),
+        }));
+      const rest = await geometry();
+      const target = (await action.boundingBox())!;
+      assert.ok(target.width >= 40 && target.height >= 40);
+      assert.ok(
+        target.y >= rest.content.bottom,
+        "action does not overlap content",
+      );
+      if (!hasTouch) {
+        await row.hover();
+        await page.waitForTimeout(200);
+        assert.equal(await opacity(), "1");
+        assert.deepEqual(
+          await geometry(),
+          rest,
+          "hover does not move or narrow content",
+        );
+      }
+      await page.mouse.move(0, 0);
+      // Reach the action by Tab from the preceding link, including when invisible.
+      await row.getByRole("link").focus();
+      await page.keyboard.press("Tab");
+      assert.ok(await action.evaluate((el) => el === document.activeElement));
+      await page.waitForTimeout(200);
+      assert.equal(await opacity(), "1");
+      assert.deepEqual(
+        await geometry(),
+        rest,
+        "focus does not move or narrow content",
+      );
+      assert.equal(
+        await action.evaluate((el) => getComputedStyle(el).outlineStyle),
+        "solid",
+      );
+      await page.keyboard.press("Enter");
+      const panel = page.getByRole("region", {
+        name: "Reply thread",
+        exact: true,
+      });
+      await panel.getByRole("textbox").waitFor();
+      const created = new URL(page.url()).searchParams.get("conversation");
+      assert.ok(created && ![...threads.values()].includes(created));
+      await page.keyboard.press("Escape");
+      await panel.waitFor({ state: "detached" });
+      assert.ok(
+        await row
+          .getByRole("button")
+          .evaluate((el) => el === document.activeElement),
+      );
+      // Counts remain visible and open every historical root, even empty user threads.
+      for (const [root, child] of threads) {
+        const nav = main
+          .locator(`[data-message-id="${root}"]`)
+          .getByRole("button");
+        await nav.scrollIntoViewIfNeeded();
+        await page.mouse.move(0, 0);
+        assert.equal(
+          await nav.evaluate((el) => getComputedStyle(el).opacity),
+          "1",
+        );
+        assert.match(
+          await nav.innerText(),
+          root === "empty-user" ? /0 replies/ : /1 reply · Unread/,
+        );
+        await nav.click();
+        await panel.getByRole("textbox").waitFor();
+        assert.equal(
+          new URL(page.url()).searchParams.get("conversation"),
+          child,
+        );
+        await page.keyboard.press("Escape");
+        await panel.waitFor({ state: "detached" });
+        assert.ok(await nav.evaluate((el) => el === document.activeElement));
+      }
+      if (hasTouch) {
+        const touchRow = main.locator('[data-message-id="touch-assistant"]');
+        const touchAction = touchRow.getByRole("button", {
+          name: "Reply in thread",
+          exact: true,
+        });
+        await touchAction.scrollIntoViewIfNeeded();
+        assert.equal(
+          await touchAction.evaluate((el) => getComputedStyle(el).opacity),
+          "1",
+        );
+        await touchAction.tap();
+        await panel.getByRole("textbox").waitFor();
+        const touchCreated = new URL(page.url()).searchParams.get(
+          "conversation",
+        );
+        assert.ok(
+          touchCreated &&
+            touchCreated !== created &&
+            ![...threads.values()].includes(touchCreated),
+        );
+        await panel
+          .getByRole("button", { name: "Close thread", exact: true })
+          .tap();
+        await panel.waitFor({ state: "detached" });
+        await touchRow.getByRole("button", { name: /0 replies/ }).tap();
+        await panel.getByRole("textbox").waitFor();
+        assert.equal(
+          new URL(page.url()).searchParams.get("conversation"),
+          touchCreated,
+        );
+        await page.keyboard.press("Escape");
+      }
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+      await context.close();
+      console.log(
+        `${responseStyle} ${label}: reply roles, visibility, keyboard creation, historical navigation and geometry passed`,
+      );
+    }
+  }
+}
+
 // Always launches its own loopback server and database. Never accepts a live URL.
 const directory = mkdtempSync(join(tmpdir(), "roost-browser-threads-"));
 const previous = process.env.ROOST_DATA_DIR;
@@ -78,6 +322,7 @@ try {
     if (i === 99) throw new Error(logs);
     await new Promise((r) => setTimeout(r, 100));
   }
+  await verifyReplyActions(browser, base);
   for (const [label, width, height] of [
     ["desktop", 1440, 1000],
     ["mobile", 390, 844],
@@ -345,6 +590,11 @@ try {
     await panel
       .getByRole("button", { name: "Close thread", exact: true })
       .click();
+    await main
+      .getByRole("button", {
+        name: /Reply in thread: Release decision 179:.*running/,
+      })
+      .waitFor();
     await main.getByRole("textbox").fill("Queued main request");
     await main
       .getByRole("button", { name: "Send message", exact: true })

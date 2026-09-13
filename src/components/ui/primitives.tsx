@@ -93,6 +93,7 @@ const paths = {
       <path d="M8 21h8M12 17v4" />
     </>
   ),
+  reply: <path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7" />,
   up: <path d="M12 19V5m-5 5 5-5 5 5" />,
   close: <path d="m6 6 12 12M6 18 18 6" />,
 };
