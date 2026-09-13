@@ -1,0 +1,5 @@
+LISTEN 0      0          127.0.0.1:4327       0.0.0.0:*    users:(("MainThread",pid=1173639,fd=21))
+LISTEN 0      0          127.0.0.1:4336       0.0.0.0:*    users:(("MainThread",pid=1185471,fd=21))
+LISTEN 0      0            0.0.0.0:4342       0.0.0.0:*    users:(("MainThread",pid=1345049,fd=30))
+LISTEN 0      0            0.0.0.0:4344       0.0.0.0:*    users:(("MainThread",pid=1353976,fd=30))
+LISTEN 0      0            0.0.0.0:4346       0.0.0.0:*    users:(("MainThread",pid=1479306,fd=21))

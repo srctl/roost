@@ -1,0 +1,38 @@
+[
+  {
+    "name": "README.md",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/README.md",
+    "status": 200,
+    "sha256": "d8c61d2d81a265ed912d732197cc14c1165cb2716dcc2e650bfe09dbe2ab35d0"
+  },
+  {
+    "name": "check-committed.exit",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/check-committed.exit",
+    "status": 200,
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "name": "desktop-delete-copy-before.png",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/desktop-delete-copy-before.png",
+    "status": 200,
+    "sha256": "1ff48c389638189be6dd59ab7d4c11cb33851cbcc8c9e0be50e77ec02c989ecb"
+  },
+  {
+    "name": "desktop-delete-copy-after.png",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/desktop-delete-copy-after.png",
+    "status": 200,
+    "sha256": "9e2b84478ec9c477796c64e209013f467005318e7d8eb8ec831f2bc3dbd71f72"
+  },
+  {
+    "name": "mobile-delete-copy-before.png",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/mobile-delete-copy-before.png",
+    "status": 200,
+    "sha256": "f3f612d368366fcc3b748d5af878516c146c1e37354b60639b0953d8ee8c4615"
+  },
+  {
+    "name": "mobile-delete-copy-after.png",
+    "url": "https://raw.githubusercontent.com/srctl/roost/72e07ec4c3064d5fca0ea527f3fce74848b42deb/mobile-delete-copy-after.png",
+    "status": 200,
+    "sha256": "8109156c08cd37455e115de80ace8150e9f9c6422fa6b5fde78449fe8546aa7b"
+  }
+]

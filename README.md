@@ -3,7 +3,7 @@
 Source integration commit: `6ce913f6f779296e237cf4f3abd4b032fe76943a`.
 Tested source tree: `8669a57d7a3b0241fc1048727bd3e2c2bd4a2a0c`.
 
-Only these approved features are combined. See HANDOFF.md for exact checks, merge records, preserved previews, and cleanup.
+All three PRs are merged. Final main is `820d28226fee5bb91b0c7ba12d5a88d845df2fd0`, with exactly the tested tree above. Only these approved features are combined. See HANDOFF.md for exact checks, merge records, preserved previews, and cleanup.
 
 ## Matched rendered confirmation-copy comparison
 
