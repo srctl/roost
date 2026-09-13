@@ -384,7 +384,7 @@ test("stale, terminal-blocked and uncertain delivery submissions do not send or 
     );
   }));
 
-test("review CTA requires explicit verification, preserves integration distinction; migration leaves core version intact", () =>
+test("review CTA requires explicit verification, preserves integration distinction; aggregate migration retains thread core version", () =>
   fixture(async (agent, id, runId) => {
     await assert.rejects(
       report(agent, id, runId, { workflow: "review" }),
@@ -402,7 +402,7 @@ test("review CTA requires explicit verification, preserves integration distincti
     );
     await run(
       withAgentStore((db) => {
-        assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 10);
+        assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 13);
         assert.equal(
           db.prepare("SELECT count(*) n FROM coding_workspace_versions").get()!
             .n,
