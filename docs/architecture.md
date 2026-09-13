@@ -77,6 +77,10 @@ resumed after the app-server exits.
 For the packaged installation, the service sets `ROOST_DATA_DIR` to the `data`
 directory inside `ROOST_HOME`; the default is `~/.local/share/roost/data`.
 
+Each agent also owns one structured shared note with independent maintenance
+instructions, transactional revisions, and targeted agent tools. See
+[Shared agent note](shared-note.md) for persistence and conflict recovery.
+
 Agent soul history and native Codex memory are covered in
 [Agents and memory](agents-and-memory.md). [Automations](automations.md) describes
 worker recovery, scheduling, and execution guarantees, while

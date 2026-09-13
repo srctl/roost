@@ -41,3 +41,11 @@ Dashboard dataset charts bundle Microsoft Fluent UI v9 (`@fluentui/react-charts`
 9.3.25 and its provider/theme dependencies), licensed under MIT. Source and
 license: https://github.com/microsoft/fluentui. Charts are adapted through Roost's
 bounded data schema; the upstream chart implementations are unmodified.
+
+## Tiptap
+
+The shared note editor bundles unmodified Tiptap 3.31.3 React, StarterKit,
+Placeholder, TaskList, TaskItem, and UniqueID extensions, licensed under MIT.
+Source and license: https://github.com/ueberdosis/tiptap. ProseMirror dependencies
+are also MIT licensed: https://github.com/ProseMirror. The application-owned
+adapter persists validated blocks rather than HTML.
