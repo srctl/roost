@@ -14,6 +14,11 @@ import {
   migrateNotes,
 } from "./feature-migration.server";
 
+import {
+  AgentNavigationMigrationError,
+  migrateAgentNavigation,
+} from "./navigation-migration.server";
+
 export class AgentStoreError extends Data.TaggedError("AgentStoreError")<{
   message: string;
 }> {}
@@ -308,6 +313,7 @@ export function withAgentStore<A>(
           PRAGMA user_version=13; RELEASE core_step;`);
           migrateNotes(db);
           migrateCodingWorkspace(db);
+          migrateAgentNavigation(db);
           db.exec("PRAGMA user_version=14; COMMIT");
         } catch (error) {
           db.exec("ROLLBACK");
@@ -320,7 +326,8 @@ export function withAgentStore<A>(
     },
     catch: (error) =>
       error instanceof CodingWorkspaceMigrationError ||
-      error instanceof FeatureMigrationError
+      error instanceof FeatureMigrationError ||
+      error instanceof AgentNavigationMigrationError
         ? new AgentStoreError({ message: error.message })
         : error instanceof AgentStoreError
           ? error

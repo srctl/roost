@@ -3,6 +3,7 @@ import { lazy, type RefObject, Suspense } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useOpenAfterMount } from "../features/motion";
 import { colors } from "../styles/tokens.stylex";
+import { AgentNameSettings } from "./agent-name-settings";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
 import {
@@ -48,6 +49,7 @@ export function AgentSettingsDialog({
             <Icon name="close" />
           </SheetClose>
         </header>
+        <AgentNameSettings key={agent.id} agent={agent} />
         <Suspense
           fallback={<p {...stylex.props(styles.loading)}>Loading settings…</p>}
         >
