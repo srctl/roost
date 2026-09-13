@@ -3,7 +3,114 @@ import { motion } from "./motion.stylex";
 import { colors } from "./tokens.stylex";
 
 export const jobsStyles = stylex.create({
-  workerLog: { maxHeight: "55vh", overflowY: "auto", overflowWrap: "anywhere" },
+  desktopOnly: {
+    display: { default: null, "@media(max-width:700px)": "none" },
+  },
+  mobileOnly: {
+    display: { default: "none", "@media(max-width:700px)": "initial" },
+  },
+  mobileControl: {
+    display: { default: "none", "@media(max-width:700px)": "inline-flex" },
+  },
+  workerResponse: { whiteSpace: "normal" },
+  workerDiscussion: { display: "flex", flexDirection: "column", minWidth: 0 },
+  workerLog: {
+    maxHeight: { default: "55vh", "@media(max-width:700px)": "none" },
+    overflowY: { default: "auto", "@media(max-width:700px)": "visible" },
+    overflowWrap: "anywhere",
+    minWidth: 0,
+    order: { default: 0, "@media(max-width:700px)": 2 },
+  },
+  workerComposer: {
+    order: { default: 1, "@media(max-width:700px)": 0 },
+    scrollMarginBlock: 12,
+  },
+  workerTextarea: {
+    height: {
+      default: "auto",
+      "@media(max-width:700px)":
+        "clamp(64px, calc(var(--roost-viewport-height, 100dvh) * .18), 112px)",
+    },
+    minHeight: { default: 100, "@media(max-width:700px)": 64 },
+    resize: { default: "vertical", "@media(max-width:700px)": "none" },
+    boxSizing: "border-box",
+  },
+  composerActions: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: { default: 16, "@media(max-width:700px)": 0 },
+  },
+  composerButton: {
+    minWidth: 0,
+    whiteSpace: "normal",
+    maxWidth: "100%",
+    paddingInline: 8,
+  },
+  sendButton: {
+    minWidth: 0,
+    whiteSpace: "normal",
+    maxWidth: "100%",
+    backgroundColor: {
+      default: colors.accent,
+      ":enabled:hover": colors.accent,
+    },
+    color: { default: colors.onAccent, ":enabled:hover": colors.onAccent },
+    opacity: { default: 1, ":disabled": 0.4 },
+    fontSize: { default: 12, "@media(max-width:700px)": 14 },
+    fontWeight: 500,
+    paddingInline: 10,
+  },
+  composerHelp: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 1.5,
+    marginBlock: 6,
+  },
+  composerNotice: {
+    order: { default: 2, "@media(max-width:700px)": 1 },
+    marginBlock: 6,
+    ":empty": { display: "none" },
+  },
+  history: { minWidth: 0 },
+  historySummary: {
+    display: { default: "none", "@media(max-width:700px)": "list-item" },
+    color: colors.muted,
+    cursor: "pointer",
+    minHeight: 44,
+    paddingBlock: 12,
+    fontSize: 13,
+    boxSizing: "border-box",
+    outlineOffset: 3,
+  },
+  workspaceDetails: {
+    minWidth: 0,
+    order: { default: 0, "@media(max-width:700px)": 1 },
+  },
+  workspaceDetailsSummary: {
+    display: { default: "none", "@media(max-width:700px)": "list-item" },
+    cursor: "pointer",
+    minHeight: 44,
+    paddingBlock: 14,
+    fontSize: 13,
+    fontWeight: 500,
+    outlineOffset: 3,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: colors.border,
+  },
+  discussionColumn: {
+    minWidth: 0,
+    order: { default: 1, "@media(max-width:700px)": 0 },
+  },
+  wrappingButton: {
+    whiteSpace: "normal",
+    textAlign: "left",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
+  },
   conversationPanel: { height: 580, minWidth: 0, maxHeight: "75svh" },
   page: {
     display: "flex",
@@ -20,7 +127,12 @@ export const jobsStyles = stylex.create({
     minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
-    padding: { default: 28, "@media(max-width:700px)": 16 },
+    padding: { default: 28, "@media(max-width:700px)": 12 },
+    paddingBottom: {
+      default: 28,
+      "@media(max-width:700px)":
+        "max(12px, var(--roost-bottom-inset, env(safe-area-inset-bottom)))",
+    },
   },
   toolbar: {
     display: "flex",
@@ -30,7 +142,11 @@ export const jobsStyles = stylex.create({
     marginBottom: 16,
     flexWrap: "wrap",
   },
-  filters: { display: "flex", gap: 8 },
+  filters: {
+    display: "flex",
+    gap: { default: 8, "@media(max-width:700px)": 4 },
+    flexWrap: "wrap",
+  },
   selected: { backgroundColor: colors.selected, color: colors.foreground },
   title: {
     fontSize: 18,
@@ -45,7 +161,12 @@ export const jobsStyles = stylex.create({
     marginTop: 0,
     marginBottom: 12,
   },
-  muted: { color: colors.muted, fontSize: 12, lineHeight: 1.7 },
+  muted: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 1.7,
+    overflowWrap: "anywhere",
+  },
   list: { listStyle: "none", padding: 0, margin: 0 },
   row: {
     display: "flex",
@@ -116,7 +237,7 @@ export const jobsStyles = stylex.create({
     fontSize: 12,
     color: colors.muted,
     minHeight: { default: 28, "@media(max-width:700px)": 44 },
-    marginBottom: 20,
+    marginBottom: { default: 20, "@media(max-width:700px)": 4 },
     textDecoration: "none",
     outlineOffset: 3,
   },
@@ -124,9 +245,9 @@ export const jobsStyles = stylex.create({
     display: "flex",
     justifyContent: "space-between",
     alignItems: "start",
-    gap: 20,
+    gap: { default: 20, "@media(max-width:700px)": 8 },
     flexWrap: "wrap",
-    marginBottom: 28,
+    marginBottom: { default: 28, "@media(max-width:700px)": 12 },
   },
   actions: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   workspace: {
@@ -135,7 +256,7 @@ export const jobsStyles = stylex.create({
       default: "minmax(0, 1.25fr) minmax(260px, 1fr)",
       "@media(max-width:1000px)": "1fr",
     },
-    gap: 28,
+    gap: { default: 28, "@media(max-width:700px)": 16 },
   },
   section: { marginBottom: 28 },
   sectionHeading: {
@@ -171,10 +292,16 @@ export const jobsStyles = stylex.create({
     borderLeftStyle: "solid",
     borderLeftColor: colors.border,
     paddingLeft: { default: 28, "@media(max-width:1000px)": 0 },
-    borderTopWidth: { default: 0, "@media(max-width:1000px)": 1 },
+    borderTopWidth: {
+      default: 0,
+      "@media(min-width:701px) and (max-width:1000px)": 1,
+    },
     borderTopStyle: "solid",
     borderTopColor: colors.border,
-    paddingTop: { default: 0, "@media(max-width:1000px)": 24 },
+    paddingTop: {
+      default: 0,
+      "@media(min-width:701px) and (max-width:1000px)": 24,
+    },
     minWidth: 0,
   },
   message: {
@@ -184,13 +311,19 @@ export const jobsStyles = stylex.create({
     borderRadius: 12,
   },
   messageText: {
-    fontSize: 13,
+    fontSize: { default: 13, "@media(max-width:700px)": 15 },
     lineHeight: 1.7,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
     marginBlock: 8,
   },
-  author: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
+  author: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12,
+    flexWrap: "wrap",
+  },
   composer: {
     borderWidth: 1,
     borderStyle: "solid",
@@ -241,8 +374,8 @@ export const jobsStyles = stylex.create({
   },
   value: { margin: 0, color: colors.foreground, overflowWrap: "anywhere" },
   output: {
-    maxHeight: 320,
-    overflowY: "auto",
+    maxHeight: { default: 320, "@media(max-width:700px)": "none" },
+    overflowY: { default: "auto", "@media(max-width:700px)": "visible" },
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
     fontFamily: "monospace",
