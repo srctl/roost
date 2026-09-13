@@ -143,11 +143,12 @@ export function ThreadConversations({
             }
           }}
         >
-          {snapshot?.ok && parent ? (
+          {snapshot?.ok && (parent || snapshot.value.job) ? (
             <Conversation
               key={id}
               agent={agent}
               conversationId={id}
+              title={snapshot?.ok ? snapshot.value.job?.title : undefined}
               initialConversation={snapshot}
               parent={parent}
               embedded

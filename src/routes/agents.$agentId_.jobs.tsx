@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AgentHeader } from "../components/agent-header";
+import { Conversation } from "../components/conversation";
 import { Button } from "../components/ui/button";
 import { Icon } from "../components/ui/primitives";
 import type { Agent } from "../features/agents/schema";
@@ -17,6 +18,7 @@ import {
   type CodingWorkspace,
   type JobFeedback,
   jobWorkflowLabel,
+  previewState,
 } from "../features/coding/workspace-schema";
 import { jobsStyles as s } from "../styles/jobs.stylex";
 import { Route as RootRoute } from "./__root";
@@ -67,7 +69,7 @@ function Status({ job }: { job: Job }) {
     </span>
   );
 }
-function Primary({ job }: { job: Job }) {
+function Primary({ job, now }: { job: Job; now: number }) {
   const w = job.workspace;
   const review =
     (jobWorkflowLabel(job, w) === "Ready for review" ||
@@ -84,7 +86,7 @@ function Primary({ job }: { job: Job }) {
         {job.status === "completed" ? "View PR" : "Review PR"} ↗
       </a>
     );
-  if (w.previewAvailability === "running" && w.previewUrl)
+  if (previewState(w, now) === "running" && w.previewUrl)
     return (
       <a
         href={w.previewUrl}
@@ -95,7 +97,13 @@ function Primary({ job }: { job: Job }) {
         Open preview ↗
       </a>
     );
-  return <span {...stylex.props(s.muted)}>Preview unavailable</span>;
+  return (
+    <span {...stylex.props(s.muted)}>
+      {previewState(w, now) === "unknown"
+        ? "Preview status unknown"
+        : "Preview unavailable"}
+    </span>
+  );
 }
 function JobsPage() {
   const { agentId } = Route.useParams();
@@ -123,11 +131,26 @@ function AgentJobs({
   const [busy, setBusy] = useState(false);
   const [stopping, setStopping] = useState<string>();
   const [filter, setFilter] = useState("All work");
+  const [now, setClock] = useState(Date.now);
+  useEffect(() => {
+    const tick = () => setClock(Date.now());
+    const timer = setInterval(tick, 1000);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+    };
+  }, []);
   const [interactive, setInteractive] = useState(false);
   useEffect(() => setInteractive(true), []);
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef<string | undefined>(undefined);
-  const result = loaded.jobs;
+  const [lastJobs, setLastJobs] = useState(loaded.jobs);
+  useEffect(() => {
+    if (loaded.jobs.ok) setLastJobs(loaded.jobs);
+  }, [loaded.jobs]);
+  const result = loaded.jobs.ok ? loaded.jobs : lastJobs;
+  const refreshError = !loaded.jobs.ok && lastJobs.ok ? loaded.jobs.error : "";
   const jobs = result.ok ? result.value : [];
   const job = jobs.find((item) => item.id === selected);
   const running = jobs.some(
@@ -152,7 +175,12 @@ function AgentJobs({
     if (agent.kind !== "coding") return;
     let pending = false;
     const poll = async () => {
-      if (pending || document.visibilityState !== "visible") return;
+      if (
+        pending ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
       pending = true;
       try {
         await router.invalidate({
@@ -174,6 +202,10 @@ function AgentJobs({
     };
   }, [router, agent.id, agent.kind, running]);
   async function manualRefresh() {
+    if (!navigator.onLine) {
+      setError("You’re offline. Showing the last saved job report.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -202,9 +234,9 @@ function AgentJobs({
     <section {...stylex.props(s.page)}>
       <AgentHeader agent={agent} />
       <div {...stylex.props(s.content)}>
-        {error && (
+        {(error || refreshError) && (
           <p role="alert" {...stylex.props(s.error)}>
-            {error}
+            {error || refreshError}
           </p>
         )}
         {agent.kind !== "coding" ? (
@@ -252,11 +284,14 @@ function AgentJobs({
                 <Status job={job} />
               </div>
               <div {...stylex.props(s.actions)}>
-                <Primary job={job} />
+                <Primary job={job} now={now} />
                 <Button
-                  onClick={() =>
-                    document.getElementById("job-feedback")?.focus()
-                  }
+                  onClick={() => {
+                    document.getElementById("job-worker-feedback")?.click();
+                    requestAnimationFrame(() =>
+                      document.getElementById("job-feedback")?.focus(),
+                    );
+                  }}
                 >
                   Leave feedback ↓
                 </Button>
@@ -274,11 +309,13 @@ function AgentJobs({
                   <div {...stylex.props(s.sectionHeading)}>
                     <h3 {...stylex.props(s.sectionTitle)}>Current preview</h3>
                     <span {...stylex.props(s.muted)}>
-                      {job.workspace.previewAvailability === "running"
-                        ? "Running"
+                      {previewState(job.workspace, now) === "running"
+                        ? "Reported running"
                         : job.workspace.previewAvailability === "not_needed"
                           ? "Not needed"
-                          : "Unavailable"}
+                          : previewState(job.workspace, now) === "unknown"
+                            ? "Unknown · report expired"
+                            : "Unavailable"}
                     </span>
                   </div>
                   <div {...stylex.props(s.preview)}>
@@ -300,29 +337,32 @@ function AgentJobs({
                         </p>
                       )}
                     </div>
-                    {job.workspace.previewAvailability === "running" &&
-                      job.workspace.previewUrl && (
-                        <a
-                          href={job.workspace.previewUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          {...stylex.props(s.actionLink)}
-                        >
-                          Open ↗
-                        </a>
-                      )}
+                    {job.workspace.previewUrl && (
+                      <a
+                        href={job.workspace.previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        {...stylex.props(s.actionLink)}
+                      >
+                        {previewState(job.workspace, now) === "running"
+                          ? "Open ↗"
+                          : "Try last preview ↗"}
+                      </a>
+                    )}
                   </div>
-                  {job.workspace.previewAvailability === "unavailable" && (
+                  {previewState(job.workspace, now) !== "running" && (
                     <p {...stylex.props(s.muted)}>
                       Preview availability does not change this job’s status.
                       Your work and feedback remain here.
                     </p>
                   )}
-                  {job.workspace.updatedAt > 0 && (
+                  {job.workspace.previewReportedAt > 0 && (
                     <p {...stylex.props(s.muted)}>
                       Last reported{" "}
-                      {new Date(job.workspace.updatedAt).toLocaleString()}.
-                      Availability is reported, not continuously health-checked.
+                      {new Date(
+                        job.workspace.previewReportedAt,
+                      ).toLocaleString()}
+                      . Running reports expire after 15 minutes.
                     </p>
                   )}
                 </section>
@@ -413,6 +453,7 @@ function AgentJobs({
                 {loaded.detail?.ok ? (
                   <Discussion
                     key={job.id}
+                    agent={agent}
                     job={job}
                     feedback={loaded.detail.value.feedback}
                     refresh={refresh}
@@ -511,7 +552,7 @@ function AgentJobs({
                         </div>
                       </div>
                       <div {...stylex.props(s.rowActions)}>
-                        <Primary job={item} />
+                        <Primary job={item} now={now} />
                         <time
                           dateTime={new Date(item.updatedAt).toISOString()}
                           {...stylex.props(s.muted)}
@@ -535,14 +576,17 @@ function AgentJobs({
 
 type Draft = { text: string; requestId: string; previewRevision: string };
 function Discussion({
+  agent,
   job,
   feedback,
   refresh,
 }: {
   job: Job;
+  agent: Agent;
   feedback: JobFeedback[];
   refresh: () => Promise<void>;
 }) {
+  const [discuss, setDiscuss] = useState(false);
   const key = `roost-job-feedback-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState<Draft>();
   const [ready, setReady] = useState(false);
@@ -665,128 +709,152 @@ function Discussion({
     <section {...stylex.props(s.discussion)}>
       <h3 {...stylex.props(s.sectionTitle)}>Discussion</h3>
       <p {...stylex.props(s.muted)}>
-        Feedback for this assignment.{" "}
-        <Link
-          to="/agents/$agentId"
-          params={{ agentId: job.agentId }}
-          {...stylex.props(s.link)}
+        Feedback and replies stay with this assignment.
+      </p>
+      <div {...stylex.props(s.filters)}>
+        <Button
+          id="job-worker-feedback"
+          disabled={!ready}
+          xstyle={!discuss ? s.selected : undefined}
+          aria-pressed={!discuss}
+          onClick={() => setDiscuss(false)}
         >
-          Open agent conversation
-        </Link>
-      </p>
-      <p {...stylex.props(s.muted)}>
-        Saved feedback also appears in the agent conversation.
-      </p>
-      {job.workspace.workflow === "feedback" && (
-        <p {...stylex.props(s.muted)}>
-          Waiting for your feedback. Saving a note keeps work paused; Continue
-          sends the selected feedback to this same worker.
-        </p>
-      )}
-      {feedback.map((item) => (
-        <article key={item.id} {...stylex.props(s.message)}>
-          <div {...stylex.props(s.author)}>
-            You{" "}
-            <span {...stylex.props(s.muted)}>
-              {new Date(item.createdAt).toLocaleString()}
-            </span>
-          </div>
-          <p {...stylex.props(s.messageText)}>{item.text}</p>
-          <span {...stylex.props(s.muted)}>
-            Preview {item.previewRevision || "not specified"} ·{" "}
-            {item.delivery || "Saved; not submitted"}
-          </span>
-          {item.error && (
-            <p role="alert" {...stylex.props(s.error)}>
-              {item.error}
+          Worker feedback
+        </Button>
+        <Button
+          disabled={!ready}
+          xstyle={discuss ? s.selected : undefined}
+          aria-pressed={discuss}
+          onClick={() => setDiscuss(true)}
+        >
+          Talk to agent
+        </Button>
+      </div>
+      {discuss ? (
+        <div {...stylex.props(s.conversationPanel)}>
+          <Conversation
+            agent={agent}
+            conversationId={job.workspace.conversationId}
+            embedded
+            title="Job discussion"
+          />
+        </div>
+      ) : (
+        <>
+          {job.workspace.workflow === "feedback" && (
+            <p {...stylex.props(s.muted)}>
+              Waiting for your feedback. Saving a note keeps work paused;
+              Continue sends the selected feedback to this same worker.
             </p>
           )}
-          {!item.inputId && (
-            <label {...stylex.props(s.checkboxLabel)}>
-              <input
-                type="checkbox"
-                checked={selected.includes(item.id)}
-                disabled={!ready || busy || Boolean(continuation.current)}
-                onChange={(event) =>
-                  setSelected((previous) =>
-                    event.target.checked
-                      ? [...previous, item.id]
-                      : previous.filter((id) => id !== item.id),
-                  )
-                }
-              />
-              Include in continuation
+          {feedback.map((item) => (
+            <article key={item.id} {...stylex.props(s.message)}>
+              <div {...stylex.props(s.author)}>
+                You{" "}
+                <span {...stylex.props(s.muted)}>
+                  {new Date(item.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <p {...stylex.props(s.messageText)}>{item.text}</p>
+              <span {...stylex.props(s.muted)}>
+                Preview {item.previewRevision || "not specified"} ·{" "}
+                {item.delivery || "Saved; not submitted"}
+              </span>
+              {item.error && (
+                <p role="alert" {...stylex.props(s.error)}>
+                  {item.error}
+                </p>
+              )}
+              {!item.inputId && (
+                <label {...stylex.props(s.checkboxLabel)}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(item.id)}
+                    disabled={!ready || busy || Boolean(continuation.current)}
+                    onChange={(event) =>
+                      setSelected((previous) =>
+                        event.target.checked
+                          ? [...previous, item.id]
+                          : previous.filter((id) => id !== item.id),
+                      )
+                    }
+                  />
+                  Include in continuation
+                </label>
+              )}
+            </article>
+          ))}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+            {...stylex.props(s.composer)}
+          >
+            <label htmlFor="job-feedback" {...stylex.props(s.label)}>
+              Leave feedback
             </label>
-          )}
-        </article>
-      ))}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-        {...stylex.props(s.composer)}
-      >
-        <label htmlFor="job-feedback" {...stylex.props(s.label)}>
-          Leave feedback
-        </label>
-        <textarea
-          id="job-feedback"
-          disabled={!ready || busy}
-          value={draft?.text ?? ""}
-          onChange={(event) => edit(event.target.value)}
-          maxLength={16000}
-          placeholder="What would you like to change?"
-          {...stylex.props(s.textarea)}
-        />
-        <div {...stylex.props(s.toolbar)}>
-          <span {...stylex.props(s.muted)}>
-            On revision{" "}
-            {draft?.previewRevision ||
-              job.workspace.previewRevision ||
-              "not specified"}
-          </span>
-          <Button type="submit" disabled={busy || !draft?.text.trim()}>
-            Save feedback
+            <textarea
+              id="job-feedback"
+              disabled={!ready || busy}
+              value={draft?.text ?? ""}
+              onChange={(event) => edit(event.target.value)}
+              maxLength={16000}
+              placeholder="What would you like to change?"
+              {...stylex.props(s.textarea)}
+            />
+            <div {...stylex.props(s.toolbar)}>
+              <span {...stylex.props(s.muted)}>
+                On revision{" "}
+                {draft?.previewRevision ||
+                  job.workspace.previewRevision ||
+                  "not specified"}
+              </span>
+              <Button type="submit" disabled={busy || !draft?.text.trim()}>
+                Save feedback
+              </Button>
+            </div>
+          </form>
+          <Button
+            disabled={
+              busy ||
+              !selected.length ||
+              (!mayContinue && !continuation.current)
+            }
+            onClick={() => void resume()}
+          >
+            {busy ? "Saving…" : "Continue with selected feedback"}
           </Button>
-        </div>
-      </form>
-      <Button
-        disabled={
-          busy || !selected.length || (!mayContinue && !continuation.current)
-        }
-        onClick={() => void resume()}
-      >
-        {busy ? "Saving…" : "Continue with selected feedback"}
-      </Button>
-      {!mayContinue && canStop(job) && (
-        <p {...stylex.props(s.muted)}>
-          Continuation is available when the existing worker is ready. Resolve
-          terminal blockers before resuming.
-        </p>
+          {!mayContinue && canStop(job) && (
+            <p {...stylex.props(s.muted)}>
+              Continuation is available when the existing worker is ready.
+              Resolve terminal blockers before resuming.
+            </p>
+          )}
+          {continuation.current && !busy && (
+            <Button
+              onClick={() => {
+                continuation.current = undefined;
+                try {
+                  sessionStorage.removeItem(`${key}-continue`);
+                } catch {}
+                setSelected([]);
+                setError("");
+              }}
+            >
+              Clear local retry selection
+            </Button>
+          )}
+          {error && (
+            <p role="alert" {...stylex.props(s.error)}>
+              {error}
+            </p>
+          )}
+          <p role="status" {...stylex.props(s.muted)}>
+            {notice}
+          </p>
+        </>
       )}
-      {continuation.current && !busy && (
-        <Button
-          onClick={() => {
-            continuation.current = undefined;
-            try {
-              sessionStorage.removeItem(`${key}-continue`);
-            } catch {}
-            setSelected([]);
-            setError("");
-          }}
-        >
-          Clear local retry selection
-        </Button>
-      )}
-      {error && (
-        <p role="alert" {...stylex.props(s.error)}>
-          {error}
-        </p>
-      )}
-      <p role="status" {...stylex.props(s.muted)}>
-        {notice}
-      </p>
     </section>
   );
 }

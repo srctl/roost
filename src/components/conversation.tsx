@@ -57,6 +57,7 @@ export function Conversation({
   agent,
   initialConversation,
   embedded = false,
+  title,
   onClose,
   conversationId = agent.id,
   parent: initialParent,
@@ -65,6 +66,7 @@ export function Conversation({
   agent: Agent;
   initialConversation?: InitialConversation;
   embedded?: boolean;
+  title?: string;
   onClose?: () => void;
   conversationId?: string;
   parent?: import("../features/chat/schema").Message;
@@ -358,15 +360,21 @@ export function Conversation({
       {embedded ? (
         <header {...stylex.props(styles.chatHeader)}>
           <h2 {...stylex.props(styles.chatTitle)}>
-            {parent ? "Thread" : "Conversation"}
+            {title ?? (parent ? "Thread" : "Conversation")}
           </h2>
-          <Button
-            onClick={onClose}
-            aria-label={parent ? "Close thread" : "Close chat"}
-            xstyle={parent ? undefined : styles.closeChat}
-          >
-            <Icon name="close" />
-          </Button>
+          {onClose && (
+            <Button
+              onClick={onClose}
+              aria-label={
+                conversationId !== agent.id ? "Close thread" : "Close chat"
+              }
+              xstyle={
+                conversationId !== agent.id ? undefined : styles.closeChat
+              }
+            >
+              <Icon name="close" />
+            </Button>
+          )}
         </header>
       ) : (
         <AgentHeader agent={agent}>

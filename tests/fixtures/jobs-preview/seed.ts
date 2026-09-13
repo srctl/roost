@@ -78,6 +78,8 @@ for (const [index, item] of fixtures.entries()) {
       const w = readCodingWorkspace(db, agentId, id);
       writeCodingWorkspace(db, {
         ...w,
+        previewReportedAt: Date.now(),
+        previewExpiresAt: Date.now() + 15 * 60 * 1000,
         workflow:
           item.state === "Ready for feedback"
             ? "feedback"
@@ -88,7 +90,7 @@ for (const [index, item] of fixtures.entries()) {
           item.preview === "Not needed"
             ? ""
             : "https://roost-dev.exe.xyz:4322/fixture-preview",
-        previewRevision: index === 0 ? "r05" : item.revision,
+        previewRevision: index === 0 ? "r06" : item.revision,
         previewAvailability:
           item.preview === "Running"
             ? "running"

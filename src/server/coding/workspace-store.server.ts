@@ -5,9 +5,11 @@ import {
   CodingWorkspace,
   type JobFeedback,
   JobFeedbackInput,
+  previewState,
 } from "../../features/coding/workspace-schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { assertAvailable } from "../maintenance.server";
+import { requireConversation } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
 import { readCodingJob, requireCodingAgent } from "./store.server";
@@ -39,7 +41,9 @@ export function readCodingWorkspace(
     : {
         jobId,
         agentId,
-        conversationId: agentId,
+        conversationId: jobId,
+        previewReportedAt: 0,
+        previewExpiresAt: 0,
         revision: 0,
         updatedAt: 0,
         workflow: "working",
@@ -63,7 +67,7 @@ export function writeCodingWorkspace(
     updatedAt: Date.now(),
   };
   db.prepare(`INSERT INTO coding_job_workspaces(jobId,agentId,conversationId,data,revision,updatedAt)
-    VALUES(?,?,?,?,?,?) ON CONFLICT(jobId) DO UPDATE SET data=excluded.data,revision=excluded.revision,updatedAt=excluded.updatedAt`).run(
+    VALUES(?,?,?,?,?,?) ON CONFLICT(jobId) DO UPDATE SET conversationId=excluded.conversationId,data=excluded.data,revision=excluded.revision,updatedAt=excluded.updatedAt`).run(
     next.jobId,
     next.agentId,
     next.conversationId,
@@ -80,10 +84,10 @@ export function readJobFeedback(
   jobId: string,
 ): JobFeedback[] {
   // Content is owned by the existing message timeline, never copied into a
-  // parallel conversation store. Main conversation is the v10 adapter.
+  // parallel conversation store. Only the dedicated job conversation is read.
   return db
     .prepare(`SELECT f.*,t.message,i.status AS delivery,i.error FROM coding_job_feedback f
-    JOIN timeline t ON t.id=f.messageId AND t.agentId=f.agentId
+    JOIN timeline t ON t.id=f.messageId AND t.agentId=f.agentId AND t.conversationId=f.jobId
     LEFT JOIN coding_job_inputs i ON i.id=f.inputId AND i.jobId=f.jobId AND i.agentId=f.agentId
     WHERE f.agentId=? AND f.jobId=? ORDER BY f.createdAt,f.rowid LIMIT 200`)
     .all(agentId, jobId)
@@ -102,8 +106,10 @@ export function readJobFeedback(
 export const getJobWorkspace = (agentId: string, id: string) =>
   withAgentStore((db) => {
     requireWorkspaceJob(db, agentId, id);
+    const workspace = readCodingWorkspace(db, agentId, id);
     return {
-      workspace: readCodingWorkspace(db, agentId, id),
+      workspace,
+      previewStatus: previewState(workspace),
       feedback: readJobFeedback(db, agentId, id),
     };
   });
@@ -114,9 +120,10 @@ export const saveJobFeedback = (input: typeof JobFeedbackInput.Type) =>
       assertAvailable(db);
       const data = Schema.decodeUnknownSync(JobFeedbackInput)(input);
       const job = requireWorkspaceJob(db, data.agentId, data.id);
+      requireConversation(db, data.agentId, data.id);
       const prior = db
         .prepare(
-          `SELECT f.*,t.message FROM coding_job_feedback f JOIN timeline t ON t.id=f.messageId WHERE f.messageId=?`,
+          `SELECT f.*,t.message FROM coding_job_feedback f JOIN timeline t ON t.id=f.messageId AND t.agentId=f.agentId AND t.conversationId=f.jobId WHERE f.messageId=?`,
         )
         .get(data.requestId);
       if (prior) {
@@ -146,15 +153,20 @@ export const saveJobFeedback = (input: typeof JobFeedbackInput.Type) =>
       if (count >= 200)
         throw new AgentStoreError({
           message:
-            "This job has reached the feedback limit. Continue in the agent conversation.",
+            "This job has reached the feedback selection limit. Continue in its discussion.",
         });
       // Saving is a notice, not a user turn: it must not steer or enqueue a run.
-      putMessage(db, data.agentId, {
-        id: data.requestId,
-        role: "notice",
-        title: `Saved feedback · ${job.title}`,
-        text: data.text,
-      });
+      putMessage(
+        db,
+        data.agentId,
+        {
+          id: data.requestId,
+          role: "notice",
+          title: `Saved feedback · ${job.title}`,
+          text: data.text,
+        },
+        job.id,
+      );
       db.prepare(
         "INSERT INTO coding_job_feedback(messageId,jobId,agentId,previewRevision,createdAt) VALUES(?,?,?,?,?)",
       ).run(
@@ -177,11 +189,17 @@ export function assertFeedbackMayResume(
   const workspace = readCodingWorkspace(db, agentId, jobId);
   if (workspace.workflow !== "feedback") return;
   const run = db
-    .prepare("SELECT kind,createdAt FROM runs WHERE id=? AND agentId=?")
+    .prepare(
+      "SELECT kind,createdAt,conversationId FROM runs WHERE id=? AND agentId=?",
+    )
     .get(runId, agentId);
-  if (run?.kind !== "chat" || Number(run.createdAt) < workspace.updatedAt)
+  if (
+    run?.kind !== "chat" ||
+    run.conversationId !== workspace.conversationId ||
+    Number(run.createdAt) < workspace.updatedAt
+  )
     throw new AgentStoreError({
       message:
-        "This job is waiting for user feedback. A new user turn or explicit Jobs continuation is required.",
+        "This job is waiting for user feedback. A new user turn in this job discussion or explicit Jobs continuation is required.",
     });
 }
