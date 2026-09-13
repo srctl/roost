@@ -156,7 +156,8 @@ never answered; missing/replaced workers cannot be recreated by the composer.
 Queued, delivered, responding, answered and failed states are durable. Responses
 are labeled captured worker output, not a second assistant identity or proof of
 successful execution. A lost submission reply or restart during dispatch fails
-closed and fences the remaining queue. Reusing its request ID only reads that
+closed and fences the remaining queue, including uncertain coordinator inputs
+tracked by `coding_worker_fences`. Reusing its request ID only reads that
 receipt. Once the same worker is idle and approval-free, the user may explicitly
 confirm they inspected the submission in Herdr; that abandons the uncertain input
 without replaying it and releases later queued instructions. No exactly-once
@@ -176,7 +177,9 @@ or ambiguous ownership are explicitly **Unverified** and left to the existing
 worker on its execution machine. No arbitrary URL probing or service control is
 introduced. Revision is labeled **Last reported revision**, never asserted to be
 freshly served merely from saved metadata. Checks do not renew preview reports,
-complete a job, merge or deploy.
+complete a job, merge or deploy. The exact status-only question also preserves
+feedback/review workflow, verification and integration metadata while the worker
+answers; ordinary explicit instructions continue the assignment.
 
 `tests/coding-worker-conversation.test.ts` uses disposable stores and a simulated
 Herdr adapter for main-thread independence, busy queue delivery, same-worker

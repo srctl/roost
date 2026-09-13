@@ -415,47 +415,50 @@ test("preview verifies actual owned listener and endpoint; stale URL, redirects,
   }
 });
 
-test("preview status works on a feedback-paused worker without changing review fields or starting services", () =>
-  fixture(async ({ agentId, id, send, tick, state, prompts }) => {
-    const { writeCodingWorkspace, readCodingWorkspace } = await import(
-      "../src/server/coding/workspace-store.server"
-    );
-    await run(
-      updateCodingJob(agentId, id, {
-        status: "review",
-        lastWorkerState: "idle",
-      }),
-    );
-    await run(
-      withAgentStore((db) =>
-        writeCodingWorkspace(db, {
-          ...readCodingWorkspace(db, agentId, id),
-          workflow: "feedback",
-          previewUrl: "https://example.invalid/preview",
-          previewRevision: "old-revision",
-          previewAvailability: "running",
-          previewReportedAt: 1,
-          previewExpiresAt: 2,
+for (const workflow of ["review", "feedback"] as const)
+  test(`preview status preserves ${workflow} fields without starting services`, () =>
+    fixture(async ({ agentId, id, send, tick, state, prompts }) => {
+      const { writeCodingWorkspace, readCodingWorkspace } = await import(
+        "../src/server/coding/workspace-store.server"
+      );
+      await run(
+        updateCodingJob(agentId, id, {
+          status: "review",
+          lastWorkerState: "idle",
         }),
-      ),
-    );
-    await send("is the dev server running for this preview?");
-    state.worker = { ...state.worker, state: "idle" };
-    await tick();
-    assert.equal(prompts.length, 1);
-    assert.match(prompts[0]!, /MUST NOT start, restart, refresh/);
-    const saved = await run(getJobWorkspace(agentId, id));
-    assert.equal(saved.workspace.workflow, "feedback");
-    assert.equal(saved.workspace.previewRevision, "old-revision");
-    assert.equal(saved.workspace.previewExpiresAt, 2);
-    assert.equal(saved.workspace.verification, "Existing evidence");
-    assert.equal(saved.workspace.integration, "verified");
-    assert.equal(
-      JSON.parse(saved.messages[0]!.previewCheck).status,
-      "unverified",
-    );
-    assert.equal((await run(getCodingJob(agentId, id))).status, "running");
-  }));
+      );
+      await run(
+        withAgentStore((db) =>
+          writeCodingWorkspace(db, {
+            ...readCodingWorkspace(db, agentId, id),
+            workflow,
+            verification: "Existing evidence",
+            integration: "verified",
+            previewUrl: "https://example.invalid/preview",
+            previewRevision: "old-revision",
+            previewAvailability: "running",
+            previewReportedAt: 1,
+            previewExpiresAt: 2,
+          }),
+        ),
+      );
+      await send("is the dev server running for this preview?");
+      state.worker = { ...state.worker, state: "idle" };
+      await tick();
+      assert.equal(prompts.length, 1);
+      assert.match(prompts[0]!, /MUST NOT start, restart, refresh/);
+      const saved = await run(getJobWorkspace(agentId, id));
+      assert.equal(saved.workspace.workflow, workflow);
+      assert.equal(saved.workspace.previewRevision, "old-revision");
+      assert.equal(saved.workspace.previewExpiresAt, 2);
+      assert.equal(saved.workspace.verification, "Existing evidence");
+      assert.equal(saved.workspace.integration, "verified");
+      assert.equal(
+        JSON.parse(saved.messages[0]!.previewCheck).status,
+        "unverified",
+      );
+      assert.equal((await run(getCodingJob(agentId, id))).status, "running");
+    }));
 
 test("an uncertain concurrent coordinator input fences direct messages without replaying old unrelated failures", () =>
   fixture(async ({ agentId, id, send, tick, state, adapter, prompts }) => {
