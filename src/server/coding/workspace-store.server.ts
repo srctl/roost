@@ -12,6 +12,7 @@ import { assertAvailable } from "../maintenance.server";
 import { requireConversation } from "../runs/threads.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
+import { readWorkerMessages } from "./conversation.server";
 import { readCodingJob, requireCodingAgent } from "./store.server";
 
 export function requireWorkspaceJob(
@@ -111,6 +112,13 @@ export const getJobWorkspace = (agentId: string, id: string) =>
       workspace,
       previewStatus: previewState(workspace),
       feedback: readJobFeedback(db, agentId, id),
+      messages: readWorkerMessages(db, agentId, id),
+      queueBlockers: db
+        .prepare(
+          "SELECT inputId FROM coding_worker_fences WHERE jobId=? AND agentId=? AND acknowledgedAt IS NULL",
+        )
+        .all(id, agentId)
+        .map((row) => String(row.inputId)),
     };
   });
 

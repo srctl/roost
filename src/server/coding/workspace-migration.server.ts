@@ -15,7 +15,7 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
           "SELECT MAX(version) AS version FROM coding_workspace_versions",
         )
         .get()?.version ?? 0,
-    ) > 2
+    ) > 3
   )
     throw new CodingWorkspaceMigrationError(
       "This job workspace needs a newer version of Roost.",
@@ -25,7 +25,7 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       .prepare("SELECT MAX(version) AS version FROM coding_workspace_versions")
       .get()?.version ?? 0,
   );
-  if (version >= 2) return;
+  if (version >= 3) return;
   db.exec("SAVEPOINT coding_workspace_upgrade");
   try {
     if (version < 1)
@@ -41,8 +41,9 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       CREATE INDEX IF NOT EXISTS coding_feedback_job ON coding_job_feedback(jobId,createdAt);
       INSERT OR IGNORE INTO coding_workspace_versions VALUES(1);
     `);
-    assertCodingWorkspaceUpgradeReady(db);
-    db.exec(`
+    if (version < 2) {
+      assertCodingWorkspaceUpgradeReady(db);
+      db.exec(`
       INSERT INTO conversation_records(id,agentId,createdAt)
         SELECT id,agentId,createdAt FROM coding_jobs;
       UPDATE timeline SET conversationId=(SELECT f.jobId FROM coding_job_feedback f WHERE f.messageId=timeline.id AND f.agentId=timeline.agentId)
@@ -52,6 +53,22 @@ export function migrateCodingWorkspace(db: DatabaseSync) {
       UPDATE runs SET conversationId=(SELECT jobId FROM coding_job_updates WHERE runId=runs.id) WHERE status='queued' AND EXISTS(SELECT 1 FROM coding_job_updates WHERE runId=runs.id);
       UPDATE coding_job_workspaces SET conversationId=jobId;
       INSERT INTO coding_workspace_versions VALUES(2);
+    `);
+    }
+    db.exec(`
+      CREATE TABLE coding_worker_messages (
+        inputId TEXT PRIMARY KEY, jobId TEXT NOT NULL, agentId TEXT NOT NULL,
+        sessionIdentity TEXT NOT NULL, nativeSessionId TEXT NOT NULL,
+        readOnly INTEGER NOT NULL DEFAULT 0,
+        deliveredAt INTEGER, respondingAt INTEGER, completedAt INTEGER,
+        baselineOutput TEXT NOT NULL DEFAULT '', responseId TEXT
+      );
+      CREATE TABLE coding_worker_fences (
+        inputId TEXT PRIMARY KEY, jobId TEXT NOT NULL, agentId TEXT NOT NULL,
+        sessionIdentity TEXT NOT NULL, nativeSessionId TEXT NOT NULL, acknowledgedAt INTEGER
+      );
+      CREATE INDEX coding_worker_messages_job ON coding_worker_messages(jobId);
+      INSERT INTO coding_workspace_versions VALUES(3);
       RELEASE coding_workspace_upgrade;
     `);
   } catch (error) {

@@ -258,6 +258,13 @@ test("follow-ups have durable IDs and completion requires the current reviewed j
         observedWorking: true,
       }),
     );
+    await run(
+      withAgentStore((db) =>
+        db
+          .prepare("UPDATE coding_job_inputs SET status='sent' WHERE jobId=?")
+          .run(job.id),
+      ),
+    );
     const done = await run(
       completeCodingJob(agentId, runId, {
         id: result.id,

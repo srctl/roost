@@ -1,15 +1,25 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import {
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { AgentHeader } from "../components/agent-header";
 import { Conversation } from "../components/conversation";
+import { MessageContent } from "../components/conversation/message-content";
 import { Button } from "../components/ui/button";
 import { Icon } from "../components/ui/primitives";
 import type { Agent } from "../features/agents/schema";
 import {
   getCodingJobs,
   getCodingWorkspace,
+  inspectWorkerFailure,
   postJobFeedback,
+  postWorkerMessage,
   stopCodingJob,
   submitJobFeedback,
 } from "../features/coding/functions";
@@ -19,8 +29,10 @@ import {
   type JobFeedback,
   jobWorkflowLabel,
   previewState,
+  type WorkerMessage,
 } from "../features/coding/workspace-schema";
 import { jobsStyles as s } from "../styles/jobs.stylex";
+import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/agents/$agentId_/jobs")({
@@ -131,6 +143,14 @@ function AgentJobs({
   const [busy, setBusy] = useState(false);
   const [stopping, setStopping] = useState<string>();
   const [filter, setFilter] = useState("All work");
+  const metadata = useRef<HTMLDetailsElement | null>(null);
+  const attachMetadata = useCallback((node: HTMLDetailsElement | null) => {
+    metadata.current = node;
+    if (node) node.open = false;
+  }, []);
+  useEffect(() => {
+    if (metadata.current) metadata.current.open = false;
+  }, [selected]);
   const [now, setClock] = useState(Date.now);
   useEffect(() => {
     const tick = () => setClock(Date.now());
@@ -233,7 +253,7 @@ function AgentJobs({
   return (
     <section {...stylex.props(s.page)}>
       <AgentHeader agent={agent} />
-      <div {...stylex.props(s.content)}>
+      <div data-job-scroll {...stylex.props(s.content)}>
         {(error || refreshError) && (
           <p role="alert" {...stylex.props(s.error)}>
             {error || refreshError}
@@ -286,16 +306,6 @@ function AgentJobs({
               <div {...stylex.props(s.actions)}>
                 <Primary job={job} now={now} />
                 <Button
-                  onClick={() => {
-                    document.getElementById("job-worker-feedback")?.click();
-                    requestAnimationFrame(() =>
-                      document.getElementById("job-feedback")?.focus(),
-                    );
-                  }}
-                >
-                  Leave feedback ↓
-                </Button>
-                <Button
                   disabled={!interactive || busy}
                   onClick={() => void manualRefresh()}
                 >
@@ -304,7 +314,32 @@ function AgentJobs({
               </div>
             </div>
             <div {...stylex.props(s.workspace)}>
-              <div>
+              <div {...stylex.props(s.discussionColumn)}>
+                {loaded.detail?.ok ? (
+                  <Discussion
+                    key={job.id}
+                    agent={agent}
+                    job={job}
+                    feedback={loaded.detail.value.feedback}
+                    messages={loaded.detail.value.messages}
+                    queueBlockers={loaded.detail.value.queueBlockers}
+                    refresh={refresh}
+                  />
+                ) : (
+                  <p role="alert">
+                    {loaded.detail && !loaded.detail.ok
+                      ? loaded.detail.error
+                      : "Loading discussion…"}
+                  </p>
+                )}
+              </div>
+              <details
+                {...stylex.props(s.workspaceDetails)}
+                ref={attachMetadata}
+              >
+                <summary {...stylex.props(s.workspaceDetailsSummary)}>
+                  Preview & job details
+                </summary>
                 <section {...stylex.props(s.section)}>
                   <div {...stylex.props(s.sectionHeading)}>
                     <h3 {...stylex.props(s.sectionTitle)}>Current preview</h3>
@@ -448,24 +483,7 @@ function AgentJobs({
                     </Button>
                   )}
                 </details>
-              </div>
-              <div>
-                {loaded.detail?.ok ? (
-                  <Discussion
-                    key={job.id}
-                    agent={agent}
-                    job={job}
-                    feedback={loaded.detail.value.feedback}
-                    refresh={refresh}
-                  />
-                ) : (
-                  <p role="alert">
-                    {loaded.detail && !loaded.detail.ok
-                      ? loaded.detail.error
-                      : "Loading discussion…"}
-                  </p>
-                )}
-              </div>
+              </details>
             </div>
           </>
         ) : (
@@ -579,14 +597,30 @@ function Discussion({
   agent,
   job,
   feedback,
+  messages,
+  queueBlockers,
   refresh,
 }: {
   job: Job;
   agent: Agent;
   feedback: JobFeedback[];
+  messages: WorkerMessage[];
+  queueBlockers: string[];
   refresh: () => Promise<void>;
 }) {
   const [discuss, setDiscuss] = useState(false);
+  const navigation = useRef<HTMLDetailsElement>(null);
+  const [focusTarget, setFocusTarget] = useState<
+    "worker" | "feedback" | "agent" | null
+  >(null);
+  const finishRequestedFocus = useCallback(() => setFocusTarget(null), []);
+  function showConversation(view: "worker" | "feedback" | "agent") {
+    setWorker(view === "worker");
+    setDiscuss(view === "agent");
+    setFocusTarget(view);
+    if (navigation.current) navigation.current.open = false;
+  }
+  const [worker, setWorker] = useState(true);
   const key = `roost-job-feedback-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState<Draft>();
   const [ready, setReady] = useState(false);
@@ -595,6 +629,16 @@ function Discussion({
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const sending = useRef(false);
+  useEffect(() => {
+    if (!focusTarget || focusTarget === "worker" || worker) return;
+    if (focusTarget === "feedback" && (discuss || !ready || busy)) return;
+    if (focusTarget === "agent" && !discuss) return;
+    const target = document.getElementById(
+      focusTarget === "feedback" ? "job-feedback" : "job-agent-heading",
+    );
+    target?.focus();
+    if (target && document.activeElement === target) finishRequestedFocus();
+  }, [focusTarget, worker, discuss, ready, busy, finishRequestedFocus]);
   const continuation = useRef<
     { requestId: string; messageIds: string[] } | undefined
   >(undefined);
@@ -705,33 +749,61 @@ function Discussion({
     ["idle", "done"].includes(job.lastWorkerState) &&
     Boolean(job.sessionIdentity) &&
     !job.cancelRequested;
+  const navigationControls = (
+    <nav
+      aria-label="Other job conversations"
+      {...stylex.props(s.secondaryNavigation)}
+    >
+      <details ref={navigation}>
+        <summary {...stylex.props(s.secondarySummary)}>More</summary>
+        <div {...stylex.props(s.secondaryActions)}>
+          <Button onClick={() => showConversation("worker")}>
+            Worker conversation
+          </Button>
+          <Button
+            id="job-worker-feedback"
+            disabled={!ready}
+            onClick={() => showConversation("feedback")}
+          >
+            Saved feedback
+          </Button>
+          <Button disabled={!ready} onClick={() => showConversation("agent")}>
+            Talk to managing agent
+          </Button>
+        </div>
+      </details>
+    </nav>
+  );
   return (
     <section {...stylex.props(s.discussion)}>
-      <h3 {...stylex.props(s.sectionTitle)}>Discussion</h3>
-      <p {...stylex.props(s.muted)}>
-        Feedback and replies stay with this assignment.
-      </p>
-      <div {...stylex.props(s.filters)}>
+      {!worker && navigationControls}
+      {!worker && (
         <Button
-          id="job-worker-feedback"
-          disabled={!ready}
-          xstyle={!discuss ? s.selected : undefined}
-          aria-pressed={!discuss}
-          onClick={() => setDiscuss(false)}
+          xstyle={s.backToWorker}
+          onClick={() => showConversation("worker")}
         >
-          Worker feedback
+          ← Worker conversation
         </Button>
-        <Button
-          disabled={!ready}
-          xstyle={discuss ? s.selected : undefined}
-          aria-pressed={discuss}
-          onClick={() => setDiscuss(true)}
-        >
-          Talk to agent
-        </Button>
-      </div>
-      {discuss ? (
+      )}
+      {worker ? (
+        <WorkerDiscussion
+          job={job}
+          messages={messages}
+          queueBlockers={queueBlockers}
+          refresh={refresh}
+          navigationControls={navigationControls}
+          focusRequested={focusTarget === "worker"}
+          onRequestedFocus={finishRequestedFocus}
+        />
+      ) : discuss ? (
         <div {...stylex.props(s.conversationPanel)}>
+          <h3
+            id="job-agent-heading"
+            tabIndex={-1}
+            {...stylex.props(s.sectionTitle)}
+          >
+            Managing agent
+          </h3>
           <Conversation
             agent={agent}
             conversationId={job.workspace.conversationId}
@@ -856,5 +928,401 @@ function Discussion({
         </>
       )}
     </section>
+  );
+}
+
+function WorkerDiscussion({
+  job,
+  messages,
+  queueBlockers,
+  refresh,
+  navigationControls,
+  focusRequested,
+  onRequestedFocus,
+}: {
+  job: Job;
+  messages: WorkerMessage[];
+  queueBlockers: string[];
+  refresh: () => Promise<void>;
+  navigationControls: ReactNode;
+  focusRequested: boolean;
+  onRequestedFocus: () => void;
+}) {
+  const key = `roost-worker-draft-${job.agentId}-${job.id}`;
+  const [draft, setDraft] = useState({ text: "", requestId: "" });
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const sending = useRef(false);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!ready || !focusRequested || !composer.current) return;
+    composer.current.focus();
+    if (document.activeElement === composer.current) onRequestedFocus();
+  }, [ready, focusRequested, onRequestedFocus]);
+  useEffect(() => {
+    const scroll = composer.current?.closest("[data-job-scroll]");
+    if (!scroll) return;
+    let frame = 0;
+    const reveal = () => {
+      if (
+        !window.matchMedia("(max-width:700px)").matches ||
+        document.activeElement !== composer.current
+      )
+        return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        composer.current?.form?.scrollIntoView({
+          block: "nearest",
+          behavior: "instant",
+        }),
+      );
+    };
+    const observer = new ResizeObserver(reveal);
+    observer.observe(scroll);
+    composer.current?.addEventListener("focus", reveal);
+    const input = composer.current;
+    return () => {
+      observer.disconnect();
+      input?.removeEventListener("focus", reveal);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  function keepInputFocus(event: MouseEvent<HTMLButtonElement>) {
+    if (event.button === 0 && document.activeElement === composer.current)
+      event.preventDefault();
+  }
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (
+        saved &&
+        typeof saved.text === "string" &&
+        typeof saved.requestId === "string"
+      )
+        setDraft(saved);
+    } catch {
+      setError(
+        "Draft storage is unavailable. Keep this page open until your message is sent.",
+      );
+    }
+    setReady(true);
+  }, [key]);
+  function edit(text: string) {
+    const next = { text, requestId: crypto.randomUUID() };
+    setDraft(next);
+    try {
+      sessionStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      setError("Could not preserve this draft across reloads.");
+    }
+  }
+  async function send() {
+    if (sending.current || !draft.text.trim()) return;
+    sending.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await postWorkerMessage({
+        data: { agentId: job.agentId, id: job.id, ...draft },
+      });
+      if (!result.ok) throw new Error(result.error);
+      setDraft({ text: "", requestId: "" });
+      try {
+        sessionStorage.removeItem(key);
+      } catch {}
+      setNotice(
+        "Queued for this worker's next safe boundary. Its current work was not interrupted.",
+      );
+      await refresh();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not send. Retry preserves the same message ID.",
+      );
+    } finally {
+      sending.current = false;
+      setBusy(false);
+      if (
+        document.activeElement === composer.current ||
+        composer.current?.form?.contains(document.activeElement)
+      )
+        composer.current?.focus({ preventScroll: true });
+    }
+  }
+  const unavailable =
+    job.cancelRequested ||
+    ["completed", "cancelled", "failed", "queued", "starting"].includes(
+      job.status,
+    ) ||
+    !job.sessionIdentity ||
+    !["working", "idle", "done"].includes(job.lastWorkerState);
+  // Keep the latest exchange and every unsettled delivery in chronological
+  // order. An older response cannot disappear just because another is queued.
+  const firstUnsettled = messages.findIndex(
+    (message) =>
+      !["answered", "response_unavailable", "acknowledged"].includes(
+        message.status,
+      ),
+  );
+  const historyEnd = Math.min(
+    Math.max(0, messages.length - 3),
+    firstUnsettled < 0 ? messages.length : firstUnsettled,
+  );
+  const earlierMessages = messages.slice(0, historyEnd);
+  const currentMessages = messages.slice(historyEnd);
+  const renderMessage = (message: WorkerMessage) => (
+    <article
+      key={message.id}
+      data-worker-message={message.id}
+      data-delivery-state={message.status}
+      {...stylex.props(s.workerExchange)}
+    >
+      <div {...stylex.props(s.author)}>
+        You{" "}
+        <time
+          dateTime={new Date(message.createdAt).toISOString()}
+          title={new Date(message.createdAt).toLocaleString()}
+          {...stylex.props(s.messageTime)}
+        >
+          {new Date(message.createdAt).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
+        </time>
+      </div>
+      <p {...stylex.props(s.messageText, s.workerPrompt)}>{message.text}</p>
+      {message.status !== "answered" && (
+        <p {...stylex.props(s.deliveryState)}>
+          {message.status === "queued"
+            ? "Queued · waiting for a safe worker boundary"
+            : message.status === "responding"
+              ? "Responding"
+              : message.status === "delivered"
+                ? "Delivered · awaiting response"
+                : message.status === "response_unavailable"
+                  ? "Turn finished · response unavailable"
+                  : message.status === "acknowledged"
+                    ? "Inspected · not replayed"
+                    : "Failed · inspect before sending a fresh instruction"}
+        </p>
+      )}
+      {message.error && <p {...stylex.props(s.error)}>{message.error}</p>}
+      {message.status === "failed" && (
+        <Button
+          xstyle={s.wrappingButton}
+          onClick={async () => {
+            const result = await inspectWorkerFailure({
+              data: {
+                agentId: job.agentId,
+                id: job.id,
+                inputId: message.id,
+              },
+            });
+            if (!result.ok) setError(result.error);
+            else await refresh();
+          }}
+        >
+          I inspected this submission in Herdr; release remaining queue
+        </Button>
+      )}
+      {message.previewCheck && <PreviewReceipt value={message.previewCheck} />}
+      {message.response && (
+        <>
+          <div {...stylex.props(s.workerAuthor)}>
+            {message.status === "response_unavailable"
+              ? "Response capture notice"
+              : "Worker"}
+          </div>
+          {message.status === "response_unavailable" ? (
+            <p {...stylex.props(s.messageText)}>{message.response}</p>
+          ) : (
+            <div
+              data-worker-response
+              {...stylex.props(s.messageText, s.workerResponse)}
+            >
+              <MessageContent reflowParagraphs>
+                {message.response}
+              </MessageContent>
+            </div>
+          )}
+        </>
+      )}
+    </article>
+  );
+  return (
+    <div {...stylex.props(s.workerDiscussion)}>
+      {queueBlockers
+        .filter(
+          (id) => !messages.some((m) => m.id === id && m.status === "failed"),
+        )
+        .map((inputId) => (
+          <p key={inputId} {...stylex.props(s.error)}>
+            An uncertain coordinator submission is holding this queue. Inspect
+            it in the existing worker; it will not be replayed.{" "}
+            <Button
+              xstyle={s.wrappingButton}
+              onClick={async () => {
+                const result = await inspectWorkerFailure({
+                  data: { agentId: job.agentId, id: job.id, inputId },
+                });
+                if (!result.ok) setError(result.error);
+                else await refresh();
+              }}
+            >
+              I inspected the submission; release remaining queue
+            </Button>
+          </p>
+        ))}
+      {unavailable && (
+        <p role="status" {...stylex.props(s.muted)}>
+          {["completed", "cancelled", "failed"].includes(job.status)
+            ? "This job has ended. Review its preserved conversation and work; this composer cannot reopen it."
+            : "Resolve approvals or restore and verify this same worker in Herdr before continuing. Messages already queued remain visible."}
+        </p>
+      )}
+      <form
+        {...stylex.props(s.composer, s.workerComposer)}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send();
+        }}
+      >
+        <label htmlFor="job-worker-message" {...stylex.props(s.srOnly)}>
+          Message worker
+        </label>
+        <textarea
+          ref={composer}
+          id="job-worker-message"
+          aria-describedby="worker-message-help"
+          readOnly={busy}
+          disabled={!ready}
+          value={draft.text}
+          onChange={(event) => edit(event.target.value)}
+          maxLength={16000}
+          placeholder="Message this worker…"
+          {...stylex.props(s.textarea, s.workerTextarea)}
+        />
+        <p id="worker-message-help" {...stylex.props(s.srOnly)}>
+          Queued while busy; sending resumes paused work. Approvals stay in
+          Herdr.
+        </p>
+        {job.workspace.workflow === "feedback" && (
+          <p {...stylex.props(s.composerHelp)}>
+            Sending resumes this paused job.
+          </p>
+        )}
+        <div {...stylex.props(s.composerActions)}>
+          <Button
+            aria-label="Ask preview status"
+            disabled={busy || !ready}
+            onMouseDown={keepInputFocus}
+            xstyle={s.composerButton}
+            onClick={() => {
+              edit(
+                draft.text
+                  ? `${draft.text}\n\nIs the dev server running for this preview?`
+                  : "Is the dev server running for this preview?",
+              );
+              composer.current?.focus();
+            }}
+          >
+            Preview status
+          </Button>
+          {navigationControls}
+          <Button
+            type="submit"
+            aria-label="Send to worker"
+            onMouseDown={keepInputFocus}
+            xstyle={s.sendButton}
+            style={{ backgroundColor: colors.accent, color: colors.onAccent }}
+            disabled={!ready || busy || unavailable || !draft.text.trim()}
+          >
+            {busy ? "Sending…" : "Send"}
+          </Button>
+        </div>
+      </form>
+      <div
+        {...stylex.props(s.workerLog)}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable conversation must be keyboard reachable.
+        tabIndex={0}
+        aria-label="Worker conversation"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
+        {earlierMessages.length > 0 && (
+          <details {...stylex.props(s.history)}>
+            <summary {...stylex.props(s.historySummary)}>
+              Earlier messages ({earlierMessages.length})
+            </summary>
+            {earlierMessages.map(renderMessage)}
+          </details>
+        )}
+        {currentMessages.map(renderMessage)}
+        {messages.length > 0 && (
+          <Button
+            xstyle={s.mobileControl}
+            onClick={() => {
+              composer.current?.focus();
+            }}
+          >
+            Back to message ↑
+          </Button>
+        )}
+      </div>
+
+      {error && (
+        <p role="alert" {...stylex.props(s.error, s.composerNotice)}>
+          {error}
+        </p>
+      )}
+      <p role="status" {...stylex.props(s.muted, s.composerNotice)}>
+        {notice}
+      </p>
+    </div>
+  );
+}
+
+function PreviewReceipt({ value }: { value: string }) {
+  let check: {
+    status: string;
+    checkedAt: number;
+    url: string;
+    reportedRevision: string;
+    process: string;
+    endpoint: string;
+    blocker: string;
+  };
+  try {
+    check = JSON.parse(value);
+  } catch {
+    return (
+      <p {...stylex.props(s.muted)}>
+        Preview check could not be read. Ask the worker to check again.
+      </p>
+    );
+  }
+  return (
+    <details {...stylex.props(s.previewReceipt)}>
+      <summary {...stylex.props(s.receiptSummary)}>
+        Preview ·
+        {check.status === "running"
+          ? "Running"
+          : check.status === "unavailable"
+            ? "Unavailable"
+            : "Unverified"}{" "}
+        · {new Date(check.checkedAt).toLocaleString()}
+      </summary>
+      {check.url && <p>Reported URL: {check.url}</p>}
+      {check.reportedRevision && (
+        <p>Last reported revision: {check.reportedRevision}</p>
+      )}
+      {check.process && <p>{check.process}</p>}
+      {check.endpoint && <p>{check.endpoint}</p>}
+      {check.blocker && <p>{check.blocker}</p>}
+    </details>
   );
 }

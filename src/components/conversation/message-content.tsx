@@ -74,19 +74,36 @@ const components: Components = {
   img: ({ alt }) => <span>{alt}</span>,
 };
 
+// Terminal-width soft wraps should reflow only where the caller opts in.
+// Markdown block boundaries and fenced-code whitespace remain intact.
+const reflowComponents: Components = {
+  ...components,
+  p: ({ children }) => (
+    <p {...stylex.props(styles.paragraph, styles.reflowParagraph)}>
+      {children}
+    </p>
+  ),
+};
+
 export const MessageContent = memo(function MessageContent({
   children,
+  reflowParagraphs = false,
 }: {
   children: string;
+  reflowParagraphs?: boolean;
 }) {
   return (
-    <Markdown remarkPlugins={remarkPlugins} components={components}>
+    <Markdown
+      remarkPlugins={remarkPlugins}
+      components={reflowParagraphs ? reflowComponents : components}
+    >
       {children}
     </Markdown>
   );
 });
 
 const styles = stylex.create({
+  reflowParagraph: { whiteSpace: "normal" },
   paragraph: {
     margin: 0,
     marginTop: { default: 12, ":first-child": 0 },
