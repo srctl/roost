@@ -89,8 +89,8 @@ Core migrations 11–13 are the dependency's original migrations. Feature-keyed
 moves only known saved-feedback messages and queued report notices, reroutes
 queued report runs, and binds workspace metadata. It preserves message IDs,
 positions, feedback delivery associations, job/run/worker identities and
-historical results. Upgrade refuses an active old coding-report turn with an
-actionable error; finish or stop those turns on the old runtime before retrying.
+historical results. Preflight refuses an active old coding-report turn before any core schema change,
+with an actionable error; finish or stop those turns on the old runtime before retrying.
 The feature transaction rolls back on collision or failure. Never run old and
 new workers against the same upgraded store or downgrade this database.
 Tombstones fence new feedback/chat/continuation and suppress new report wakeups;

@@ -399,66 +399,77 @@ for (const core of [10, 13])
       }
     }));
 
-test("upgrade fences active old report turns and reroutes queued reports without replay", () =>
-  fixture(async (agent, id, source, directory) => {
-    const update = randomUUID();
-    await run(
-      withAgentStore((db) => {
-        db.prepare(
-          "INSERT INTO runs(id,agentId,kind,prompt,status,createdAt) VALUES(?,?,'coding','Worker report','running',?)",
-        ).run(update, agent, Date.now());
-        db.prepare("INSERT INTO coding_job_updates VALUES(?,?,?)").run(
-          update,
-          id,
-          agent,
-        );
-        putMessage(db, agent, {
-          id: update,
-          role: "notice",
-          text: "Worker report",
-          title: "Ready",
-        });
-        db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
-        db.prepare("DELETE FROM conversation_records WHERE id=?").run(id);
-      }),
-    );
-    await assert.rejects(
-      run(getJobWorkspace(agent, id)),
-      /Finish or stop active coding report turns/,
-    );
-    const { DatabaseSync } = await import("node:sqlite");
-    const db = new DatabaseSync(join(directory, "roost.sqlite"));
-    try {
-      assert.equal(
-        db
-          .prepare("SELECT MAX(version) v FROM coding_workspace_versions")
-          .get()!.v,
-        1,
+for (const core of [10, 13])
+  test(`upgrade from core ${core} fences active reports before core changes and reroutes queued reports without replay`, () =>
+    fixture(async (agent, id, source, directory) => {
+      const update = randomUUID();
+      await run(
+        withAgentStore((db) => {
+          db.prepare(
+            "INSERT INTO runs(id,agentId,kind,prompt,status,createdAt) VALUES(?,?,'coding','Worker report','running',?)",
+          ).run(update, agent, Date.now());
+          db.prepare("INSERT INTO coding_job_updates VALUES(?,?,?)").run(
+            update,
+            id,
+            agent,
+          );
+          putMessage(db, agent, {
+            id: update,
+            role: "notice",
+            text: "Worker report",
+            title: "Ready",
+          });
+          db.exec("DELETE FROM coding_workspace_versions WHERE version=2");
+          db.prepare("DELETE FROM conversation_records WHERE id=?").run(id);
+          if (core === 10)
+            db.exec(
+              `${readFileSync(new URL("./fixtures/remove-thread-schema.sql", import.meta.url), "utf8")};PRAGMA user_version=10`,
+            );
+        }),
       );
-      db.prepare("UPDATE runs SET status='queued' WHERE id=?").run(update);
-    } finally {
-      db.close();
-    }
-    await run(getJobWorkspace(agent, id));
-    await run(
-      withAgentStore((db) => {
+      await assert.rejects(
+        run(getJobWorkspace(agent, id)),
+        /Finish or stop active coding report turns/,
+      );
+      const { DatabaseSync } = await import("node:sqlite");
+      const db = new DatabaseSync(join(directory, "roost.sqlite"));
+      try {
         assert.equal(
-          db.prepare("SELECT conversationId FROM runs WHERE id=?").get(update)!
-            .conversationId,
-          id,
+          db.prepare("PRAGMA user_version").get()!.user_version,
+          core,
         );
         assert.equal(
           db
-            .prepare("SELECT conversationId FROM timeline WHERE id=?")
-            .get(update)!.conversationId,
-          id,
+            .prepare("SELECT MAX(version) v FROM coding_workspace_versions")
+            .get()!.v,
+          1,
         );
-        assert.equal(db.prepare("SELECT count(*) n FROM runs").get()!.n, 2);
-        assert.equal(
-          db.prepare("SELECT conversationId FROM runs WHERE id=?").get(source)!
-            .conversationId,
-          agent,
-        );
-      }),
-    );
-  }));
+        db.prepare("UPDATE runs SET status='queued' WHERE id=?").run(update);
+      } finally {
+        db.close();
+      }
+      await run(getJobWorkspace(agent, id));
+      await run(
+        withAgentStore((db) => {
+          assert.equal(
+            db
+              .prepare("SELECT conversationId FROM runs WHERE id=?")
+              .get(update)!.conversationId,
+            id,
+          );
+          assert.equal(
+            db
+              .prepare("SELECT conversationId FROM timeline WHERE id=?")
+              .get(update)!.conversationId,
+            id,
+          );
+          assert.equal(db.prepare("SELECT count(*) n FROM runs").get()!.n, 2);
+          assert.equal(
+            db
+              .prepare("SELECT conversationId FROM runs WHERE id=?")
+              .get(source)!.conversationId,
+            agent,
+          );
+        }),
+      );
+    }));
