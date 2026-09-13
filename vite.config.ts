@@ -12,7 +12,13 @@ export default defineConfig({
     preloadStaticImports(),
     // Analyze React source before StyleX and the framework transform it.
     babel({ presets: [reactCompilerPreset()] }),
-    stylex.vite({ useCSSLayers: true }),
+    stylex.vite({
+      useCSSLayers: true,
+      // Shared rules must load on direct Chat/Jobs visits too. The default
+      // first CSS asset may belong to a lazy route such as the Notes editor.
+      cssInjectionTarget: (fileName) =>
+        /(?:^|\/)reset(?:-[^/]+)?\.css$/.test(fileName),
+    }),
     tanstackStart(),
     nitro({
       preset: "node-server",

@@ -117,7 +117,32 @@ try {
     ).status,
     200,
   );
-  assert.equal((await request("/settings")).status, 200);
+  const settingsPage = await request("/settings");
+  assert.equal(settingsPage.status, 200);
+  // A fresh non-Notes route must load shared StyleX rules without first
+  // visiting Notes and incidentally loading its lazy editor stylesheet.
+  const settingsHtml = await settingsPage.text();
+  const rootCss = settingsHtml.match(
+    /href="([^" ]*\/reset(?:-[^"/]+)?\.css)"/,
+  )?.[1];
+  assert.ok(rootCss, "The production page links the root reset stylesheet");
+  const rootStylesheet = await request(rootCss);
+  assert.equal(rootStylesheet.status, 200);
+  const rootStyles = await rootStylesheet.text();
+  assert.match(
+    rootStyles,
+    /@layer priority/,
+    "Root CSS includes shared StyleX layers",
+  );
+  assert.match(
+    rootStyles,
+    /display:flex/,
+    "Root CSS includes application layout rules",
+  );
+  assert.ok(
+    !rootStyles.includes(".shared-note-prose"),
+    "Notes editor CSS remains separate",
+  );
   assert.match(
     (await request("/settings")).headers.get("cache-control")!,
     /no-store/,
