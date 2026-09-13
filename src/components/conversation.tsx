@@ -478,92 +478,109 @@ export function Conversation({
               </div>
             )}
             {threadError && <p role="alert">{threadError}</p>}
-            {messages.map((message, index) => (
-              <div
-                key={message.id}
-                id={message.id}
-                data-message-id={message.id}
-              >
-                {parent &&
-                (message.role === "user" || message.role === "assistant") ? (
-                  <ThreadMessage
-                    agent={agent}
-                    message={message}
-                    previous={messages[index - 1]}
-                    entering={entering.has(message.id)}
-                  />
-                ) : message.role === "user" ? (
-                  <UserMessage
-                    files={message.files}
-                    entering={entering.has(message.id)}
+            {messages.map((message, index) => {
+              const existingThread = threads.find(
+                (thread) => thread.parentMessageId === message.id,
+              );
+              const openReply = async () => {
+                if (!onOpenThread) return;
+                if (existingThread) {
+                  setThreadError(undefined);
+                  onOpenThread(existingThread.id);
+                  return;
+                }
+                try {
+                  const result = await openThread({
+                    data: {
+                      agentId: agent.id,
+                      parentMessageId: message.id,
+                    },
+                  });
+                  if (result.ok) {
+                    setThreadError(undefined);
+                    onOpenThread(result.value.id);
+                  } else setThreadError(result.error);
+                } catch {
+                  setThreadError("Could not open this thread. Please retry.");
+                }
+              };
+
+              const replyAction = onOpenThread &&
+                message.role === "assistant" && (
+                  <Button
+                    xstyle={styles.replyAction}
+                    title="Reply in thread"
+                    aria-label="Reply in thread"
+                    onClick={openReply}
                   >
-                    {message.text}
-                  </UserMessage>
-                ) : message.role === "notice" ? (
-                  <ConversationNotice agentId={agent.id} message={message} />
-                ) : message.role === "activity" ? (
-                  <ToolActivity
-                    conversationId={conversationId}
-                    agentId={agent.id}
-                    message={message}
-                    entering={entering.has(message.id)}
-                  />
-                ) : (
-                  <AgentMessage
-                    name={agent.name}
-                    title={message.title}
-                    files={message.files}
-                    entering={entering.has(message.id)}
-                  >
-                    {message.text}
-                  </AgentMessage>
-                )}
-                {onOpenThread &&
-                  (message.role === "user" || message.role === "assistant") && (
+                    <Icon name="reply" />
+                  </Button>
+                );
+              return (
+                <div
+                  key={message.id}
+                  id={message.id}
+                  data-message-id={message.id}
+                >
+                  {parent &&
+                  (message.role === "user" || message.role === "assistant") ? (
+                    <ThreadMessage
+                      agent={agent}
+                      message={message}
+                      previous={messages[index - 1]}
+                      entering={entering.has(message.id)}
+                    />
+                  ) : message.role === "user" ? (
+                    <UserMessage
+                      files={message.files}
+                      entering={entering.has(message.id)}
+                    >
+                      {message.text}
+                    </UserMessage>
+                  ) : message.role === "notice" ? (
+                    <ConversationNotice agentId={agent.id} message={message} />
+                  ) : message.role === "activity" ? (
+                    <ToolActivity
+                      conversationId={conversationId}
+                      agentId={agent.id}
+                      message={message}
+                      entering={entering.has(message.id)}
+                    />
+                  ) : (
+                    <AgentMessage
+                      action={replyAction}
+                      name={agent.name}
+                      title={message.title}
+                      files={message.files}
+                      entering={entering.has(message.id)}
+                    >
+                      {message.text}
+                    </AgentMessage>
+                  )}
+                  {onOpenThread && existingThread && (
                     <Button
+                      title="Reply in thread"
                       aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
-                      onClick={async () => {
-                        const existing = threads.find(
-                          (thread) => thread.parentMessageId === message.id,
-                        );
-                        if (existing) {
-                          setThreadError(undefined);
-                          onOpenThread(existing.id);
-                          return;
-                        }
-                        try {
-                          const result = await openThread({
-                            data: {
-                              agentId: agent.id,
-                              parentMessageId: message.id,
-                            },
-                          });
-                          if (result.ok) {
-                            setThreadError(undefined);
-                            onOpenThread(result.value.id);
-                          } else setThreadError(result.error);
-                        } catch {
-                          setThreadError(
-                            "Could not open this thread. Please retry.",
-                          );
-                        }
-                      }}
+                      onClick={openReply}
                     >
                       {replyLabel(message.id)}
                     </Button>
                   )}
-                {computerEnabled &&
-                  computerOpen &&
-                  message.id === computerAnchor && (
-                    <Suspense fallback={<p role="status">Loading desktop…</p>}>
-                      <ComputerPanel
-                        agentName={agent.name}
-                        onClose={() => setDismissedComputerRun(runId)}
-                      />
-                    </Suspense>
-                  )}
-              </div>
-            ))}
+                  {computerEnabled &&
+                    computerOpen &&
+                    message.id === computerAnchor && (
+                      <Suspense
+                        fallback={<p role="status">Loading desktop…</p>}
+                      >
+                        <ComputerPanel
+                          agentName={agent.name}
+                          onClose={() => setDismissedComputerRun(runId)}
+                        />
+                      </Suspense>
+                    )}
+                </div>
+              );
+            })}
             {computerEnabled &&
               computerOpen &&
               !messages.some((message) => message.id === computerAnchor) && (
@@ -673,6 +690,37 @@ const fadeIn = stylex.keyframes({
 });
 
 const styles = stylex.create({
+  replyAction: {
+    display: "flex",
+    width: 40,
+    height: 40,
+    minWidth: 40,
+    minHeight: 40,
+    padding: 0,
+    flexShrink: 0,
+    marginBottom: 4,
+    opacity: {
+      default: 1,
+      "@media (hover: hover)": {
+        default: 0,
+        [stylex.when.ancestor(":hover")]: 1,
+        ":focus-visible": 1,
+      },
+    },
+    pointerEvents: {
+      default: "auto",
+      "@media (hover: hover)": {
+        default: "none",
+        [stylex.when.ancestor(":hover")]: "auto",
+        ":focus-visible": "auto",
+      },
+    },
+    outline: {
+      default: null,
+      ":focus-visible": `2px solid ${colors.foreground}`,
+    },
+    outlineOffset: 2,
+  },
   replySeparator: {
     display: "flex",
     alignItems: "center",
