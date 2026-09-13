@@ -33,8 +33,8 @@ export function DashboardSetting() {
             Dashboards
           </label>
           <p id="dashboards-description" {...stylex.props(styles.description)}>
-            Keep trackers, project updates, and trends outside the conversation.
-            Open an agent, then choose Dashboard to see its trackers.
+            Trackers and project updates for your agents. Turning this off keeps
+            saved dashboards.
           </p>
         </div>
         <Switch.Root
@@ -50,10 +50,6 @@ export function DashboardSetting() {
           />
         </Switch.Root>
       </div>
-      <p {...stylex.props(styles.note)}>
-        Off by default. Saved for all your devices. Turning this off hides
-        dashboards and stops dashboard updates; saved content stays.
-      </p>
       {error && (
         <p role="alert" {...stylex.props(styles.error)}>
           {error}
@@ -84,7 +80,6 @@ const styles = stylex.create({
     marginBottom: 0,
     maxWidth: 380,
   },
-  note: { fontSize: 11, color: colors.muted, lineHeight: 1.6 },
   error: { fontSize: 12, color: colors.review },
   switch: {
     width: 36,

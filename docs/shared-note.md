@@ -5,7 +5,7 @@ It belongs to the agent rather than a conversation thread. It is separate from
 SOUL.md and Codex's private memory, and it is visible and editable by the user.
 Changing or starting a message thread does not replace it.
 
-Settings → Appearance → Note enables or disables notes for all agents and
+Settings → Features → Note enables or disables notes for all agents and
 devices. Notes are enabled by default. Turning them off hides the Note tab and
 blocks note reads and updates, including agent tools. Saved content and history
 remain available when notes are enabled again.

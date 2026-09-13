@@ -11,6 +11,7 @@ test("unknown settings groups fall back to appearance", () => {
   }
   assert.equal(readSettingsGroup("notifications"), "notifications");
   assert.equal(readSettingsGroup("account"), "account");
+  assert.equal(readSettingsGroup("features"), "features");
 });
 
 test("search finds existing controls, conditional options, and vocabulary across groups", () => {
@@ -46,7 +47,11 @@ test("search finds existing controls, conditional options, and vocabulary across
   }
   assert.deepEqual(
     findSettings("appearance").map((entry) => entry.id),
-    ["theme", "conversation", "notes", "dashboards"],
+    ["theme", "conversation"],
+  );
+  assert.deepEqual(
+    findSettings("features").map((entry) => entry.id),
+    ["notes", "dashboards"],
   );
   assert.deepEqual(
     findSettings("codex").map((entry) => entry.id),

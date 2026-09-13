@@ -121,12 +121,7 @@ function SettingsPage() {
               : settingsGroups.find((item) => item.id === group)?.description}
           </p>
           <section
-            hidden={
-              !visible("theme") &&
-              !visible("conversation") &&
-              !visible("dashboards") &&
-              !visible("notes")
-            }
+            hidden={!visible("theme") && !visible("conversation")}
             aria-label="Appearance"
           >
             {searching && (
@@ -138,14 +133,22 @@ function SettingsPage() {
             <div hidden={!visible("conversation")}>
               <ConversationSettings />
             </div>
+            <div hidden={searching || !visible("conversation")}>
+              <ConversationPreview />
+            </div>
+          </section>
+          <section
+            hidden={!visible("notes") && !visible("dashboards")}
+            aria-label="Features"
+          >
+            {searching && (
+              <p {...stylex.props(styles.groupCaption)}>Features</p>
+            )}
             <div hidden={!visible("notes")}>
               <NoteSetting />
             </div>
             <div hidden={!visible("dashboards")}>
               <DashboardSetting />
-            </div>
-            <div hidden={searching || !visible("conversation")}>
-              <ConversationPreview />
             </div>
           </section>
           <section

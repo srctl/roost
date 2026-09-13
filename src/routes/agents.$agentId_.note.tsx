@@ -31,7 +31,7 @@ function NotePage() {
       {!notesEnabled ? (
         <p>
           Notes are off.{" "}
-          <Link to="/settings" search={{ group: "appearance" }}>
+          <Link to="/settings" search={{ group: "features" }}>
             Open settings
           </Link>{" "}
           to enable them.

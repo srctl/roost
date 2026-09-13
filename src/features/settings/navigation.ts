@@ -2,7 +2,12 @@ export const settingsGroups = [
   {
     id: "appearance",
     label: "Appearance",
-    description: "Color themes, conversation display, notes, and dashboards.",
+    description: "Color themes and conversation display.",
+  },
+  {
+    id: "features",
+    label: "Features",
+    description: "Choose which features are available in Roost.",
   },
   {
     id: "notifications",
@@ -39,13 +44,13 @@ export const settingsEntries = [
   },
   {
     id: "notes",
-    group: "appearance",
+    group: "features",
     terms:
       "Note shared notes editor agent instructions enabled disable all devices saved content",
   },
   {
     id: "dashboards",
-    group: "appearance",
+    group: "features",
     terms:
       "Dashboards trackers project updates trends enabled dashboard updates saved content all devices",
   },
