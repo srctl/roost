@@ -46,6 +46,11 @@ const styles = stylex.create({
     flexDirection: "column",
     minWidth: 0,
     minHeight: 0,
-    height: "100%",
+    // The desktop app shell grows with content. Bound the note so its
+    // scroll container owns wheel events instead of trapping body scrolling.
+    height: {
+      default: "calc(100dvh - 40px)",
+      "@media (max-width: 700px)": "100%",
+    },
   },
 });
