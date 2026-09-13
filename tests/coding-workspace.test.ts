@@ -402,7 +402,7 @@ test("review CTA requires explicit verification, preserves integration distincti
     );
     await run(
       withAgentStore((db) => {
-        assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 13);
+        assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 14);
         assert.equal(
           db.prepare("SELECT count(*) n FROM coding_workspace_versions").get()!
             .n,
