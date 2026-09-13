@@ -213,6 +213,38 @@ try {
     const sidebar = page.locator(
       label === "mobile" ? "#mobile-agent-sidebar" : "#agent-sidebar",
     );
+    const defaultAgents = sidebar.locator(`#${label}-section-`);
+    await defaultAgents
+      .getByRole("link", { name: renamed, exact: true })
+      .waitFor();
+    const defaultAgentUrls = await defaultAgents
+      .getByRole("link")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    const assertPlainDefaultAgents = async () => {
+      assert.equal(
+        await sidebar
+          .getByText("Ungrouped", { exact: true })
+          .and(sidebar.locator(":not(option)"))
+          .count(),
+        0,
+        `${label}: default agents have no Ungrouped heading`,
+      );
+      assert.equal(
+        await defaultAgents.locator("..").textContent(),
+        (await defaultAgents.getByRole("link").allTextContents()).join(""),
+        `${label}: the default list contains only agent text, with no label`,
+      );
+      assert.deepEqual(
+        await defaultAgents
+          .getByRole("link")
+          .evaluateAll((links) =>
+            links.map((link) => link.getAttribute("href")),
+          ),
+        defaultAgentUrls,
+        `${label}: default agent order and routes stay unchanged`,
+      );
+    };
+    await assertPlainDefaultAgents();
     await sidebar
       .getByRole("button", { name: "Manage sections", exact: true })
       .click();
@@ -285,6 +317,22 @@ try {
       "retry preserves exactly one section with its original UUID",
     );
     await page.unroute("**/*");
+    assert.equal(
+      await sidebar
+        .getByRole("button", { name: sectionName, exact: true })
+        .isVisible(),
+      true,
+      `${label}: created sections have labels`,
+    );
+    await assertPlainDefaultAgents();
+    assert.equal(
+      await sidebar
+        .getByRole("combobox", { name: `Section for ${renamed}`, exact: true })
+        .locator("option", { hasText: /^Ungrouped$/ })
+        .count(),
+      1,
+      `${label}: management retains the Ungrouped option`,
+    );
     console.log(
       `${label}: lost-response creation retry preserved one section and UUID`,
     );
@@ -373,6 +421,13 @@ try {
         .inputValue(),
       "",
     );
+    await sidebar
+      .getByRole("button", { name: "Done managing sections", exact: true })
+      .click();
+    await defaultAgents
+      .getByRole("link", { name: renamed, exact: true })
+      .waitFor();
+    await assertPlainDefaultAgents();
     await closeNavigation();
     assert.equal(page.url(), activeUrl);
     assert.ok(

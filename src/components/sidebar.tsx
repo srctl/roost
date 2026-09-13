@@ -93,7 +93,7 @@ export function Sidebar({
         )}
         {groups.map((group) => (
           <div key={group.id}>
-            {group.id ? (
+            {group.id && (
               <Button
                 disabled={busy}
                 aria-expanded={!group.collapsed}
@@ -113,10 +113,6 @@ export function Sidebar({
                 />
                 <span {...stylex.props(styles.name)}>{group.name}</span>
               </Button>
-            ) : (
-              navigation.sections.length > 0 && (
-                <div {...stylex.props(styles.heading)}>Ungrouped</div>
-              )
             )}
             <div
               id={`${drawer ? "mobile" : "desktop"}-section-${group.id}`}
