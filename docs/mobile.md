@@ -61,3 +61,10 @@ The standalone height workaround follows [WebKit bug 254868](https://bugs.webkit
 If installed before the status-bar metadata was added, iOS may require removing
 and re-adding the home-screen app; [WebKit bug 316008](https://bugs.webkit.org/show_bug.cgi?id=316008)
 describes metadata captured at install time that does not update afterward.
+
+## Native iPhone app
+
+The native SwiftUI client lives in `apps/ios`. See the
+[native setup and API guide](https://github.com/srctl/roost/blob/main/apps/ios/README.md)
+for Xcode setup, device tokens, supported features, and simulator verification.
+The PWA and native app use the same Roost server and agent data.

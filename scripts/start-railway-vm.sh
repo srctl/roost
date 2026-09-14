@@ -9,4 +9,4 @@ set -eu
 }
 export HOST=0.0.0.0
 export PORT="${PORT:-8080}"
-exec node .output/server/index.mjs
+exec node apps/web/.output/server/index.mjs

@@ -3,6 +3,31 @@
 This guide covers running Roost from source and contributing to the app. For the
 packaged Linux installation, start with [Install and operate Roost](install.md).
 
+## Workspace boundaries
+
+Each JavaScript application owns its package manifest, dependencies, TypeScript
+configuration, and build output. `pnpm-workspace.yaml` connects the three apps
+and shared packages; `apps/ios` is an Xcode project, not a JavaScript package.
+All TypeScript apps extend `@roost/typescript-config/base.json`.
+
+The root `package.json` owns the release version and common commands. `pnpm build`
+builds the web/server/CLI bundle; `pnpm build:all` also builds both public sites.
+`pnpm check` runs lint, all typechecks and tests, all builds, and the production
+authentication and mobile API checks. Native builds require macOS/Xcode and run
+separately with `pnpm ios:build`. The [native guide](https://github.com/srctl/roost/blob/main/apps/ios/README.md)
+covers simulator tests and regenerating its assets and project.
+
+Root `pnpm dev` and `pnpm start` retain the repository's `.roost` data directory.
+An explicit `ROOST_DATA_DIR` must be absolute and takes precedence. Commands run
+directly inside `apps/web` otherwise use that directory's local `.roost`.
+Run ad hoc TypeScript scripts with `pnpm --filter @roost/web exec node --import tsx ...`
+and paths relative to `apps/web` so imports and fixtures resolve in their owning app.
+
+The server and CLI stay in `apps/web`: both rely on the same storage and runtime
+modules. Native Swift communicates with the versioned `/api/mobile/v1` HTTP API;
+it does not import TypeScript. The iOS project generator reads web character and
+theme sources to refresh its checked-in native resources.
+
 ## Run from source
 
 Requires Node.js 22.13+ and pnpm 9.15.0 (via Corepack).
@@ -44,7 +69,7 @@ corepack pnpm build
 HOST=127.0.0.1 corepack pnpm start
 ```
 
-The Nitro Node adapter emits `.output/server/index.mjs` and `.output/public`.
+The Nitro Node adapter emits `apps/web/.output/server/index.mjs` and `apps/web/.output/public`.
 `pnpm start` runs one Node server that handles requests and serves the UI assets.
 Set `PORT` and `HOST` to configure the production listener. This is currently a
 local, single-user application without application-level authentication. Keep the
@@ -67,7 +92,7 @@ browser regression harness.
 
 ## Public websites
 
-The marketing and documentation sites live in `sites/marketing` and `sites/docs`.
+The marketing and documentation sites live in `apps/marketing` and `apps/docs`.
 They build separately from the app. See [Public websites](public-sites.md) for
 local previews, public addresses, build commands, and hosting setup.
 
@@ -83,7 +108,7 @@ The StyleX Vite plugin runs before React and compiles styles for the client and
 server builds. The root route links the emitted stylesheet so the server-rendered
 page is styled before hydration.
 
-Motion follows shared tokens in `src/styles/motion.stylex.ts`: three durations
+Motion follows shared tokens in `apps/web/src/styles/motion.stylex.ts`: three durations
 (`fast`, `base`, `slow`) and three easings. The durations collapse to zero under
 `prefers-reduced-motion`, so any transition or animation that reads them honours
 that setting without its own media query. Entrance animations only play for

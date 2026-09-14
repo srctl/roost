@@ -92,3 +92,22 @@ accounts; they are not isolated operating-system users.
 
 Source and releases: [srctl/roost on GitHub](https://github.com/srctl/roost).
 Roost is available under the [MIT license](LICENSE).
+
+## Repository layout
+
+Roost is a pnpm workspace with a native Xcode app:
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/web` | TanStack Start web/PWA, Node server, mobile API, CLI, and server tests |
+| `apps/ios` | Native SwiftUI iPhone app, Xcode project, and native tests |
+| `apps/docs` | Static documentation website built from `docs/` |
+| `apps/marketing` | Public marketing website |
+| `packages/typescript-config` | Shared TypeScript compiler defaults |
+| `scripts` | Repository release packaging and deployment checks |
+
+Install once at the root with `corepack pnpm install --frozen-lockfile`.
+`pnpm dev` runs the web app; `pnpm dev:docs` and `pnpm dev:marketing` run the sites.
+`pnpm check` verifies all JavaScript apps and the production web/mobile API.
+On macOS, `pnpm ios:build` builds the native app; see the
+[native app guide](apps/ios/README.md) for connection setup and simulator tests.

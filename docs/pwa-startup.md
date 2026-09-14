@@ -21,7 +21,7 @@ The first row includes loading and hydrating the app, restoring the remembered a
 - The service worker caches only same-origin, hashed immutable build assets. It refuses redirected, private, or non-asset responses and bounds the cache to 64 entries. Documents, conversations, attachments, API responses, and authentication pages never enter the offline cache. Cache failures fall back to network access.
 - Supported browsers use navigation preload to overlap the document request with service-worker startup. Offline launches still show the reconnect page, and updates never force-reload an open conversation.
 
-The core cache and offline behavior is covered by `tests/service-worker.test.ts`. The earlier history pagination and large-tool-output improvements are documented in [chat-performance.md](./chat-performance.md).
+The core cache and offline behavior is covered by `apps/web/tests/service-worker.test.ts`. The earlier history pagination and large-tool-output improvements are documented in [chat-performance.md](./chat-performance.md).
 
 Browser checks also verified that a fresh production PWA profile retained only 15 hashed assets, transferred no static-asset bytes on repeat launches, displayed the reconnect page offline, and recovered on reconnect. Home navigation, remembered-agent launches, explicit agent links, and opening the deferred settings editor were exercised separately. The mobile layout checks used Chromium emulation; physical iPhone keyboard and installed-PWA behavior still need device verification.
 

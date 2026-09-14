@@ -1,24 +1,26 @@
 # Architecture
 
-Roost is one Node application with a React interface, SQLite persistence, and a
-server-owned queue for agent work. Codex runs locally through its app-server
-protocol.
+Roost is a monorepo containing the web/PWA and Node server in `apps/web`, a
+native SwiftUI client in `apps/ios`, and separate public sites in `apps/docs` and
+`apps/marketing`. The server owns SQLite persistence and the agent work queue.
+Codex runs locally through its app-server protocol. The iPhone client connects
+through the authenticated mobile API; it shares the existing server stores.
 
 ## Application structure
 
-- `src/router.tsx`: creates a fresh TanStack Router instance for each request.
-- `src/routes/__root.tsx`: HTML document, metadata, stylesheet, and Start scripts.
-- `src/routes/index.tsx`: the agent list and startup navigation.
-- `src/routes/agents.*.tsx`: agent creation and saved agent pages.
-- `src/features/agents`: shared validation, styling, and Start server functions.
-- `src/routeTree.gen.ts`: generated route tree; let the Start plugin update it.
-- `src/components`: React components, including the conversation building blocks.
-- `src/styles`: StyleX tokens and the global CSS reset.
-- `src/server`: server-only Effect programs for SQLite storage and the Codex transport.
-- `src/features/chat`: typed server functions and polling of persisted live chat state.
-- `src/server/runs`: durable queue, conversation timeline, and background worker.
-- `src/server/automations`: schedule calculation and automation storage.
-- `src/server/worker-plugin.ts`: starts the worker with Nitro, without needing an open browser.
+- `apps/web/src/router.tsx`: creates a fresh TanStack Router instance for each request.
+- `apps/web/src/routes/__root.tsx`: HTML document, metadata, stylesheet, and Start scripts.
+- `apps/web/src/routes/index.tsx`: the agent list and startup navigation.
+- `apps/web/src/routes/agents.*.tsx`: agent creation and saved agent pages.
+- `apps/web/src/features/agents`: shared validation, styling, and Start server functions.
+- `apps/web/src/routeTree.gen.ts`: generated route tree; let the Start plugin update it.
+- `apps/web/src/components`: React components, including the conversation building blocks.
+- `apps/web/src/styles`: StyleX tokens and the global CSS reset.
+- `apps/web/src/server`: server-only Effect programs for SQLite storage and the Codex transport.
+- `apps/web/src/features/chat`: typed server functions and polling of persisted live chat state.
+- `apps/web/src/server/runs`: durable queue, conversation timeline, and background worker.
+- `apps/web/src/server/automations`: schedule calculation and automation storage.
+- `apps/web/src/server/worker-plugin.ts`: starts the worker with Nitro, without needing an open browser.
 
 Start supplies its default browser hydration and server request entrypoints.
 There is no separate frontend server or custom backend bootstrap. Vite handles
@@ -54,7 +56,7 @@ codex app-server generate-ts --experimental --out /tmp/roost-codex-protocol
 ```
 
 Only the types used by the adapter and their imports are retained in
-`src/server/codex/protocol`. Runtime response schemas validate the fields Roost
+`apps/web/src/server/codex/protocol`. Runtime response schemas validate the fields Roost
 consumes. The tests exercise JSONL response correlation, disconnections, conversation
 continuity, duplicate requests, and cancellation.
 
@@ -100,7 +102,7 @@ The sidebar can be collapsed with its toggle. Conversation history is restored
 from persisted state when you return. Leaving the page detaches the view; work
 continues on the server until it completes or you stop it.
 
-`src/assets` contains the pixel logo and Moss, Wisp, and Peach characters.
+`apps/web/src/assets` contains the pixel logo and Moss, Wisp, and Peach characters.
 Conversation components render live messages and tool activity.
 
 ## References

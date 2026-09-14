@@ -55,7 +55,7 @@ create revisions. Back up the Roost data directory to preserve notes and history
 ## Content and storage contract
 
 The browser and server share a validated structured format in
-`src/features/notes/schema.ts`. There are at most 500 blocks, 500 inline spans per
+`apps/web/src/features/notes/schema.ts`. There are at most 500 blocks, 500 inline spans per
 block, 20,000 characters per span, and 200,000 serialized characters per note.
 Maintenance instructions allow 8,000 characters. Each block has a UUID `id`, a
 `type` (`paragraph`, `heading`, `bullet`, `ordered`, or `todo`), and inline
@@ -85,7 +85,7 @@ payload is rejected. Request IDs are scoped to the owner agent.
 
 ## APIs and agent tools
 
-The Start functions in `src/features/notes/functions.ts` provide current reads,
+The Start functions in `apps/web/src/features/notes/functions.ts` provide current reads,
 content and instruction saves, paginated history, revision inspection, and
 restore. The application authentication and same-origin gates protect them;
 `available` and store-level maintenance checks follow other Roost features.
@@ -134,7 +134,7 @@ input-rule extensions, not a claim that one framework guarantees accessibility.
 Roost owns labels, focus handling, live save status, touch targets, menu keyboard
 navigation, and safe link entry. Browser review covers these application details.
 
-`tests/notes.test.ts` and `tests/notes-editor.test.ts` cover persistence, owner/run boundaries, stale writes,
+`apps/web/tests/notes.test.ts` and `apps/web/tests/notes-editor.test.ts` cover persistence, owner/run boundaries, stale writes,
 read-before-edit, exact targeted edits, instruction independence, retries,
 revision inspection, pagination/restore, content bounds, unsafe URLs, escaped
 server rendering, editor round trips, and three-way recovery. The production

@@ -9,6 +9,61 @@ packageExtensionsChecksum: fec49f3e6f39c30811c7fcad1054a1de
 importers:
 
   .:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 2.5.12
+        version: 2.5.12
+
+  apps/docs:
+    dependencies:
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.18)(react@19.2.8)
+    devDependencies:
+      '@roost/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.7
+        version: 19.2.7(@types/react@19.2.18)
+      tsx:
+        specifier: 4.23.13
+        version: 4.23.13
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: 8.2.2
+        version: 8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)
+
+  apps/marketing:
+    devDependencies:
+      '@roost/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: 8.2.2
+        version: 8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)
+
+  apps/web:
     dependencies:
       '@base-ui/react':
         specifier: 1.8.0
@@ -83,12 +138,12 @@ importers:
       '@babel/core':
         specifier: 7.29.7
         version: 7.29.7
-      '@biomejs/biome':
-        specifier: 2.5.12
-        version: 2.5.12
       '@rolldown/plugin-babel':
         specifier: 0.2.3
         version: 0.2.3(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
+      '@roost/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
       '@stylexjs/unplugin':
         specifier: 0.19.0
         version: 0.19.0(unplugin@2.3.11)
@@ -131,6 +186,8 @@ importers:
       vite:
         specifier: 8.2.2
         version: 8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)
+
+  packages/typescript-config: {}
 
 packages:
 

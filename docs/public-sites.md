@@ -16,8 +16,8 @@ fresh checkout, first run `corepack pnpm install --frozen-lockfile`.
 
 | Site | Build command | Publish directory |
 | --- | --- | --- |
-| Marketing | `corepack pnpm build:marketing` | `sites/marketing/dist` |
-| Documentation | `corepack pnpm build:docs` | `sites/docs/dist` |
+| Marketing | `corepack pnpm build:marketing` | `apps/marketing/dist` |
+| Documentation | `corepack pnpm build:docs` | `apps/docs/dist` |
 
 For a hosting provider connected to this Git repository, keep the project/root
 directory set to the **repository root**, select a static site or no-framework
@@ -104,16 +104,16 @@ keep the app's HTTP and WebSocket access private as described in
 
 ## Maintain the content
 
-- Edit the marketing page in `sites/marketing/index.html`, its styles in
-  `sites/marketing/style.css`, and its small motion script in
-  `sites/marketing/main.ts`.
+- Edit the marketing page in `apps/marketing/index.html`, its styles in
+  `apps/marketing/style.css`, and its small motion script in
+  `apps/marketing/main.ts`.
 - Edit docs in the root `docs/` directory. The site reads those Markdown files
   during development and at build time; there is no duplicate content tree.
 - For a new guide, add its slug and navigation label to the groups in
-  `sites/docs/src/render.tsx`, and link it from [the introduction](index.md).
+  `apps/docs/src/render.tsx`, and link it from [the introduction](index.md).
   Relative Markdown links to existing guides become links to public HTML pages.
   Links to repository files remain GitHub links.
-- Change the docs layout and typography in `sites/docs/src/style.css`.
+- Change the docs layout and typography in `apps/docs/src/style.css`.
 
 Run `corepack pnpm check:sites` to check site types, renderer regressions, and
 both production builds. Run `corepack pnpm lint` to check formatting and lint

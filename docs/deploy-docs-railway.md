@@ -14,14 +14,14 @@ Create a project and an empty service named `docs`. Keep its source root at the
 
 | Setting | Value |
 | --- | --- |
-| Service variable `RAILWAY_DOCKERFILE_PATH` | `sites/docs/Dockerfile` (enables Dockerfile detection) |
-| Dockerfile path | `sites/docs/Dockerfile` |
+| Service variable `RAILWAY_DOCKERFILE_PATH` | `apps/docs/Dockerfile` (enables Dockerfile detection) |
+| Dockerfile path | `apps/docs/Dockerfile` |
 | Health check path | `/healthz` |
 | Health check timeout | 60 seconds |
-| Watch paths | `/docs/**`, `/sites/docs/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
+| Watch paths | `/docs/**`, `/apps/docs/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
 
 Leave build/start command overrides empty; the Dockerfile supplies both. Do not
-set the source root to `sites/docs` or use the app's default build/start commands.
+set the source root to `apps/docs` or use the app's default build/start commands.
 Railway no longer accepts legacy `railway.json`/`railway.toml` configuration for
 new services; configure these settings in Railway instead.
 
@@ -102,7 +102,7 @@ search JSON, real 404s, and CDN hits on HTML, CSS, JavaScript, and Markdown.
 Without `--cdn`, it also works against a local Caddy container:
 
 ```sh
-docker build -f sites/docs/Dockerfile -t roost-docs .
+docker build -f apps/docs/Dockerfile -t roost-docs .
 docker run --rm -p 8080:8080 roost-docs
 # In another terminal:
 node scripts/check-docs-deployment.mjs http://localhost:8080

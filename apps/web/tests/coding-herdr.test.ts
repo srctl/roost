@@ -4,6 +4,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -376,7 +377,7 @@ test("Codex project trust resolves local aliases to the assigned physical direct
       `projects={${JSON.stringify(realpathSync(directory))}={trust_level="trusted"}}`,
     );
   } finally {
-    rmSync(alias);
+    unlinkSync(alias);
     rmSync(directory, { recursive: true, force: true });
   }
 });

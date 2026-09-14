@@ -57,9 +57,9 @@ runs are visible and never silently replayed after restart.
 ## Verification
 
 `pnpm check` runs unit/integration tests and the existing production/site checks.
-`tests/threads.test.ts` covers v8 migration, identity, bounded retrieval, access,
+`apps/web/tests/threads.test.ts` covers v8 migration, identity, bounded retrieval, access,
 queue/steering, duplicate requests, collision safety, tombstones and parent loss.
-`tests/threads-worker.test.ts` uses the real worker and local JSONL provider
+`apps/web/tests/threads-worker.test.ts` uses the real worker and local JSONL provider
 fixture for resume/rollover, newer-main/sibling tool retrieval, child approvals,
 attachments and delayed delegation. The coding regression covers delayed child
 job reports after main work starts. Service-worker tests validate notification

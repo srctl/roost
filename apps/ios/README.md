@@ -13,7 +13,7 @@ Capabilities and use a unique bundle identifier if required by your account.
 Simulator tests use normal ad-hoc signing; disabling signing also disables the
 Keychain entitlement and prevents connection storage.
 
-The server must include this branch's `/api/mobile/v1` endpoints. On the host
+The server must include the `/api/mobile/v1` endpoints. On the host
 running Roost:
 
 ```sh
@@ -24,7 +24,7 @@ For a source checkout, run the same CLI against the **same data directory** used
 by the web server:
 
 ```sh
-ROOST_DATA_DIR=/absolute/path/to/data node --import tsx src/cli/main.ts mobile create --name iPhone --output /private/path/iphone-token.txt
+ROOST_DATA_DIR=/absolute/path/to/data pnpm --filter @roost/web exec node --import tsx src/cli/main.ts mobile create --name iPhone --output /private/path/iphone-token.txt
 ```
 
 Enter the server's HTTPS origin and the token from that file in the app. The CLI
@@ -118,15 +118,15 @@ or updates a running Roost server.
 From the repository root:
 
 ```sh
-node --import tsx --test tests/mobile.test.ts tests/mobile-workspaces.test.ts
+corepack pnpm test:mobile
 # After building the server:
-node --import tsx scripts/test-mobile-production.ts
+corepack pnpm test:mobile:production
 # Leave this disposable fixture running in a separate terminal:
-node --import tsx tests/fixtures/mobile-server.ts
+corepack pnpm dev:mobile-fixture
 # Then run native unit and UI tests:
-xcodebuild -project ios/Roost.xcodeproj -scheme Roost \
+xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  -derivedDataPath ios/build test
+  -derivedDataPath apps/ios/build test
 ```
 
 The UI fixture binds only to loopback on port 4399, uses a disposable database and
@@ -134,9 +134,9 @@ a public test-only token, and never invokes Codex or accesses production data.
 Stop it with Ctrl-C to clean up. The UI test exercises the normal connection form,
 sending, approval, and threaded replies; it does not bypass app authentication.
 
-`python3 ios/generate-project.py` regenerates the committed Xcode project,
-bundled character assets from `src/assets/*.svg`, and `Themes.json` from
-`src/features/settings/themes.ts`. Run it after adding/removing Swift files or
+`python3 apps/ios/generate-project.py` regenerates the committed Xcode project,
+bundled character assets from `apps/web/src/assets/*.svg`, and `Themes.json` from
+`apps/web/src/features/settings/themes.ts`. Run it after adding/removing Swift files or
 changing web theme palettes. It uses only Python's standard library.
 
 ## API contract
@@ -186,8 +186,8 @@ configuration uses four-space indentation and a 100-column target. Format and
 check only source directories (not generated build products):
 
 ```sh
-xcrun swift-format format --in-place --recursive --configuration ios/.swift-format ios/Roost ios/RoostTests ios/RoostUITests
-xcrun swift-format lint --strict --recursive --configuration ios/.swift-format ios/Roost ios/RoostTests ios/RoostUITests
+xcrun swift-format format --in-place --recursive --configuration apps/ios/.swift-format apps/ios/Roost apps/ios/RoostTests apps/ios/RoostUITests
+xcrun swift-format lint --strict --recursive --configuration apps/ios/.swift-format apps/ios/Roost apps/ios/RoostTests apps/ios/RoostUITests
 ```
 
 The Python project generator uses Black formatting.

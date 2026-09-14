@@ -36,7 +36,7 @@ cd roost
 pnpm install --frozen-lockfile
 pnpm build
 export ROOST_DATA_DIR="$HOME/roost-data"
-node .output/cli/roost.mjs auth setup --origin https://YOUR_VM_HOSTNAME
+node apps/web/.output/cli/roost.mjs auth setup --origin https://YOUR_VM_HOSTNAME
 ```
 
 Save the private setup link. If it expires before you start the app, run the last

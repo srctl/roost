@@ -13,22 +13,22 @@ write shows an error and leaves the preview reversible.
 
 ## Implementation
 
-- `src/features/settings/themes.ts`: validated `roost.theme` cookie format
+- `apps/web/src/features/settings/themes.ts`: validated `roost.theme` cookie format
   (`preset:mode`), palette catalog, semantic color roles, and media-query CSS.
 - `display-functions.ts`: reads the saved theme alongside the existing display
   preferences, using the existing private/no-store server function convention.
 - `theme-provider.tsx`: document-wide preview/saved state, cookie write
   verification, and browser theme-color metadata.
-- `src/routes/__root.tsx`: supplies the saved palette on the server render;
+- `apps/web/src/routes/__root.tsx`: supplies the saved palette on the server render;
   CSS resolves System before JavaScript runs. Invalid cookies fall back to
   Default/System.
-- `src/styles/tokens.stylex.ts`: existing StyleX tokens reference the palette’s
+- `apps/web/src/styles/tokens.stylex.ts`: existing StyleX tokens reference the palette’s
   CSS variables, retaining original fallback colors. All consumers, including
   portal dialogs and the mobile navigation drawer, inherit the active palette.
-- `src/components/theme-setting.tsx` and `src/routes/settings.tsx`: accessible
+- `apps/web/src/components/theme-setting.tsx` and `apps/web/src/routes/settings.tsx`: accessible
   radio groups, paired light/dark swatches, selection indicators, save/cancel,
   status announcements, and route-unmount cleanup.
-- `tests/themes.test.ts`: cookie validation/round-trips and numerical contrast
+- `apps/web/tests/themes.test.ts`: cookie validation/round-trips and numerical contrast
   tests. Disposable browser helpers were removed during release integration;
   the screenshots and verification record remain.
 

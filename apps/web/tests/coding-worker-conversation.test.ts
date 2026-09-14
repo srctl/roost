@@ -352,6 +352,14 @@ test("preview verifies actual owned listener and endpoint; stale URL, redirects,
       url,
       "reported-only",
     );
+    if (process.platform !== "linux") {
+      // Process ownership uses Linux /proc. Native app developers on macOS
+      // should verify the documented fail-closed result instead.
+      assert.equal(check.status, "unverified");
+      assert.ok(check.blocker);
+      assert.equal(check.endpoint, "");
+      return;
+    }
     assert.equal(check.status, "running");
     assert.match(check.process, /PID/);
     assert.match(check.endpoint, /HTTP 200/);

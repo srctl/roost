@@ -16,7 +16,7 @@ import { test } from "node:test";
 import {
   copyReleaseTree,
   validateReleaseArchive,
-} from "../scripts/release-files.mjs";
+} from "../../../scripts/release-files.mjs";
 
 test("packaging materializes nested dependency links into a standalone archive", () => {
   const root = mkdtempSync(join(tmpdir(), "roost-package-"));

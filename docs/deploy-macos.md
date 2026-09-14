@@ -98,14 +98,14 @@ to replace the lockfile.
 corepack pnpm check
 ```
 
-This runs the project's checks and builds `.output/server/index.mjs`.
+This runs the project's checks and builds `apps/web/.output/server/index.mjs`.
 
 ## 3. Confirm the app works in the foreground
 
 Start the production server with a stable data directory and a private listener:
 
 ```sh
-HOST=127.0.0.1 PORT=3000 "$ROOST_NODE" "$ROOST_CHECKOUT/.output/server/index.mjs"
+HOST=127.0.0.1 PORT=3000 "$ROOST_NODE" "$ROOST_CHECKOUT/apps/web/.output/server/index.mjs"
 ```
 
 In another terminal, run:
@@ -145,7 +145,7 @@ Codex home. Apple documents `ProgramArguments`, per-user LaunchAgents, and
   set -eu
   test -x "$ROOST_NODE"
   test -x "$ROOST_CODEX_BINARY"
-  test -f "$ROOST_CHECKOUT/.output/server/index.mjs"
+  test -f "$ROOST_CHECKOUT/apps/web/.output/server/index.mjs"
   if [ -e "$ROOST_PLIST" ]; then
     printf '%s\n' 'LaunchAgent already exists; inspect it instead of overwriting it.'
     exit 1
@@ -156,7 +156,7 @@ Codex home. Apple documents `ProgramArguments`, per-user LaunchAgents, and
   plutil -insert Label -string dev.roost.server "$ROOST_PLIST"
   plutil -insert ProgramArguments -array "$ROOST_PLIST"
   plutil -insert ProgramArguments.0 -string "$ROOST_NODE" "$ROOST_PLIST"
-  plutil -insert ProgramArguments.1 -string "$ROOST_CHECKOUT/.output/server/index.mjs" "$ROOST_PLIST"
+  plutil -insert ProgramArguments.1 -string "$ROOST_CHECKOUT/apps/web/.output/server/index.mjs" "$ROOST_PLIST"
   plutil -insert WorkingDirectory -string "$ROOST_CHECKOUT" "$ROOST_PLIST"
   plutil -insert EnvironmentVariables -dictionary "$ROOST_PLIST"
   plutil -insert EnvironmentVariables.HOST -string 127.0.0.1 "$ROOST_PLIST"
@@ -240,7 +240,7 @@ served by that Roost process. Keep a backup outside the app data directory:
   if [ -d "$ROOST_HOST_CODEX_HOME" ]; then
     ditto "$ROOST_HOST_CODEX_HOME" "$ROOST_BACKUP/codex-host"
   fi
-  ditto "$ROOST_CHECKOUT/.output" "$ROOST_BACKUP/output"
+  ditto "$ROOST_CHECKOUT/apps/web/.output" "$ROOST_BACKUP/output"
   cp "$ROOST_PLIST" "$ROOST_BACKUP/dev.roost.server.plist"
   git -C "$ROOST_CHECKOUT" rev-parse HEAD > "$ROOST_BACKUP/commit.txt"
   printf '%s\n' "$ROOST_BACKUP"
@@ -255,7 +255,7 @@ only a clean deployment checkout to that tag. Install dependencies only when
 needed, run `corepack pnpm check`, then bootstrap and verify health plus a task.
 
 If the new version fails, boot it out, preserve the failed data for diagnosis,
-and restore the matching saved `.output` and complete data directory before
+and restore the matching saved `apps/web/.output` and complete data directory before
 restarting. Do not run the old build against data migrated by the new build.
 Changes to external services cannot be rolled back by restoring local files.
 Update the plist if a Node/Codex upgrade changes either executable path.

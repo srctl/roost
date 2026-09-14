@@ -23,7 +23,7 @@ def obj(key_name, isa, **fields):
 
 
 characters = {}
-for path in (root.parent / "src/assets").glob("*.svg"):
+for path in (root.parent / "web/src/assets").glob("*.svg"):
     if path.stem.startswith("roost"):
         continue
     pixels = []
@@ -39,7 +39,7 @@ for path in (root.parent / "src/assets").glob("*.svg"):
 )
 # Bundle the exact semantic palettes used by the web app. Fail on unsupported
 # source syntax so regeneration cannot silently ship a partial or stale palette.
-theme_source = (root.parent / "src/features/settings/themes.ts").read_text()
+theme_source = (root.parent / "web/src/features/settings/themes.ts").read_text()
 theme_match = re.search(
     r"export const themePalettes = (\{.*?\}) as const;", theme_source, re.S
 )

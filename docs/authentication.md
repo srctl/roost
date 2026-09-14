@@ -27,7 +27,7 @@ For a **source build**, use its bundled CLI and explicitly select the same data
 directory as the server:
 
 ```sh
-ROOST_DATA_DIR=/absolute/path/to/data node .output/cli/roost.mjs \
+ROOST_DATA_DIR=/absolute/path/to/data node apps/web/.output/cli/roost.mjs \
   auth setup --origin https://roost.example.com
 ```
 

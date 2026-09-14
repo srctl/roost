@@ -97,7 +97,7 @@ Tombstones fence new feedback/chat/continuation and suppress new report wakeups;
 worker state and the user's Stop control remain available without resurrecting
 the discussion.
 
-`tests/coding-discussion.test.ts` exercises actual chat-worker replies and
+`apps/web/tests/coding-discussion.test.ts` exercises actual chat-worker replies and
 notification routing with the local fake provider, shared-context retrieval,
 same-job pause release, tombstones, bounded report expiry and repeatable
 core-v10/v13 + workspace-v1 upgrades. It also tests the active-report upgrade
@@ -107,7 +107,7 @@ aggregate. All test stores are disposable, with no live data or real workers.
 
 ## Isolated real-app feedback preview
 
-`tests/fixtures/jobs-preview/vite.config.ts` extends the normal app config. It
+`apps/web/tests/fixtures/jobs-preview/vite.config.ts` extends the normal app config. It
 requires a newly seeded `/tmp/roost-jobs-app-preview-*` directory and marker before
 startup. Only that test config aliases the Herdr transport to a simulator; the
 normal build contains the real transport. The simulator refuses other storage,
@@ -116,7 +116,7 @@ same-worker revision after submitted feedback. A separate fake Codex binary and
 empty provider home prevent access to live credentials. Desktop integration is
 unset. All settings, messages, requests and worker effects are test-only.
 
-Seed with `node --import tsx tests/fixtures/jobs-preview/seed.ts`; the generated
+Seed with `pnpm --filter @roost/web exec node --import tsx tests/fixtures/jobs-preview/seed.ts`; the generated
 path is recorded in `/tmp/jobs-app-preview-directory`. Start Vite using the fixture
 config with `ROOST_DATA_DIR`, `ROOST_CODEX_BINARY=<fixture>/fake-codex`, and
 `CODEX_HOME=<fixture>/codex`. The coordinator handoff records the complete minimal
@@ -181,7 +181,7 @@ complete a job, merge or deploy. The exact status-only question also preserves
 feedback/review workflow, verification and integration metadata while the worker
 answers; ordinary explicit instructions continue the assignment.
 
-`tests/coding-worker-conversation.test.ts` uses disposable stores and a simulated
+`apps/web/tests/coding-worker-conversation.test.ts` uses disposable stores and a simulated
 Herdr adapter for main-thread independence, busy queue delivery, same-worker
 identity, ordering/idempotency, concurrent coordinator inputs, restart fences,
 approval behavior, explicit feedback continuation and status-only instructions.

@@ -10,8 +10,8 @@ root=$(cd -P "$(dirname "$self")/.." && pwd)
 if [ -x "$root/runtime/node" ]; then
   exec "$root/runtime/node" "$root/cli/roost.mjs" "$@"
 fi
-if [ ! -f "$root/.output/cli/roost.mjs" ]; then
+if [ ! -f "$root/apps/web/.output/cli/roost.mjs" ]; then
   echo 'Build Roost first: corepack pnpm build' >&2
   exit 1
 fi
-exec node "$root/.output/cli/roost.mjs" "$@"
+exec node "$root/apps/web/.output/cli/roost.mjs" "$@"

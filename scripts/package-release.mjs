@@ -36,7 +36,10 @@ const bundle = join(output, "release");
 const cache =
   process.env.ROOST_RUNTIME_CACHE ?? join(tmpdir(), "roost-runtime-cache");
 
-for (const file of [".output/server/index.mjs", ".output/cli/roost.mjs"]) {
+for (const file of [
+  "apps/web/.output/server/index.mjs",
+  "apps/web/.output/cli/roost.mjs",
+]) {
   if (!existsSync(join(root, file)))
     throw new Error("Run pnpm build before packaging a release.");
 }
@@ -108,9 +111,9 @@ for (const notice of ["LICENSE", "NOTICE"]) {
 }
 
 for (const [source, target] of [
-  [".output/server", "app/server"],
-  [".output/public", "app/public"],
-  [".output/cli", "cli"],
+  ["apps/web/.output/server", "app/server"],
+  ["apps/web/.output/public", "app/public"],
+  ["apps/web/.output/cli", "cli"],
   ["bin", "bin"],
 ]) {
   copyReleaseTree(join(root, source), join(bundle, target));

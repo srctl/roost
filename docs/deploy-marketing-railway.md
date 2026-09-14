@@ -10,11 +10,11 @@ Create an empty service and configure it before deploying:
 
 | Setting | Value |
 | --- | --- |
-| Source root | Repository root, not `sites/marketing` |
-| Service variable `RAILWAY_DOCKERFILE_PATH` | `sites/marketing/Dockerfile` |
-| Dockerfile path | `sites/marketing/Dockerfile` |
+| Source root | Repository root, not `apps/marketing` |
+| Service variable `RAILWAY_DOCKERFILE_PATH` | `apps/marketing/Dockerfile` |
+| Dockerfile path | `apps/marketing/Dockerfile` |
 | Health check | `/healthz`, timeout 60 seconds |
-| Watch paths | `/sites/marketing/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
+| Watch paths | `/apps/marketing/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
 | Public domain target port | 8080 |
 
 Leave build and start overrides empty. The Dockerfile builds only the marketing

@@ -1,15 +1,18 @@
-# Build from the repository root, but send only public sites and build inputs.
 **
 !package.json
 !pnpm-lock.yaml
+!pnpm-workspace.yaml
 !docs/
 !docs/**
-!sites/
-!sites/docs/
-!sites/docs/**
-!sites/marketing/
-!sites/marketing/**
+!apps/
+!apps/docs/
+!apps/docs/**
+!apps/marketing/
+!apps/marketing/**
+!packages/
+!packages/**
 **/node_modules
 **/dist
 **/.env
 **/.env.*
+!**/.env.example

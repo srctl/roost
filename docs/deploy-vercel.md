@@ -25,8 +25,8 @@ Set the project-specific build overrides:
 
 | Project | Build Command | Output Directory |
 | --- | --- | --- |
-| Marketing | `corepack pnpm build:marketing` | `sites/marketing/dist` |
-| Documentation | `corepack pnpm build:docs` | `sites/docs/dist` |
+| Marketing | `corepack pnpm build:marketing` | `apps/marketing/dist` |
+| Documentation | `corepack pnpm build:docs` | `apps/docs/dist` |
 
 Vercel supports project-level build/install overrides and publishes only the
 chosen output directory. These settings let both projects share the repository
@@ -34,7 +34,7 @@ without a root `vercel.json` forcing them to use the same output. See
 [build configuration](https://vercel.com/docs/builds/configure-a-build) and
 [supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
 
-Do not use the app's `pnpm build` command, `.output` directory, or `pnpm start` for
+Do not use the app's `pnpm build` command, `apps/web/.output` directory, or `pnpm start` for
 either static project.
 
 ## Connect the public addresses

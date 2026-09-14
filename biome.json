@@ -8,8 +8,8 @@
   "files": {
     "includes": [
       "**",
-      "!!src/routeTree.gen.ts",
-      "!!src/server/codex/protocol",
+      "!!apps/web/src/routeTree.gen.ts",
+      "!!apps/web/src/server/codex/protocol",
       "!!**/.claude",
       "!!**/.codex",
       "!!**/.entire",
