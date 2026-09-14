@@ -15,6 +15,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Effect } from "effect";
 import { AuthStore } from "../server/auth/store.server";
+import { mobileCommand } from "./mobile";
 import {
   activate,
   downloadRelease,
@@ -47,6 +48,9 @@ const help = `Roost
   roost update [--version 0.1.0]
   roost auth setup --origin https://roost.example.com
   roost auth recover [--origin https://roost.example.com]
+  roost mobile create --name iPhone --output <new-file>
+  roost mobile list
+  roost mobile revoke <device-id>
   roost server start
   roost server stop
   roost server logs [--follow]
@@ -277,6 +281,13 @@ async function main() {
     } finally {
       store.close();
     }
+    return;
+  }
+  if (action === "mobile") {
+    mobileCommand(
+      args,
+      resolve(process.env.ROOST_DATA_DIR ?? join(root, "data")),
+    );
     return;
   }
   if (process.platform !== "linux" || process.arch !== "x64")
