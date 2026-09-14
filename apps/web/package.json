@@ -8,7 +8,7 @@
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:auth": "pnpm build && pnpm test:auth:production",
+    "test:auth": "corepack pnpm build && corepack pnpm test:auth:production",
     "test:auth:production": "node --import tsx scripts/test-auth-production.ts",
     "test:threads:browser": "node --import tsx tests/browser/threads.ts",
     "test:mobile": "node --import tsx --test tests/mobile.test.ts tests/mobile-workspaces.test.ts",
