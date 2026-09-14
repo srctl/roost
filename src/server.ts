@@ -7,12 +7,15 @@ import { authGate } from "./server/auth/http.server";
 import { authPage } from "./server/auth/page.server";
 import { nativeAuthEnabled } from "./server/auth/store.server";
 import { compressHtml } from "./server/html-compression.server";
+import { mobileRequest } from "./server/mobile/http.server";
 import { followStartupRedirect } from "./server/startup-response.server";
 
 const handler = createStartHandler(defaultStreamHandler);
 
 export default createServerEntry({
   async fetch(request, options) {
+    const mobile = await mobileRequest(request);
+    if (mobile) return mobile;
     const auth = await authGate(request, authPage);
     if (auth) return auth;
     const response = await followStartupRedirect(
