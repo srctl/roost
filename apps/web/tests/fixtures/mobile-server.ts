@@ -34,8 +34,10 @@ const root = mkdtempSync(join(tmpdir(), "roost-native-ui-"));
 process.env.ROOST_DATA_DIR = root;
 const run = Effect.runPromise;
 let loseNextSendResponse = false;
+let rejectNextSend = false;
 async function seed() {
   loseNextSendResponse = false;
+  rejectNextSend = false;
   rmSync(root, { recursive: true, force: true });
   const tokens = new MobileTokens(root);
   const device = tokens.create("UI test fixture");
@@ -262,6 +264,39 @@ const handle = createMobileHandler(async () => {});
 const server = createServer(async (incoming, outgoing) => {
   try {
     if (
+      incoming.url === "/__fixture/reject-next-send" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      rejectNextSend = true;
+      outgoing.writeHead(204);
+      outgoing.end();
+      return;
+    }
+    if (
+      incoming.url === "/__fixture/expire-token" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      const db = new DatabaseSync(join(root, "mobile.sqlite"));
+      db.prepare("UPDATE devices SET expires=0").run();
+      db.close();
+      const tokens = new MobileTokens(root);
+      const replacement = tokens.create("Replacement UI test fixture");
+      tokens.close();
+      const updated = new DatabaseSync(join(root, "mobile.sqlite"));
+      updated.prepare("UPDATE devices SET hash=? WHERE id=?").run(
+        createHash("sha256")
+          .update(`roost_mobile_${"b".repeat(43)}`)
+          .digest("hex"),
+        replacement.id,
+      );
+      updated.close();
+      outgoing.writeHead(204);
+      outgoing.end();
+      return;
+    }
+    if (
       incoming.url === "/__fixture/lose-next-send-response" &&
       incoming.method === "POST" &&
       incoming.headers["x-roost-test"] === "reset"
@@ -294,6 +329,21 @@ const server = createServer(async (incoming, outgoing) => {
         ? {}
         : { body: Buffer.concat(chunks) }),
     });
+    if (
+      rejectNextSend &&
+      incoming.method === "POST" &&
+      incoming.url?.endsWith("/messages")
+    ) {
+      rejectNextSend = false;
+      outgoing.writeHead(400, { "Content-Type": "application/json" });
+      outgoing.end(
+        JSON.stringify({
+          error: "Fixture rejected this message. Edit and retry.",
+          code: "message_rejected",
+        }),
+      );
+      return;
+    }
     const response =
       (await handle(request)) ?? new Response("Not found", { status: 404 });
     // Exercise an ambiguous delivery: the real API accepted and stored the

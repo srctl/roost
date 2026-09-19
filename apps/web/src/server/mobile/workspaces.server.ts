@@ -5,6 +5,7 @@ import {
   WorkerMessageInput,
 } from "../../features/coding/workspace-schema";
 import { chartDataError } from "../../features/dashboards/chart-data";
+import { changeDashboardPresentationSchema } from "../../features/dashboards/presentation";
 import {
   NoteInstructionWrite,
   NoteRestore,
@@ -25,11 +26,10 @@ import {
   saveJobFeedback,
 } from "../coding/workspace-store.server";
 import {
-  getDashboardPreference,
-  listDashboards,
-  listDatasets,
-  setDashboardPreference,
-} from "../dashboards/store.server";
+  readDashboard,
+  updateDashboardPresentation,
+} from "../dashboards/presentation.server";
+import { setDashboardPreference } from "../dashboards/store.server";
 import { assertAvailable } from "../maintenance.server";
 import {
   noteHistory,
@@ -43,8 +43,12 @@ import {
 export class MobileWorkspaceError extends Error {
   status: number;
   constructor(message: string) {
-    super(message);
-    this.status = message.startsWith("NOTE_CONFLICT:") ? 409 : 400;
+    super(message.replace(/^PRESENTATION_CONFLICT:\s*/, ""));
+    this.status =
+      message.startsWith("NOTE_CONFLICT:") ||
+      message.startsWith("PRESENTATION_CONFLICT:")
+        ? 409
+        : 400;
   }
 }
 
@@ -136,6 +140,15 @@ export async function mobileWorkspaceRequest(
         };
     }
   }
+  if (
+    section === "dashboard" &&
+    rawId === "presentation" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    const input = changeDashboardPresentationSchema.parse(await body(request));
+    return { value: await run(updateDashboardPresentation(agentId, input)) };
+  }
   if (section === "dashboard" && !rawId) {
     if (request.method === "POST") {
       const data = Schema.decodeUnknownSync(
@@ -144,13 +157,14 @@ export async function mobileWorkspaceRequest(
       return { value: await run(setDashboardPreference(data.enabled)) };
     }
     if (request.method === "GET") {
-      const { enabled } = await run(getDashboardPreference());
-      const datasets = enabled ? await run(listDatasets(agentId)) : [];
-      const widgets = enabled ? await run(listDashboards(agentId)) : [];
+      const { enabled, datasets, widgets, presentation } = await run(
+        readDashboard(agentId),
+      );
       return {
         value: {
           enabled,
           datasets,
+          presentation,
           widgets: widgets.map((widget) => ({
             ...widget,
             blocks: widget.blocks.map((block) =>

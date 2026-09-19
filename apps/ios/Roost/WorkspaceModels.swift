@@ -4,6 +4,7 @@ struct DashboardSnapshot: Decodable {
     let enabled: Bool
     let widgets: [DashboardWidget]
     let datasets: [DashboardDataset]
+    var presentation: DashboardPresentation?
 }
 
 struct DashboardWidget: Decodable, Identifiable {

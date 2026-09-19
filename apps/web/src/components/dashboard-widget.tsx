@@ -74,9 +74,7 @@ function Chart({
               rx="2"
               fill="currentColor"
             >
-              <title>
-                {point.label}: {point.value}
-              </title>
+              <title>{`${point.label}: ${point.value}`}</title>
             </rect>
           ) : (
             <circle
@@ -86,9 +84,7 @@ function Chart({
               r="2.5"
               fill="currentColor"
             >
-              <title>
-                {point.label}: {point.value}
-              </title>
+              <title>{`${point.label}: ${point.value}`}</title>
             </circle>
           ),
         )}
@@ -243,7 +239,7 @@ export function DashboardWidget({
   widget: Widget;
   datasets?: readonly DashboardDataset[];
   agentName: string;
-  onDiscuss: () => void;
+  onDiscuss: (question: string) => void;
 }) {
   return (
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
@@ -264,7 +260,15 @@ export function DashboardWidget({
             .slice(0, 16)}{" "}
           UTC
         </time>
-        <Button onClick={onDiscuss}>Discuss with {agentName}</Button>
+        <Button
+          onClick={() =>
+            onDiscuss(
+              `Give me a brief update on the "${widget.title}" dashboard (key: ${widget.key}), including unfinished tasks and suggested next steps. Read the current dashboard data first.`,
+            )
+          }
+        >
+          Discuss with {agentName}
+        </Button>
       </footer>
     </article>
   );

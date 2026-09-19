@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var error: String?
     @State private var working = false
     @State private var confirm = false
+    @State private var replaceToken = false
 
     var body: some View {
         NavigationStack {
@@ -20,6 +21,9 @@ struct SettingsView: View {
                     Text("Your agents keep working on this server when the app is closed.")
                         .font(.footnote)
                         .foregroundStyle(palette.muted)
+                    Button("Replace device token") { replaceToken = true }
+                        .accessibilityIdentifier("replaceDeviceToken")
+                        .disabled(working)
                 }
                 .listRowBackground(palette.surface)
                 Section("Appearance") {
@@ -58,7 +62,7 @@ struct SettingsView: View {
                         .disabled(working)
                 } footer: {
                     Text(
-                        "Disconnect revokes this device token. Removing only the saved connection is available when the server cannot be reached."
+                        "Disconnecting clears drafts on this iPhone. To renew an expired token and keep your drafts, use Replace device token. Remove only the saved connection when the server cannot be reached."
                     )
                 }
                 .listRowBackground(palette.surface)
@@ -69,6 +73,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { Button("Done") { dismiss() } }
+            .sheet(isPresented: $replaceToken) {
+                ConnectView(app: app, replacingConnection: true)
+            }
             .confirmationDialog(
                 "Disconnect this iPhone?", isPresented: $confirm, titleVisibility: .visible
             ) {

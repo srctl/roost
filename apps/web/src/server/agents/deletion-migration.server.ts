@@ -21,6 +21,7 @@ export const agentOwnedTables = [
   "approvals",
   "dashboards",
   "dashboard_datasets",
+  "dashboard_presentations",
   "agent_notifications",
   "agent_reflections",
   "agent_notes",

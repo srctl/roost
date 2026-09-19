@@ -24,7 +24,18 @@ import Observation
     private var refreshing = false
     private var loadingOlder = false
     private var acceptedOutgoing: [Message] = []
+    private var active = true
     private(set) var arrivingMessageIDs: Set<String> = []
+
+    var messageLength: Int { draft.trimmingCharacters(in: .whitespacesAndNewlines).utf16.count }
+    var hasComposerContent: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+    }
+    var showsStop: Bool { busy && !hasComposerContent && pending == nil && !uploading }
+    var canSend: Bool {
+        active && !sending && !uploading
+            && (pending != nil || (hasComposerContent && messageLength <= 32000))
+    }
 
     var outgoingMessage: Message? {
         guard let pending else { return nil }
@@ -62,9 +73,18 @@ import Observation
     }
 
     func saveDraft() throws {
+        guard active else { return }
         try Drafts.save(
             SavedDraft(text: draft, attachments: attachments, pending: pending),
             server: api.connection.server, agent: agent.id, conversation: conversationId)
+    }
+
+    // A view can disappear while an unstructured send or upload is still in
+    // flight. Once its connection is replaced, only the new model may write
+    // the shared draft file. Cancellation alone cannot guarantee that.
+    func invalidate() {
+        active = false
+        approvals = []
     }
 
     func persistDraft() {
@@ -93,7 +113,7 @@ import Observation
     }
 
     func refresh() async {
-        guard !refreshing else { return }
+        guard active && !refreshing else { return }
         refreshing = true
         defer {
             refreshing = false
@@ -104,6 +124,7 @@ import Observation
             if let revision { query.append(URLQueryItem(name: "since", value: String(revision))) }
             let snapshot: Snapshot = try await api.get(path + "conversation", query: query)
             try Task.checkCancellation()
+            guard active else { return }
             merge(snapshot.entries)
             if revision == nil { before = snapshot.before }
             revision = snapshot.revision
@@ -111,9 +132,13 @@ import Observation
             busy = snapshot.busy
             runId = snapshot.runId
             status = snapshot.status
+            // Clear a previous run's controls before fetching approvals. A
+            // failed second request must not leave another run's approval up.
+            self.approvals = self.approvals.filter { $0.runId == snapshot.runId }
             let approvals: [Approval] = try await api.get(path + "approvals")
             try Task.checkCancellation()
-            self.approvals = approvals
+            guard active else { return }
+            self.approvals = approvals.filter { $0.runId == snapshot.runId }
             error = nil
         } catch is CancellationError {} catch let failure as URLError
             where failure.code == .cancelled
@@ -121,7 +146,7 @@ import Observation
     }
 
     func loadOlder() async {
-        guard let before, !loadingOlder else { return }
+        guard active, let before, !loadingOlder else { return }
         loadingOlder = true
         defer { loadingOlder = false }
         do {
@@ -131,14 +156,19 @@ import Observation
                     URLQueryItem(name: "conversationId", value: conversationId),
                     URLQueryItem(name: "before", value: String(before)),
                 ])
+            guard active else { return }
             merge(page.entries)
             self.before = page.before
         } catch { self.error = error.localizedDescription }
     }
 
     func prepareSend() throws -> SendRequest? {
+        guard active else { return nil }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard pending != nil || !text.isEmpty || !attachments.isEmpty else { return nil }
+        if pending == nil && text.utf16.count > 32000 {
+            throw APIError(message: "This message is too long. Shorten it before sending.")
+        }
         // Keep the exact payload and UUID after ambiguous network failure. A
         // retry cannot enqueue a duplicate turn or change an accepted request.
         let input =
@@ -150,7 +180,7 @@ import Observation
         pending = input
         do {
             try saveDraft()
-            deliveryUnconfirmed = false
+            if previous == nil { deliveryUnconfirmed = false }
             return input
         } catch {
             pending = previous
@@ -159,29 +189,45 @@ import Observation
     }
 
     func send() async {
-        guard !sending else { return }
+        guard active && !sending else { return }
         sending = true
         defer { sending = false }
+        let wasUnconfirmed = deliveryUnconfirmed
         do {
             guard let input = try prepareSend() else { return }
             _ = try await api.post(path + "messages", input)
+            guard active else { return }
             if let outgoing = outgoingMessage, !entries.contains(where: { $0.id == outgoing.id }) {
                 acceptedOutgoing.append(outgoing)
             }
             pending = nil
+            deliveryUnconfirmed = false
             draft = ""
             attachments = []
             error = nil
             try saveDraft()
             await refresh()
         } catch {
-            deliveryUnconfirmed = pending != nil
-            self.error = error.localizedDescription
+            guard active else { return }
+            let failure = error
+            if let failure = failure as? APIError, failure.rejectsMessage, !wasUnconfirmed {
+                pending = nil
+                deliveryUnconfirmed = false
+                do { try saveDraft() } catch {
+                    self.error =
+                        failure.localizedDescription + " Could not save your draft. "
+                        + error.localizedDescription
+                    return
+                }
+            } else {
+                deliveryUnconfirmed = pending != nil
+            }
+            self.error = failure.localizedDescription
         }
     }
 
     func stop() async {
-        guard let runId else { return }
+        guard active, let runId else { return }
         do {
             _ = try await api.post(path + "stop", ["id": runId])
             await refresh()
@@ -189,9 +235,10 @@ import Observation
     }
 
     func reply(to message: Message) async -> String? {
-        guard message.role == "assistant", conversationId == agent.id else { return nil }
+        guard active, message.role == "assistant", conversationId == agent.id else { return nil }
         do {
             let data = try await api.post(path + "threads", ["parentMessageId": message.id])
+            guard active else { return nil }
             let response = try JSONDecoder().decode(IDResponse.self, from: data)
             await refresh()
             return response.id
@@ -202,6 +249,12 @@ import Observation
     }
 
     func answer(_ approval: Approval, decision: String, answers: [String: String]) async throws {
+        guard active, approval.runId == runId, approvals.contains(where: { $0.id == approval.id })
+        else {
+            throw APIError(
+                message:
+                    "This approval is no longer waiting in this conversation. Refresh to continue.")
+        }
 
         struct Response: Encodable {
             let decision: String
@@ -226,9 +279,12 @@ import Observation
     var agents: [Agent] = []
     var error: String?
     var loading = false
+    private(set) var connectionGeneration = UUID()
     private var conversations: [String: ConversationModel] = [:]
+    private let session: URLSession?
 
-    init() {
+    init(session: URLSession? = nil) {
+        self.session = session
         Drafts.clearPreviews()
         #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset") {
@@ -243,7 +299,7 @@ import Observation
             self.error = error.localizedDescription
         }
     }
-    var api: RoostAPI? { connection.map { RoostAPI(connection: $0) } }
+    var api: RoostAPI? { connection.map { RoostAPI(connection: $0, session: session) } }
 
     func conversation(agent: Agent, id: String? = nil) -> ConversationModel? {
         guard let api else { return nil }
@@ -257,29 +313,38 @@ import Observation
 
     func connect(server: String, token: String) async throws {
         let connection = try Connection.make(server: server, token: token)
-        let api = RoostAPI(connection: connection)
+        let api = RoostAPI(connection: connection, session: self.session)
         let session: SessionResponse = try await api.get("session")
         guard session.apiVersion == 1 else {
             throw APIError(message: "Update the app to connect to this server.")
         }
         let agents: [Agent] = try await api.get("agents")
+        for model in conversations.values { try model.saveDraft() }
         try SecureConnection.save(connection)
+        for model in conversations.values { model.invalidate() }
         conversations = [:]
         self.agents = agents
         self.connection = connection
+        connectionGeneration = UUID()
         error = nil
     }
 
     func refresh() async {
         guard let api, !loading else { return }
+        let generation = connectionGeneration
         loading = true
         defer { loading = false }
         do {
-            agents = try await api.get("agents")
+            let agents: [Agent] = try await api.get("agents")
+            guard generation == connectionGeneration else { return }
+            self.agents = agents
             error = nil
         } catch is CancellationError {} catch let failure as URLError
             where failure.code == .cancelled
-        {} catch { self.error = error.localizedDescription }
+        {} catch {
+            guard generation == connectionGeneration else { return }
+            self.error = error.localizedDescription
+        }
     }
 
     func disconnect(revoke: Bool) async throws {
@@ -287,7 +352,9 @@ import Observation
         try Drafts.clear()
         Drafts.clearPreviews()
         try SecureConnection.clear()
+        for model in conversations.values { model.invalidate() }
         connection = nil
+        connectionGeneration = UUID()
         agents = []
         conversations = [:]
         error = nil

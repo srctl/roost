@@ -315,7 +315,27 @@ export function withAgentStore<A>(
           migrateNotes(db);
           migrateCodingWorkspace(db);
           migrateAgentNavigation(db);
+          db.exec(`CREATE TABLE IF NOT EXISTS dashboard_presentations (
+            agentId TEXT PRIMARY KEY, focus TEXT, intent TEXT NOT NULL DEFAULT '',
+            revision INTEGER NOT NULL, updatedAt INTEGER NOT NULL, notice TEXT, widgetKey TEXT
+          )`);
+          if (
+            !db
+              .prepare("PRAGMA table_info(dashboard_presentations)")
+              .all()
+              .some((column) => column.name === "widgetKey")
+          ) {
+            db.exec(
+              "ALTER TABLE dashboard_presentations ADD COLUMN widgetKey TEXT",
+            );
+          }
           migrateAgentDeletion(db);
+          for (const operation of ["INSERT", "UPDATE"]) {
+            db.exec(`CREATE TRIGGER IF NOT EXISTS deleted_dashboard_presentations_${operation}
+              BEFORE ${operation} ON dashboard_presentations
+              WHEN EXISTS (SELECT 1 FROM deleted_agents WHERE id=NEW.agentId)
+              BEGIN SELECT RAISE(ABORT, 'Agent was deleted.'); END`);
+          }
           db.exec("PRAGMA user_version=14; COMMIT");
         } catch (error) {
           db.exec("ROLLBACK");

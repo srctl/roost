@@ -283,6 +283,12 @@ struct ConversationView: View {
                     .foregroundStyle(palette.muted)
                     .padding(.horizontal)
             }
+            if model.pending == nil && model.messageLength > 32000 {
+                Text("This message is too long. Shorten it before sending.")
+                    .font(.caption)
+                    .foregroundStyle(palette.muted)
+                    .padding(.horizontal)
+            }
             if !model.attachments.isEmpty && model.pending == nil {
                 ScrollView(.horizontal) {
                     HStack {
@@ -326,7 +332,7 @@ struct ConversationView: View {
                 .padding(.vertical, 12).focused($composing)
                 .allowsHitTesting(model.pending == nil)
                 .accessibilityIdentifier("messageComposer")
-                if model.busy && model.draft.isEmpty && model.pending == nil {
+                if model.showsStop {
                     Button {
                         Task { await model.stop() }
                     } label: {
@@ -350,13 +356,7 @@ struct ConversationView: View {
                     }
                     .accessibilityLabel(model.pending != nil ? "Retry message" : "Send message")
                     .accessibilityIdentifier("sendMessage")
-                    .disabled(
-                        model.sending || model.uploading || model.draft.count > 32000
-                            || (model.pending == nil
-                                && model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    .isEmpty
-                                && model.attachments.isEmpty)
-                    )
+                    .disabled(!model.canSend)
                 }
             }
             .padding(.horizontal, 8)
@@ -395,14 +395,19 @@ struct ConversationView: View {
                     URLQueryItem(name: "agentId", value: model.agent.id),
                     URLQueryItem(name: "id", value: file.id),
                 ])
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "RoostPreviews", isDirectory: true)
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    "RoostPreviews", isDirectory: true
+                )
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(
-                at: directory, withIntermediateDirectories: true)
-            let ext = URL(fileURLWithPath: file.name).pathExtension
-                .filter { $0.isLetter || $0.isNumber }.prefix(10)
-            let url = directory.appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension(String(ext))
+                at: directory, withIntermediateDirectories: true,
+                attributes: [.protectionKey: FileProtectionType.complete])
+            let name = URL(fileURLWithPath: file.name).lastPathComponent
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: " ")
+            let url = directory.appendingPathComponent(
+                name.isEmpty || name == "." || name == ".." ? "Attachment" : name)
             try bytes.write(to: url, options: [.atomic, .completeFileProtection])
             preview = url
         } catch { model.error = error.localizedDescription }

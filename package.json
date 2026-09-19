@@ -53,7 +53,8 @@
     "dev:mobile-fixture": "corepack pnpm --filter @roost/web dev:mobile-fixture",
     "ios:generate": "python3 apps/ios/generate-project.py",
     "ios:build": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -sdk iphonesimulator -derivedDataPath apps/ios/build build",
-    "ios:test": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -derivedDataPath apps/ios/build test"
+    "ios:test": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -derivedDataPath apps/ios/build test",
+    "test:dashboard:browser": "corepack pnpm --filter @roost/web test:dashboard:browser"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"

@@ -7,7 +7,11 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             ThemeRoot {
-                if app.connection != nil { AgentsView(app: app) } else { ConnectView(app: app) }
+                if app.connection != nil {
+                    AgentsView(app: app).id(app.connectionGeneration)
+                } else {
+                    ConnectView(app: app)
+                }
             }
             .preferredColorScheme(
                 appearance == "system" ? nil : appearance == "dark" ? .dark : .light)

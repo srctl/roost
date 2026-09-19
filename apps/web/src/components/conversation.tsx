@@ -63,6 +63,7 @@ export function Conversation({
   conversationId = agent.id,
   parent: initialParent,
   onOpenThread,
+  suggestion,
 }: {
   agent: Agent;
   initialConversation?: InitialConversation;
@@ -72,6 +73,7 @@ export function Conversation({
   conversationId?: string;
   parent?: import("../features/chat/schema").Message;
   onOpenThread?: (id: string) => void;
+  suggestion?: { id: number; text: string };
 }) {
   const waitingForApproval = useAgentActivity()[agent.id] === "approval";
   const {
@@ -654,6 +656,7 @@ export function Conversation({
         runId={runId ?? undefined}
       />
       <Composer
+        suggestion={suggestion}
         compact={!!parent}
         agentId={agent.id}
         agentName={agent.name}

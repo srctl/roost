@@ -57,6 +57,7 @@ struct Snapshot: Decodable {
 
 struct Approval: Decodable, Identifiable {
     let id: String
+    let runId: String
     let title: String
     let details: String
     let questions: [Question]?
@@ -88,7 +89,15 @@ struct SessionResponse: Decodable { let apiVersion: Int }
 struct APIError: LocalizedError {
     let message: String
     var status: Int? = nil
+    var code: String? = nil
     var errorDescription: String? { message }
+
+    // A generic server error can occur after enqueueing. Only explicit
+    // pre-enqueue rejections, authentication, and routing failures are safe
+    // to edit and resend with a new message identity.
+    var rejectsMessage: Bool {
+        code == "message_rejected" || [401, 403, 404, 405, 413, 415, 422].contains(status ?? 0)
+    }
 }
 
 struct Connection: Codable, Equatable {
