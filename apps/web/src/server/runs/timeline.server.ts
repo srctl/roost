@@ -21,8 +21,13 @@ export function putMessage(
       message.id,
       message.id,
     );
+  // Provider snapshots and streaming chunks do not own reaction state. Merge
+  // in SQLite so another connection cannot lose a reaction between read/write.
+  const merged = `CASE WHEN json_type(timeline.message,'$.reactions')='array'
+    THEN json_set(excluded.message,'$.reactions',json_extract(timeline.message,'$.reactions'))
+    ELSE excluded.message END`;
   db.prepare(
-    "INSERT INTO timeline (id, agentId, conversationId, message, createdAt) VALUES (?, ?, ?, ?, ?) ON CONFLICT(agentId,conversationId,id) DO UPDATE SET message = excluded.message WHERE timeline.agentId = excluded.agentId AND timeline.message != excluded.message",
+    `INSERT INTO timeline (id, agentId, conversationId, message, createdAt) VALUES (?, ?, ?, ?, ?) ON CONFLICT(agentId,conversationId,id) DO UPDATE SET message = ${merged} WHERE timeline.agentId = excluded.agentId AND timeline.message != ${merged}`,
   ).run(
     message.id,
     agentId,
@@ -30,9 +35,18 @@ export function putMessage(
     JSON.stringify(message),
     Date.now(),
   );
+  refreshParentMessage(db, agentId, conversationId, message.id);
+}
+
+export function refreshParentMessage(
+  db: DatabaseSync,
+  agentId: string,
+  conversationId: string,
+  messageId: string,
+) {
   db.prepare(
-    "UPDATE conversation_records SET parent=? WHERE agentId=? AND parentConversationId=? AND parentMessageId=?",
-  ).run(JSON.stringify(message), agentId, conversationId, message.id);
+    "UPDATE conversation_records SET parent=(SELECT message FROM timeline WHERE agentId=? AND conversationId=? AND id=?) WHERE agentId=? AND parentConversationId=? AND parentMessageId=?",
+  ).run(agentId, conversationId, messageId, agentId, conversationId, messageId);
 }
 
 export const readTimeline = (agentId: string, conversationId = agentId) =>

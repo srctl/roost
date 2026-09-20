@@ -4,10 +4,11 @@ import { Effect, Schema } from "effect";
 import { withAgentStore } from "../../server/agents/store.server";
 import { available } from "../../server/available";
 import { readConversationSnapshot } from "../../server/runs/conversation-snapshot.server";
+import { setMessageReaction } from "../../server/runs/reactions.server";
 import { cancelRun, enqueueChat } from "../../server/runs/store.server";
 import { openReplyThread } from "../../server/runs/threads.server";
 import { ensureTimeline, startWorker } from "../../server/runs/worker.server";
-import { SendMessage } from "./schema";
+import { SendMessage, SetReaction } from "./schema";
 
 const result = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(
@@ -117,3 +118,8 @@ export const openThread = createServerFn({ method: "POST" })
   .handler(({ data }) =>
     result(openReplyThread(data.agentId, data.parentMessageId)),
   );
+
+export const setReaction = createServerFn({ method: "POST" })
+  .middleware([available])
+  .validator(Schema.decodeUnknownSync(SetReaction))
+  .handler(({ data }) => result(setMessageReaction(data, "user")));

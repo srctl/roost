@@ -137,6 +137,15 @@ test("follow-ups and attachments steer one live turn, deduplicate retries, and p
         users.map((item: { clientId: string }) => item.clientId),
         [first, followUp.messageId, last],
       );
+      const identities = native.instructionUpdates
+        .filter((item: { content: { text: string }[] }) =>
+          item.content[0].text.startsWith("Roost message identity"),
+        )
+        .map(
+          (item: { content: { text: string }[] }) =>
+            JSON.parse(item.content[0].text.split("\n").at(-1)!).messageId,
+        );
+      assert.deepEqual(identities, [first, followUp.messageId, last]);
       assert.match(users[1].content[1].text, /notes.txt/);
       const timeline = await run(readTimeline(agentId));
       assert.equal(

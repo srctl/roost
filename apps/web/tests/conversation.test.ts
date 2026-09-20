@@ -124,12 +124,25 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
           event.type === "message" && event.message.status === "inProgress",
       ),
     );
-    const updates = JSON.parse(
+    const allUpdates = JSON.parse(
       readFileSync(
         join(directory, "agents", agent.id, "codex", "fake-thread.json"),
         "utf8",
       ),
     ).instructionUpdates;
+    const updates = allUpdates.filter((item: { content: { text: string }[] }) =>
+      item.content[0].text.startsWith("Roost capability update:"),
+    );
+    const reactionSnapshots = allUpdates.filter(
+      (item: { content: { text: string }[] }) =>
+        item.content[0].text.startsWith("Roost message identity"),
+    );
+    assert.ok(reactionSnapshots.length > 0);
+    assert.ok(
+      reactionSnapshots.some((item: { content: { text: string }[] }) =>
+        item.content[0].text.includes(input.messageId),
+      ),
+    );
     assert.equal(updates.length, 1);
     assert.equal(updates[0].role, "developer");
     assert.match(
@@ -148,7 +161,9 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
           join(directory, "agents", agent.id, "codex", "fake-thread.json"),
           "utf8",
         ),
-      ).instructionUpdates.length,
+      ).instructionUpdates.filter((item: { content: { text: string }[] }) =>
+        item.content[0].text.startsWith("Roost capability update:"),
+      ).length,
       1,
     );
     const restored = await Effect.runPromise(readConversation(agent.id));
@@ -200,6 +215,11 @@ test("chat lifecycle preserves history, isolates agents, migrates legacy session
     assert.ok(
       localThread.options.dynamicTools.some(
         (tool: { name: string }) => tool.name === "roost_update_soul",
+      ),
+    );
+    assert.ok(
+      localThread.options.dynamicTools.some(
+        (tool: { name: string }) => tool.name === "roost_react_to_message",
       ),
     );
     for (const options of [localThread.options, localThread.resumeOptions]) {

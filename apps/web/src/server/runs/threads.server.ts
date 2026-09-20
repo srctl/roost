@@ -154,6 +154,7 @@ export const readSharedContext = (
         conversationId: String(row.conversationId),
         agentId,
         author: message.role,
+        reactions: message.reactions ?? [],
         timestamp: Number(row.createdAt) || null,
         text: message.text.slice(0, 1500),
         truncated: message.text.length > 1500,

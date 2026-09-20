@@ -324,8 +324,14 @@ async function verifyReplyActions(browser: Browser, base: string) {
         );
       }
       await page.mouse.move(0, 0);
-      // Reach the action by Tab from the preceding link, including when invisible.
+      // Reach the action by Tab after the reaction control, including when invisible.
       await row.getByRole("link").last().focus();
+      await page.keyboard.press("Tab");
+      assert.ok(
+        await row
+          .getByRole("button", { name: "Add reaction", exact: true })
+          .evaluate((el) => el === document.activeElement),
+      );
       await page.keyboard.press("Tab");
       assert.ok(await action.evaluate((el) => el === document.activeElement));
       await page.waitForTimeout(200);

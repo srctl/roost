@@ -10,11 +10,13 @@ import { MessageContent } from "./message-content";
 export function UserMessage({
   children,
   files,
+  reactions,
   entering = false,
   compact = false,
 }: {
   children: ReactNode;
   files?: readonly FileAttachment[];
+  reactions?: ReactNode;
   /** Plays the send animation: the bubble rises from the composer into place. */
   entering?: boolean;
   compact?: boolean;
@@ -33,6 +35,7 @@ export function UserMessage({
     >
       {children}
       <FileLinks files={files} />
+      {reactions}
     </div>
   );
 }
@@ -42,6 +45,7 @@ export function AgentMessage({
   action,
   title,
   files,
+  reactions,
   children,
   entering = false,
   compact = false,
@@ -50,6 +54,7 @@ export function AgentMessage({
   action?: ReactNode;
   title?: string;
   files?: readonly FileAttachment[];
+  reactions?: ReactNode;
   children: string;
   /** Fades the reply in when it first arrives during this visit. */
   entering?: boolean;
@@ -71,6 +76,7 @@ export function AgentMessage({
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
       {children && <MessageContent>{children}</MessageContent>}
       <FileLinks files={files} />
+      {reactions}
     </article>
   );
 

@@ -4,9 +4,25 @@ import {
   getConversation,
   type InitialConversation,
   sendMessage,
+  setReaction,
   stopMessage,
 } from "./functions";
+import type { Message } from "./schema";
 import { type Entry, mergeEntries } from "./timeline";
+
+type PendingReaction = { emoji: string; active: boolean };
+
+function withPendingReaction(
+  message: Message,
+  pending: PendingReaction | undefined,
+): Message {
+  if (!pending) return message;
+  const reactions = (message.reactions ?? []).filter(
+    (reaction) => reaction.actor !== "user" || reaction.emoji !== pending.emoji,
+  );
+  if (pending.active) reactions.push({ actor: "user", emoji: pending.emoji });
+  return { ...message, reactions };
+}
 
 export function useConversation(
   agentId: string,
@@ -23,9 +39,30 @@ export function useConversation(
   const [entries, setEntries] = useState<readonly Entry[]>(
     initial?.entries ?? [],
   );
+  const [pendingReactions, setPendingReactions] = useState<
+    Record<string, PendingReaction>
+  >({});
+  const reacting = useRef(new Set<string>());
   const messages = useMemo(
-    () => entries.map((entry) => entry.message),
-    [entries],
+    () =>
+      entries.map((entry) =>
+        withPendingReaction(
+          entry.message,
+          pendingReactions[`${conversationId}:${entry.message.id}`],
+        ),
+      ),
+    [conversationId, entries, pendingReactions],
+  );
+  const visibleThreads = useMemo(
+    () =>
+      threads.map((thread) => ({
+        ...thread,
+        parent: withPendingReaction(
+          thread.parent,
+          pendingReactions[`${agentId}:${thread.parent.id}`],
+        ),
+      })),
+    [agentId, threads, pendingReactions],
   );
   const [loading, setLoading] = useState(!ready);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -127,7 +164,10 @@ export function useConversation(
       setBefore(result.value.before);
       // Replay changes made while the older page was in flight.
       generation.current++;
-      cursor.current = revision;
+      cursor.current =
+        revision === undefined || cursor.current === undefined
+          ? undefined
+          : Math.min(revision, cursor.current);
     } catch {
       if (mounted.current)
         setError("Could not load older messages. Try again.");
@@ -198,6 +238,70 @@ export function useConversation(
     }
   }
 
+  async function react(
+    messageId: string,
+    emoji: string,
+    active: boolean,
+    targetConversationId = conversationId,
+  ) {
+    const key = `${targetConversationId}:${messageId}`;
+    if (reacting.current.has(key)) return;
+    reacting.current.add(key);
+    const revision = cursor.current;
+    setPendingReactions((current) => ({
+      ...current,
+      [key]: { emoji, active },
+    }));
+    try {
+      const result = await setReaction({
+        data: {
+          agentId,
+          conversationId: targetConversationId,
+          messageId,
+          emoji,
+          active,
+        },
+      });
+      if (!result.ok) throw new Error(result.error);
+      if (!mounted.current) return;
+      // Preserve concurrently streamed content and other reactions. Replay
+      // changes since this request began, even if a newer poll already landed.
+      generation.current++;
+      cursor.current =
+        revision === undefined || cursor.current === undefined
+          ? undefined
+          : Math.min(revision, cursor.current);
+      const update = (message: Message) =>
+        message.id === messageId
+          ? withPendingReaction(message, { emoji, active })
+          : message;
+      if (targetConversationId === conversationId) {
+        setEntries((current) =>
+          current.map((entry) => ({
+            ...entry,
+            message: update(entry.message),
+          })),
+        );
+      }
+      if (targetConversationId === agentId) {
+        setThreads((current) =>
+          current.map((thread) => ({
+            ...thread,
+            parent: update(thread.parent),
+          })),
+        );
+      }
+    } finally {
+      reacting.current.delete(key);
+      if (mounted.current)
+        setPendingReactions((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+    }
+  }
+
   async function stop() {
     if (!runId) return;
     const result = await stopMessage({
@@ -208,7 +312,7 @@ export function useConversation(
   }
 
   return {
-    threads,
+    threads: visibleThreads,
     runStatus,
     active,
     messages,
@@ -217,6 +321,7 @@ export function useConversation(
     runId,
     error,
     send,
+    react,
     stop,
     reload,
     loading,

@@ -26,6 +26,7 @@ import { AgentHeader } from "./agent-header";
 import { ApprovalRequests } from "./approval-requests";
 import { Composer } from "./conversation/composer";
 import { AgentMessage, UserMessage } from "./conversation/message";
+import { MessageReactions } from "./conversation/message-reactions";
 import { ConversationNotice } from "./conversation/notice";
 import { ThreadMessage } from "./conversation/thread-message";
 import { ToolActivity } from "./conversation/tool-activity";
@@ -84,6 +85,7 @@ export function Conversation({
     runId,
     error,
     send,
+    react,
     stop,
     reload,
     loading,
@@ -430,7 +432,13 @@ export function Conversation({
           >
             {parent && (
               <>
-                <ThreadMessage agent={agent} message={parent} />
+                <ThreadMessage
+                  agent={agent}
+                  message={parent}
+                  onReact={(emoji, active) =>
+                    react(parent.id, emoji, active, agent.id)
+                  }
+                />
                 <div {...stylex.props(styles.replySeparator)}>
                   <span>
                     {threads.find((thread) => thread.id === conversationId)
@@ -528,10 +536,19 @@ export function Conversation({
                       agent={agent}
                       message={message}
                       previous={messages[index - 1]}
+                      onReact={(emoji, active) =>
+                        react(message.id, emoji, active)
+                      }
                       entering={entering.has(message.id)}
                     />
                   ) : message.role === "user" ? (
                     <UserMessage
+                      reactions={
+                        <MessageReactions
+                          message={message}
+                          agentName={agent.name}
+                        />
+                      }
                       files={message.files}
                       entering={entering.has(message.id)}
                     >
@@ -548,6 +565,15 @@ export function Conversation({
                     />
                   ) : (
                     <AgentMessage
+                      reactions={
+                        <MessageReactions
+                          message={message}
+                          agentName={agent.name}
+                          onReact={(emoji, active) =>
+                            react(message.id, emoji, active)
+                          }
+                        />
+                      }
                       action={replyAction}
                       name={agent.name}
                       title={message.title}

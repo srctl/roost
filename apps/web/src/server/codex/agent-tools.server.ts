@@ -35,6 +35,11 @@ import {
   notifyAgent,
 } from "../notifications/tools.server";
 import { reflectionTools } from "../reflections/store.server";
+import {
+  ReactToMessage,
+  reactionTools,
+  reactToMessage,
+} from "../runs/reaction-tools.server";
 import { runAutomationNow } from "../runs/store.server";
 import { ReadSharedContext, readSharedContext } from "../runs/threads.server";
 import { CodexError, getCodexConnection } from "./app-server.server";
@@ -65,6 +70,7 @@ const DeleteAutomationTool = Schema.Struct({
 
 export const agentTools: DynamicToolSpec[] = [
   ...noteTools,
+  ...reactionTools,
   {
     type: "function",
     name: "roost_read_conversations",
@@ -198,6 +204,12 @@ export function handleAgentTool(
         tool,
         arguments_,
         allowMutations === true,
+      );
+    if (tool === "roost_react_to_message")
+      return yield* reactToMessage(
+        agentId,
+        runId,
+        yield* Schema.decodeUnknown(ReactToMessage)(arguments_),
       );
     if (tool === "roost_read_conversations")
       return yield* readSharedContext(
