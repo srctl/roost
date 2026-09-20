@@ -315,11 +315,48 @@ test("dedupe preserves saved, read, dismissal, identity, order and curated conte
         ),
       ),
     );
+    const personalScores = {
+      interest: 0.2,
+      usefulness: 0.9,
+      confidence: 0.8,
+      model: "jev-1.13.0",
+    };
     const refreshed = await run(
-      withAgentStore((db) => putFeedItem(db, article(), dedupe)),
+      withAgentStore((db) =>
+        putFeedItem(
+          db,
+          {
+            ...article(),
+            score: 0.5,
+            scoring: "jev",
+            personalScores,
+          },
+          dedupe,
+          { fingerprint: "new-assessment" },
+        ),
+      ),
     );
     assert.equal(refreshed.title, story.title);
     assert.equal(refreshed.kind, "story");
+    assert.equal(refreshed.body, story.body);
+    assert.equal(refreshed.saved, true);
+    assert.equal(refreshed.readAt, read.readAt);
+    assert.equal(refreshed.dismissed, story.dismissed);
+    assert.equal(refreshed.publishedAt, story.publishedAt);
+    assert.equal(refreshed.score, 0.5);
+    assert.deepEqual(refreshed.personalScores, personalScores);
+    await run(
+      withAgentStore((db) => {
+        const row = db
+          .prepare("SELECT content,fingerprint FROM feed_items WHERE id=?")
+          .get(story.id)!;
+        assert.equal(row.fingerprint, "new-assessment");
+        assert.deepEqual(
+          JSON.parse(String(row.content)).personalScores,
+          personalScores,
+        );
+      }),
+    );
     await run(
       withAgentStore((db) =>
         assert.equal(
@@ -549,6 +586,13 @@ test("candidate expansion preserves original attribution, item state and dedupe 
     const original = {
       ...article(),
       imageUrl: "https://images.example.com/source-hero.jpg",
+      scoring: "jev" as const,
+      personalScores: {
+        interest: 0.9,
+        usefulness: 0.4,
+        confidence: 0.8,
+        model: "jev-1.13.0",
+      },
     };
     await run(
       withAgentStore((db) =>
@@ -578,6 +622,8 @@ test("candidate expansion preserves original attribution, item state and dedupe 
     assert.equal(expanded.url, original.url);
     assert.equal(expanded.publishedAt, original.publishedAt);
     assert.equal(expanded.imageUrl, original.imageUrl);
+    assert.deepEqual(expanded.personalScores, original.personalScores);
+    assert.equal(expanded.scoring, "jev");
     const preserved = await run(
       publishFeedItem(
         a.id,
@@ -734,7 +780,8 @@ test("personal publication stays local until the separate private-scoring opt-in
       return Response.json({
         model: "jev-1.13.0",
         answers: {
-          relevance: answer,
+          interest: answer,
+          usefulness: answer,
           importance: answer,
           actionability: answer,
           novelty: answer,

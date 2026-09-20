@@ -365,6 +365,17 @@ export const feedStyles = stylex.create({
     fontWeight: 550,
     marginBottom: 4,
   },
+  personalScores: {
+    display: "flex",
+    flexWrap: "wrap",
+    columnGap: 6,
+    color: colors.foreground,
+    fontVariantNumeric: "tabular-nums",
+  },
+  scoreAttribution: {
+    fontSize: 11,
+    marginBottom: 6,
+  },
   citations: {
     marginTop: 30,
     borderTopWidth: 1,
