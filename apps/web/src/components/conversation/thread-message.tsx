@@ -4,6 +4,7 @@ import type { Message } from "../../features/chat/schema";
 import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
 import { Avatar } from "../ui/primitives";
+import { ChatDashboard, chatDashboardKey } from "./chat-dashboard";
 import { FileLinks } from "./file-links";
 import { MessageContent } from "./message-content";
 import { MessageReactions, type ReactToMessage } from "./message-reactions";
@@ -22,6 +23,8 @@ export function ThreadMessage({
   entering?: boolean;
 }) {
   const user = message.role === "user";
+  const widgetKey =
+    message.role === "assistant" ? chatDashboardKey(message.ui) : null;
   const name = user ? "You" : agent.name;
   const date = message.createdAt ? new Date(message.createdAt) : undefined;
   const validDate = date && Number.isFinite(date.getTime()) ? date : undefined;
@@ -83,11 +86,12 @@ export function ThreadMessage({
         )}
         {user ? (
           <div {...stylex.props(styles.text)}>{message.text}</div>
-        ) : message.text ? (
+        ) : message.text && widgetKey === null ? (
           <div>
             <MessageContent>{message.text}</MessageContent>
           </div>
         ) : null}
+        {widgetKey !== null && <ChatDashboard widgetKey={widgetKey} />}
         <FileLinks files={message.files} />
         <MessageReactions
           message={message}

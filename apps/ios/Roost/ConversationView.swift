@@ -158,7 +158,10 @@ struct ConversationView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .defaultScrollAnchor(.bottom)
-        .refreshable { await model.refresh() }
+        .refreshable {
+            await model.refresh()
+            await model.dashboards.refreshVisible(force: true)
+        }
         .onChange(of: model.displayedEntries) { old, _ in
             if followBottom || old.isEmpty { proxy.scrollTo("bottom", anchor: .bottom) }
         }
@@ -252,6 +255,7 @@ struct ConversationView: View {
                 guard scenePhase == .active else { return }
                 while !Task.isCancelled {
                     await model.refresh()
+                    await model.dashboards.refreshVisible()
                     do {
                         try await Task.sleep(
                             for: .seconds(model.refreshError != nil ? 8 : model.busy ? 1 : 4))
@@ -286,9 +290,13 @@ struct ConversationView: View {
                     Label("Replying to", systemImage: "arrow.turn.down.right")
                         .font(.caption)
                         .foregroundStyle(palette.muted)
-                    Text(parent.text)
-                        .lineLimit(5)
-                        .font(.subheadline)
+                    if let key = parent.ui?.dashboardKey {
+                        InlineDashboardCard(
+                            store: model.dashboards, key: key,
+                            occurrence: model.conversationId + "-parent")
+                    } else {
+                        Text(parent.text).lineLimit(5).font(.subheadline)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -300,7 +308,9 @@ struct ConversationView: View {
                     style: isMain ? responseStyle : .codex,
                     canReply: isMain,
                     reply: { Task { replyID = await model.reply(to: entry.message) } },
-                    file: { file in Task { await open(file) } }, api: model.api
+                    file: { file in Task { await open(file) } }, api: model.api,
+                    dashboards: model.dashboards,
+                    occurrence: model.conversationId + "-" + entry.id
                 )
                 .modifier(
                     MessageEntrance(animated: model.arrivingMessageIDs.contains(entry.id))
@@ -433,10 +443,10 @@ struct ConversationView: View {
                 .foregroundStyle(palette.muted)
                 .padding(.horizontal)
         }
-        if model.draft.count > 31_000 && model.pending == nil {
-            Text("\(model.draft.count.formatted()) / 32,000 characters")
+        if model.messageLength > 31_000 && model.pending == nil {
+            Text("\(model.messageLength.formatted()) / 32,000 characters")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(model.draft.count > 32_000 ? .red : palette.muted)
+                .foregroundStyle(model.messageLength > 32_000 ? .red : palette.muted)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.horizontal)
         }
@@ -610,8 +620,11 @@ struct ConversationView: View {
                     URLQueryItem(name: "id", value: file.id),
                 ])
             guard app.sessionID == session, !Task.isCancelled else { return }
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "RoostPreviews", isDirectory: true)
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    "RoostPreviews", isDirectory: true
+                )
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
             let ext = URL(fileURLWithPath: file.name).pathExtension

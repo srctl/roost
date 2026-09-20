@@ -2,8 +2,10 @@ import SwiftUI
 
 struct ConnectView: View {
     @Environment(\.palette) private var palette
+    @Environment(\.dismiss) private var dismiss
 
     @Bindable var app: AppModel
+    var replacingConnection = false
     @State private var server = ""
     @State private var token = ""
     @State private var connecting = false
@@ -12,37 +14,56 @@ struct ConnectView: View {
     @State private var help = false
     private let onClose: (() -> Void)?
 
-    init(app: AppModel, serverAddress: String = "", onClose: (() -> Void)? = nil) {
+    init(
+        app: AppModel, serverAddress: String = "", replacingConnection: Bool = false,
+        onClose: (() -> Void)? = nil
+    ) {
         self.app = app
+        self.replacingConnection = replacingConnection
         self.onClose = onClose
-        _server = State(initialValue: serverAddress)
+        _server = State(
+            initialValue: replacingConnection
+                ? app.connection?.server.absoluteString ?? "" : serverAddress)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    HStack(spacing: 2) {
-                        CharacterView(name: "moss", size: 66)
-                        CharacterView(name: "wisp", size: 56)
-                        CharacterView(name: "peach", size: 56)
+                    if !replacingConnection {
+                        HStack(spacing: 2) {
+                            CharacterView(name: "moss", size: 66)
+                            CharacterView(name: "wisp", size: 56)
+                            CharacterView(name: "peach", size: 56)
+                        }
+                        .padding(.top, 36)
                     }
-                    .padding(.top, 36)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Your Roost.\nWithin reach.")
-                            .font(.largeTitle.weight(.semibold))
-                        Text("Connect to your server to pick up with your agents.")
-                            .font(.body)
-                            .foregroundStyle(palette.muted)
+                        Text(
+                            replacingConnection
+                                ? "Reconnect to your Roost." : "Your Roost.\nWithin reach."
+                        )
+                        .font(.largeTitle.weight(.semibold))
+                        Text(
+                            replacingConnection
+                                ? "Paste a new device token for this server. Your drafts and unsent messages stay saved."
+                                : "Connect to your server to pick up with your agents."
+                        )
+                        .font(.body)
+                        .foregroundStyle(palette.muted)
                     }
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Server address")
                                 .font(.subheadline.weight(.medium))
-                            TextField("https://roost.example.com", text: $server)
-                                .textContentType(.URL).keyboardType(.URL)
-                                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                                .accessibilityIdentifier("serverAddress")
+                            if replacingConnection {
+                                Text(server).textSelection(.enabled)
+                            } else {
+                                TextField("https://roost.example.com", text: $server)
+                                    .textContentType(.URL).keyboardType(.URL)
+                                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    .accessibilityIdentifier("serverAddress")
+                            }
                         }
                         Divider()
                         VStack(alignment: .leading, spacing: 8) {
@@ -70,6 +91,7 @@ struct ConnectView: View {
                                 try await app.connect(server: server, token: token)
                                 token = ""
                                 onClose?()
+                                if replacingConnection { dismiss() }
                             } catch {
                                 if !Task.isCancelled { self.error = error.localizedDescription }
                             }
@@ -77,8 +99,12 @@ struct ConnectView: View {
                     } label: {
                         HStack {
                             if connecting { ProgressView() }
-                            Text(connecting ? "Connecting…" : "Connect to Roost")
-                                .fontWeight(.semibold)
+                            Text(
+                                connecting
+                                    ? "Connecting…"
+                                    : replacingConnection ? "Replace token" : "Connect to Roost"
+                            )
+                            .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)

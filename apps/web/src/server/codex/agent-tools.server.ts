@@ -11,6 +11,8 @@ import {
 } from "../automations/store.server";
 import { codingTools, handleCodingTool } from "../coding/tools.server";
 import {
+  CreateWeatherTrackerTool,
+  createDashboardTracker,
   DeleteDashboard,
   dashboardTools,
   deleteDashboard,
@@ -21,6 +23,8 @@ import {
   SaveDataset,
   saveDashboard,
   saveDataset,
+  searchWeatherLocations,
+  showDashboard,
 } from "../dashboards/tools.server";
 import {
   DelegateTask,
@@ -231,6 +235,17 @@ export function handleAgentTool(
         yield* Schema.decodeUnknown(NotifyAgent)(arguments_),
       );
     if (tool === "roost_list_datasets") return yield* listDatasets(agentId);
+    if (tool === "roost_search_weather_locations")
+      return yield* searchWeatherLocations(agentId, arguments_);
+    if (tool === "roost_create_weather_tracker") {
+      const input = yield* Schema.decodeUnknown(CreateWeatherTrackerTool, {
+        onExcessProperty: "error",
+      })(arguments_);
+      return yield* createDashboardTracker(agentId, {
+        ...input,
+        kind: "weather",
+      });
+    }
     if (tool === "roost_save_dataset")
       return yield* saveDataset(
         agentId,
@@ -247,6 +262,14 @@ export function handleAgentTool(
         agentId,
         yield* Schema.decodeUnknown(SaveDashboard)(arguments_),
       );
+    if (tool === "roost_show_dashboard") {
+      if (allowMutations !== true)
+        return yield* new CodexError({
+          message:
+            "Inline trackers can only be shown in an active user conversation.",
+        });
+      return yield* showDashboard(agentId, runId, arguments_);
+    }
     if (tool === "roost_delete_dashboard")
       return yield* deleteDashboard(
         agentId,

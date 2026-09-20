@@ -15,7 +15,13 @@ final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
 
 struct RoostAPI {
     let connection: Connection
-    private static let session: URLSession = {
+    private let session: URLSession
+    init(connection: Connection, session: URLSession? = nil) {
+        self.connection = connection
+        self.session = session ?? Self.defaultSession
+    }
+
+    private static let defaultSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 90
@@ -40,15 +46,15 @@ struct RoostAPI {
             request.httpBody = body
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
-        let (data, response) = try await Self.session.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError(message: "The server did not respond.")
         }
         if http.statusCode == 401 {
             throw APIError(
                 message:
-                    "Your device token expired or was revoked. Reconnect in Settings with a new token.",
-                status: 401
+                    "Your device token expired or was revoked. Replace it in Settings to reconnect.",
+                status: http.statusCode
             )
         }
         if (300...399).contains(http.statusCode) {
@@ -61,7 +67,7 @@ struct RoostAPI {
             let error = try? JSONDecoder().decode([String: String].self, from: data)
             throw APIError(
                 message: error?["error"] ?? "Roost returned an error (\(http.statusCode)).",
-                status: http.statusCode)
+                status: http.statusCode, code: error?["code"])
         }
         return data
     }

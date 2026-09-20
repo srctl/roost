@@ -10,6 +10,8 @@ struct MessageView: View {
     let reply: () -> Void
     let file: (Attachment) -> Void
     var api: RoostAPI? = nil
+    var dashboards: ChatDashboardStore? = nil
+    var occurrence = ""
     @State private var imageStates: [String: String] = [:]
     @AppStorage("showActivityDetails") private var showActivityDetails = false
 
@@ -28,22 +30,37 @@ struct MessageView: View {
             }
     }
 
+    private var hasDashboardCard: Bool {
+        message.role == "assistant" && message.ui?.dashboardKey != nil && dashboards != nil
+    }
+
     var body: some View {
-        Group {
-            if isConversationMessage && style == .messages {
-                bubble
-            } else {
-                transcriptRow
+        VStack(alignment: .leading, spacing: 10) {
+            if !hasDashboardCard {
+                Group {
+                    if isConversationMessage && style == .messages {
+                        bubble
+                    } else {
+                        transcriptRow
+                    }
+                }
+                .modifier(SwipeToReply(enabled: allowsSwipeReply, reply: reply))
+                .accessibilityAction(named: Text("Copy text")) {
+                    UIPasteboard.general.string = message.text
+                }
+                .contextMenu {
+                    Button("Copy text") { UIPasteboard.general.string = message.text }
+                    if canReply && message.role == "assistant" {
+                        Button("Reply in thread", action: reply)
+                    }
+                }
             }
-        }
-        .modifier(SwipeToReply(enabled: allowsSwipeReply, reply: reply))
-        .accessibilityAction(named: Text("Copy text")) {
-            UIPasteboard.general.string = message.text
-        }
-        .contextMenu {
-            Button("Copy text") { UIPasteboard.general.string = message.text }
-            if canReply && message.role == "assistant" {
-                Button("Reply in thread", action: reply)
+            if message.role == "assistant", let key = message.ui?.dashboardKey, let dashboards {
+                InlineDashboardCard(store: dashboards, key: key, occurrence: occurrence)
+                if canReply {
+                    Button("Reply in thread", action: reply).font(.caption)
+                        .accessibilityIdentifier("reply-card-\(occurrence)")
+                }
             }
         }
     }

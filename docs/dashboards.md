@@ -1,6 +1,6 @@
 # Dashboards
 
-Dashboards keep useful trackers outside an agent's conversation. They are **off
+Dashboards keep useful trackers that can also appear in an agent's conversation. They are **off
 by default**. Enable **Settings → Appearance → Dashboards**, then open an agent and choose
 **Dashboard** in its header. Conversation and Dashboard tabs keep both views
 within the same agent. On desktop, the existing conversation sits beside the
@@ -12,9 +12,32 @@ The setting is saved on the Roost server and applies to every device.
 Turning it off hides the page's content and prevents dashboard reads and updates;
 existing widgets remain saved for when you enable it again.
 
+Use **Add tracker** to create a to-do list, calorie log, or weather card. Tasks can be
+added, completed, reopened and removed. Meal entries accept a label, date and
+explicit calorie count, with a total for the selected day. These controls save
+directly to Roost and work in the native iPhone app too. They do not estimate
+nutrition values or create a calorie target. Existing drafts survive conflicts;
+retries do not silently duplicate additions.
+
+For live weather, search for a city, select the matching location, and choose °C or °F.
+The card shows current conditions and a five-day forecast from Open-Meteo. It
+includes the city, update time, attribution, and a **Refresh** control. Forecasts
+are cached for 15 minutes; a provider outage clearly labels any older saved
+forecast. Weather works in Summary and directly in chat too.
+
+Ask **“Show my to-do list here”** or **“Create a meal log in this chat”** to use a
+tracker directly in the conversation. The agent saves it, then shows an inline
+view with working controls on web and iPhone. Chat and Dashboard share the same
+saved data. Reopened messages show current contents rather than a historical
+snapshot. Editing a tracker never sends a chat message. Reply threads support the
+same controls, and closing a reply panel preserves unfinished tracker entries.
+If a tracker is removed or dashboards are turned off, its chat reference shows an
+unavailable message.
+
 Talk to an agent about what you want to track and which information will be useful.
 For example:
 
+- “Show a weather card for Portland, Oregon in this chat.”
 - “Build a project dashboard with current status, next steps, and a weekly trend.”
 - “Keep a tracker of the cars we're comparing, including price, mileage, and source links.”
 - “Track my spending this month with category totals and a chart. Tell me which data you need.”
@@ -25,8 +48,9 @@ widget's last saved update time; use **Discuss with…** to
 focus the conversation and ask that agent to change or remove it. The agent reads existing widgets before
 updating them, so concurrent changes cannot silently overwrite one another.
 
-Widgets are saved reports, not live connections to external services. Their
-information changes when an agent checks a source and saves an update. Ask for an
+Most widgets are saved reports. Their information changes when an agent checks a
+source and saves an update. Weather cards fetch forecasts through Roost
+automatically while visible and when you use **Refresh**. Ask for an
 automation if a tracker should refresh on a schedule, and choose whether routine
 updates should generate a conversation message. An automation can update the
 widget without posting every change in the conversation. The open Dashboard page

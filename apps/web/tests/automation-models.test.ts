@@ -205,8 +205,9 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     );
     assert.equal(thread().options.model, "fake");
     assert.ok((await run(getAgentConversation(agent.id))).threadId);
-    // Include reaction-only threads (16) when upgrading the tool inventory.
-    for (const version of [10, 11, 13, 14, 15, 16]) {
+    // Earlier feature inventories, including version 18 before unified tools,
+    // must get a fresh native thread while preserving their archived history.
+    for (const version of [10, 11, 13, 14, 15, 16, 17, 18]) {
       const old = await run(getAgentConversation(agent.id));
       await run(
         withAgentStore((store) =>
@@ -225,11 +226,15 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 17);
+      assert.equal(migrated.toolVersion, 19);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
         JSON.parse(migrated.archive).length > JSON.parse(old.archive).length,
+      );
+      assert.deepEqual(
+        JSON.parse(migrated.archive).slice(0, JSON.parse(old.archive).length),
+        JSON.parse(old.archive),
       );
       const names = thread().options.dynamicTools.map(
         (tool: { name: string }) => tool.name,
@@ -253,8 +258,18 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_delete_dataset",
         "roost_read_feed",
         "roost_publish_feed_item",
+        "roost_show_dashboard",
+        "roost_search_weather_locations",
+        "roost_create_weather_tracker",
       ])
         assert.ok(names.includes(name), name);
+      const dashboardSchema = JSON.stringify(
+        thread().options.dynamicTools.find(
+          (tool: { name: string }) => tool.name === "roost_save_dashboard",
+        )?.inputSchema,
+      );
+      assert.match(dashboardSchema, /"todo-list"/);
+      assert.match(dashboardSchema, /"calorie-log"/);
     }
     const toolContext = { agentId: agent.id, allowMutations: true };
     const catalog = await handleAgentTool(toolContext, "roost_list_models", {});

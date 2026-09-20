@@ -1,9 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { FileAttachment } from "../../features/chat/files";
+import type { Message } from "../../features/chat/schema";
 import { usePreferences } from "../../features/settings/preferences";
 import { motion } from "../../styles/motion.stylex";
 import { colors } from "../../styles/tokens.stylex";
+import { ChatDashboard, chatDashboardKey } from "./chat-dashboard";
 import { FileLinks } from "./file-links";
 import { MessageContent } from "./message-content";
 
@@ -49,6 +51,7 @@ export function AgentMessage({
   children,
   entering = false,
   compact = false,
+  ui,
 }: {
   name: string;
   action?: ReactNode;
@@ -59,8 +62,10 @@ export function AgentMessage({
   /** Fades the reply in when it first arrives during this visit. */
   entering?: boolean;
   compact?: boolean;
+  ui?: Message["ui"];
 }) {
   const { responseStyle } = usePreferences();
+  const widgetKey = chatDashboardKey(ui);
 
   const article = (
     <article
@@ -71,10 +76,14 @@ export function AgentMessage({
         compact && styles.compactAgent,
         !!action && styles.actionArticle,
         entering && !action && styles.received,
+        widgetKey !== null && styles.withTracker,
       )}
     >
       {title && <div {...stylex.props(styles.automation)}>{title}</div>}
-      {children && <MessageContent>{children}</MessageContent>}
+      {children && widgetKey === null && (
+        <MessageContent>{children}</MessageContent>
+      )}
+      {widgetKey !== null && <ChatDashboard widgetKey={widgetKey} />}
       <FileLinks files={files} />
       {reactions}
     </article>
@@ -88,6 +97,7 @@ export function AgentMessage({
         compact && styles.compactAgent,
         stylex.defaultMarker(),
         entering && styles.received,
+        widgetKey !== null && styles.trackerGroup,
       )}
     >
       {article}
@@ -109,6 +119,19 @@ const fadeUp = stylex.keyframes({
 });
 
 const styles = stylex.create({
+  withTracker: {
+    width: "100%",
+    maxWidth: "100%",
+    paddingBlock: 0,
+    paddingInline: 0,
+    backgroundColor: "transparent",
+  },
+  trackerGroup: {
+    display: "block",
+    width: "100%",
+    maxWidth: "100%",
+    paddingInlineEnd: 0,
+  },
   automation: { fontSize: 11, color: colors.muted, marginBottom: 6 },
   userMessage: {
     whiteSpace: "pre-wrap",

@@ -22,7 +22,7 @@ struct AgentWorkspaceView: View {
                 .tag("chat")
                 WorkspaceTab(back: close) {
                     DashboardView(agent: model.agent, api: model.api) { prompt in
-                        if model.draft.isEmpty {
+                        if !model.hasComposerContent && model.pending == nil {
                             model.draft = prompt
                             model.persistDraft()
                         }

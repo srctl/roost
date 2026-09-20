@@ -21,6 +21,7 @@ struct CodingDraft: Codable {
     var workerRequest: WorkerSend?
     var feedbackRequest: FeedbackSend?
     var continuation: FeedbackContinuation?
+    var handoff: CodingHandoffView?
 }
 
 @MainActor @Observable final class CodingModel {

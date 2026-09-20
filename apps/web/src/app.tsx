@@ -221,6 +221,12 @@ const styles = stylex.create({
   },
   mobileHeader: {
     display: { default: "none", "@media (max-width: 700px)": "flex" },
+    // Give WebKit an opaque pinned bar to extend into the status-bar area.
+    // A transparent, unpositioned header can be included in its edge blur.
+    position: "sticky",
+    top: 0,
+    zIndex: 1,
+    backgroundColor: colors.background,
     alignItems: "center",
     gap: 4,
     minHeight: 56,

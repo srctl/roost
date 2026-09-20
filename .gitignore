@@ -11,3 +11,7 @@ dist/
 
 .pnpm-store/
 .playwright-cli/
+
+# Local browser verification artifacts and Swift package caches.
+output/
+.build/

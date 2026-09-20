@@ -2,8 +2,9 @@ import Foundation
 
 struct DashboardSnapshot: Decodable {
     let enabled: Bool
-    let widgets: [DashboardWidget]
+    var widgets: [DashboardWidget]
     let datasets: [DashboardDataset]
+    var presentation: DashboardPresentation?
 }
 
 struct DashboardWidget: Decodable, Identifiable {
@@ -11,11 +12,16 @@ struct DashboardWidget: Decodable, Identifiable {
     let title: String
     let blocks: [DashboardBlock]
     let updatedAt: Double
+    let revision: Int?
     var id: String { key }
 }
 
 struct DashboardBlock: Decodable {
     let type: String
+    let id: String?
+    let entries: [DashboardMeal]?
+    let locationId: Int?
+    let unit: WeatherUnit?
     let title: String?
     let text: String?
     let style: String?
@@ -29,6 +35,8 @@ struct DashboardBlock: Decodable {
     let chartError: String?
 
     struct Item: Decodable {
+        let id: String?
+        let done: Bool?
         let label: String
         let value: String?
         let note: String?
@@ -43,6 +51,13 @@ struct DashboardBlock: Decodable {
         let column: String
         let label: String
     }
+}
+
+struct DashboardMeal: Decodable, Identifiable {
+    let id: String
+    let date: String
+    let label: String
+    let calories: Int
 }
 
 struct DashboardDataset: Decodable, Identifiable {
@@ -153,6 +168,7 @@ struct CodingDetail: Decodable {
     let feedback: [JobFeedback]
     let messages: [WorkerMessage]
     let queueBlockers: [String]
+    let presentation: CodingPresentation?
 }
 struct JobFeedback: Decodable, Identifiable {
     let id: String

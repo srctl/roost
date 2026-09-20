@@ -4,7 +4,17 @@ import {
   JobFeedbackInput,
   WorkerMessageInput,
 } from "../../features/coding/workspace-schema";
+import {
+  decodeCreateDashboardTracker,
+  decodeDashboardAction,
+} from "../../features/dashboards/actions";
 import { chartDataError } from "../../features/dashboards/chart-data";
+import { decodeShowDashboard } from "../../features/dashboards/chat";
+import { changeDashboardPresentationSchema } from "../../features/dashboards/presentation";
+import type {
+  DashboardDataset,
+  DashboardWidget,
+} from "../../features/dashboards/schema";
 import {
   NoteInstructionWrite,
   NoteRestore,
@@ -25,11 +35,19 @@ import {
   saveJobFeedback,
 } from "../coding/workspace-store.server";
 import {
-  getDashboardPreference,
-  listDashboards,
-  listDatasets,
-  setDashboardPreference,
-} from "../dashboards/store.server";
+  createDashboardTracker,
+  updateDashboardContent,
+} from "../dashboards/actions.server";
+import { readChatDashboard } from "../dashboards/chat.server";
+import {
+  readDashboard,
+  updateDashboardPresentation,
+} from "../dashboards/presentation.server";
+import { setDashboardPreference } from "../dashboards/store.server";
+import {
+  getDashboardWeather,
+  searchWeatherLocations,
+} from "../dashboards/weather.server";
 import { assertAvailable } from "../maintenance.server";
 import {
   noteHistory,
@@ -43,8 +61,13 @@ import {
 export class MobileWorkspaceError extends Error {
   status: number;
   constructor(message: string) {
-    super(message);
-    this.status = message.startsWith("NOTE_CONFLICT:") ? 409 : 400;
+    super(message.replace(/^(?:PRESENTATION|DASHBOARD)_CONFLICT:\s*/, ""));
+    this.status =
+      message.startsWith("NOTE_CONFLICT:") ||
+      message.startsWith("PRESENTATION_CONFLICT:") ||
+      message.startsWith("DASHBOARD_CONFLICT:")
+        ? 409
+        : 400;
   }
 }
 
@@ -63,6 +86,31 @@ async function run<A, E extends { message: string }>(
   return result.value;
 }
 
+function mobileDashboard<
+  T extends {
+    widgets: readonly DashboardWidget[];
+    datasets: readonly DashboardDataset[];
+  },
+>(snapshot: T) {
+  return {
+    ...snapshot,
+    widgets: snapshot.widgets.map((widget) => ({
+      ...widget,
+      blocks: widget.blocks.map((block) =>
+        block.type === "dataset-chart"
+          ? {
+              ...block,
+              chartError: chartDataError(
+                block,
+                snapshot.datasets.find((item) => item.key === block.datasetKey),
+              ),
+            }
+          : block,
+      ),
+    })),
+  };
+}
+
 // Called only after mobile bearer authentication. Every resource is resolved
 // against the agent in the path; a body cannot change its owner.
 export async function mobileWorkspaceRequest(
@@ -71,7 +119,7 @@ export async function mobileWorkspaceRequest(
   body: (request: Request) => Promise<unknown>,
 ): Promise<{ value: unknown; status?: number } | null> {
   const match =
-    /^agents\/([^/]+)\/(dashboard|jobs|note)(?:\/([^/]+)(?:\/(feedback|continue|stop|messages|acknowledge))?)?$/.exec(
+    /^agents\/([^/]+)\/(dashboard|jobs|note)(?:\/([^/]+)(?:\/(feedback|continue|stop|messages|acknowledge|locations))?)?$/.exec(
       path,
     );
   if (!match) return null;
@@ -136,6 +184,91 @@ export async function mobileWorkspaceRequest(
         };
     }
   }
+  if (
+    section === "dashboard" &&
+    rawId === "weather" &&
+    request.method === "GET"
+  ) {
+    const query = new URL(request.url).searchParams;
+    if ([...query.keys()].some((key) => query.getAll(key).length !== 1))
+      throw new MobileWorkspaceError("Provide each weather option only once.");
+    const input = Object.fromEntries(query);
+    if (action === "locations")
+      return { value: await run(searchWeatherLocations(agentId, input)) };
+    if (!action) {
+      const refresh =
+        input.refresh === undefined
+          ? undefined
+          : input.refresh === "true"
+            ? true
+            : input.refresh === "false"
+              ? false
+              : null;
+      if (refresh === null)
+        throw new MobileWorkspaceError("Refresh must be true or false.");
+      return {
+        value: await run(
+          getDashboardWeather(agentId, {
+            ...input,
+            ...(refresh === undefined ? {} : { refresh }),
+          }),
+        ),
+      };
+    }
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "chat" &&
+    !action &&
+    request.method === "GET"
+  ) {
+    const query = new URL(request.url).searchParams;
+    if (query.getAll("key").length !== 1)
+      throw new MobileWorkspaceError("Provide one saved dashboard key.");
+    const input = decodeShowDashboard(Object.fromEntries(query));
+    return {
+      value: mobileDashboard(await run(readChatDashboard(agentId, input.key))),
+    };
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "tracker" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    return {
+      value: await run(
+        createDashboardTracker(
+          agentId,
+          decodeCreateDashboardTracker(await body(request)),
+        ),
+      ),
+    };
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "action" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    return {
+      value: await run(
+        updateDashboardContent(
+          agentId,
+          decodeDashboardAction(await body(request)),
+        ),
+      ),
+    };
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "presentation" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    const input = changeDashboardPresentationSchema.parse(await body(request));
+    return { value: await run(updateDashboardPresentation(agentId, input)) };
+  }
   if (section === "dashboard" && !rawId) {
     if (request.method === "POST") {
       const data = Schema.decodeUnknownSync(
@@ -144,28 +277,8 @@ export async function mobileWorkspaceRequest(
       return { value: await run(setDashboardPreference(data.enabled)) };
     }
     if (request.method === "GET") {
-      const { enabled } = await run(getDashboardPreference());
-      const datasets = enabled ? await run(listDatasets(agentId)) : [];
-      const widgets = enabled ? await run(listDashboards(agentId)) : [];
       return {
-        value: {
-          enabled,
-          datasets,
-          widgets: widgets.map((widget) => ({
-            ...widget,
-            blocks: widget.blocks.map((block) =>
-              block.type === "dataset-chart"
-                ? {
-                    ...block,
-                    chartError: chartDataError(
-                      block,
-                      datasets.find((item) => item.key === block.datasetKey),
-                    ),
-                  }
-                : block,
-            ),
-          })),
-        },
+        value: mobileDashboard(await run(readDashboard(agentId))),
       };
     }
   }

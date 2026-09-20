@@ -1,14 +1,18 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { AdaptiveDashboard } from "../components/adaptive-dashboard";
 import { AgentHeader } from "../components/agent-header";
 import { Conversation } from "../components/conversation";
-import { DashboardDataSources } from "../components/dashboard-data";
-import { DashboardWidget } from "../components/dashboard-widget";
+import { CreateTracker } from "../components/create-tracker";
+import { DashboardTrackerDrafts } from "../components/dashboard-tracker";
 import { Button } from "../components/ui/button";
 import type { Agent } from "../features/agents/schema";
 import { getConversationSnapshot } from "../features/chat/functions";
-import { getDashboard } from "../features/dashboards/functions";
+import {
+  changeDashboardPresentation,
+  getDashboard,
+} from "../features/dashboards/functions";
 import { updateDashboardPreference } from "../features/dashboards/preference";
 import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
@@ -56,6 +60,7 @@ function DashboardWorkspace({
   loaded: ReturnType<typeof Route.useLoaderData>;
 }) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [suggestion, setSuggestion] = useState<{ id: number; text: string }>();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [chatWidth, setChatWidth] = useState(360);
   const workspace = useRef<HTMLDivElement>(null);
@@ -119,15 +124,21 @@ function DashboardWorkspace({
           aria-label="Dashboard widgets"
           {...stylex.props(styles.content, chatOpen && styles.contentHidden)}
         >
-          <AgentDashboard
-            agent={agent}
-            loaded={loaded.dashboard}
-            onDiscuss={() => {
-              setChatCollapsed(false);
-              setChatOpen(true);
-              chat.current?.querySelector("textarea")?.focus();
-            }}
-          />
+          <DashboardTrackerDrafts>
+            <AgentDashboard
+              agent={agent}
+              loaded={loaded.dashboard}
+              onDiscuss={(question) => {
+                setSuggestion((previous) => ({
+                  id: (previous?.id ?? 0) + 1,
+                  text: question,
+                }));
+                setChatCollapsed(false);
+                setChatOpen(true);
+                chat.current?.querySelector("textarea")?.focus();
+              }}
+            />
+          </DashboardTrackerDrafts>
         </section>
         {!chatCollapsed && (
           // biome-ignore lint/a11y/useSemanticElements: This is an interactive pane splitter, not a thematic break.
@@ -185,6 +196,7 @@ function DashboardWorkspace({
           <Conversation
             agent={agent}
             initialConversation={loaded.conversation}
+            suggestion={suggestion}
             embedded
             onClose={() => {
               setChatOpen(false);
@@ -204,21 +216,23 @@ function AgentDashboard({
 }: {
   agent: Agent;
   loaded: Awaited<ReturnType<typeof loadDashboard>>;
-  onDiscuss: () => void;
+  onDiscuss: (question: string) => void;
 }) {
   const [result, setResult] = useState(loaded);
   const [refreshError, setRefreshError] = useState(false);
+  const refreshSequence = useRef(0);
   useEffect(() => {
-    setResult(loaded);
+    setResult((previous) => newerDashboard(previous, loaded));
   }, [loaded]);
   useEffect(() => {
     let active = true;
     const refresh = async () => {
       if (document.visibilityState !== "visible") return;
+      const sequence = ++refreshSequence.current;
       const next = await loadDashboard(agent.id);
-      if (!active) return;
+      if (!active || sequence !== refreshSequence.current) return;
       if (next.ok) {
-        setResult(next);
+        setResult((previous) => newerDashboard(previous, next));
         setRefreshError(false);
       } else setRefreshError(true);
     };
@@ -256,26 +270,79 @@ function AgentDashboard({
       </div>
     );
   const widgets = result.value.widgets;
+  const reload = async () => {
+    const sequence = ++refreshSequence.current;
+    const next = await loadDashboard(agent.id);
+    if (sequence !== refreshSequence.current) return;
+    if (next.ok) {
+      setResult((previous) => newerDashboard(previous, next));
+      setRefreshError(false);
+    } else setRefreshError(true);
+  };
   return (
     <>
+      <CreateTracker
+        agentId={agent.id}
+        onCreated={async () => {
+          const reset = await changeDashboardPresentation({
+            data: {
+              agentId: agent.id,
+              intent: "",
+              revision: result.value.presentation.revision,
+            },
+          });
+          await reload();
+          return reset.ok
+            ? null
+            : "Tracker created. The view changed on another device; reset the dashboard view to see it.";
+        }}
+      />
       {refreshError && (
         <p role="status" {...stylex.props(styles.description)}>
           Could not refresh. Showing the last loaded dashboard.
         </p>
       )}
-      <DashboardDataSources datasets={result.value.datasets} />
-      {widgets.length ? (
-        <div {...stylex.props(styles.grid)}>
-          {widgets.map((widget) => (
-            <DashboardWidget
-              key={`${widget.agentId}:${widget.key}`}
-              widget={widget}
-              datasets={result.value.datasets}
-              agentName={agent.name}
-              onDiscuss={onDiscuss}
-            />
-          ))}
-        </div>
+      {widgets.length || result.value.datasets.length ? (
+        <AdaptiveDashboard
+          agentId={agent.id}
+          agentName={agent.name}
+          widgets={widgets}
+          datasets={result.value.datasets}
+          presentation={result.value.presentation}
+          onDiscuss={onDiscuss}
+          onWidgetChange={(widget) => {
+            refreshSequence.current += 1;
+            setResult((previous) => {
+              if (!previous.ok) return previous;
+              return {
+                ...previous,
+                value: {
+                  ...previous.value,
+                  widgets: previous.value.widgets.map((existing) =>
+                    existing.key === widget.key &&
+                    existing.revision <= widget.revision
+                      ? widget
+                      : existing,
+                  ),
+                },
+              };
+            });
+          }}
+          onPresentation={(presentation) =>
+            setResult((previous) => {
+              if (
+                !previous.ok ||
+                previous.value.presentation.revision > presentation.revision
+              )
+                return previous;
+              return {
+                ...previous,
+                value: { ...previous.value, presentation },
+              };
+            })
+          }
+          onReload={reload}
+        />
       ) : (
         <div {...stylex.props(styles.empty)}>
           <h2 {...stylex.props(styles.emptyTitle)}>No widgets yet</h2>
@@ -283,11 +350,30 @@ function AgentDashboard({
             Ask {agent.name} to create a tracker in the conversation. Notes,
             tasks, and charts saved by your agent will appear here.
           </p>
-          <Button onClick={onDiscuss}>Start a tracker →</Button>
+          <Button
+            onClick={() => onDiscuss("Let's create a dashboard tracker.")}
+          >
+            Start a tracker →
+          </Button>
         </div>
       )}
     </>
   );
+}
+
+// Polls that began before a save must not roll the selected view back.
+function newerDashboard(
+  previous: Awaited<ReturnType<typeof loadDashboard>>,
+  next: Awaited<ReturnType<typeof loadDashboard>>,
+) {
+  if (
+    previous.ok &&
+    next.ok &&
+    previous.value.presentation.revision > next.value.presentation.revision
+  ) {
+    return previous;
+  }
+  return next;
 }
 
 const styles = stylex.create({
@@ -367,12 +453,6 @@ const styles = stylex.create({
     fontSize: 13,
     marginTop: 8,
     lineHeight: 1.65,
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
-    gap: 20,
-    alignItems: "start",
   },
   empty: { maxWidth: 360, marginInline: "auto", paddingBlock: 80 },
   emptyTitle: { fontSize: 18, fontWeight: 500, margin: 0 },

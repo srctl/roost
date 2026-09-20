@@ -32,6 +32,7 @@ export function Composer({
   status,
   onSend,
   onStop,
+  suggestion,
 }: {
   agentId: string;
   agentName: string;
@@ -42,6 +43,7 @@ export function Composer({
   status?: string;
   onSend: (text: string, files: readonly FileAttachment[]) => Promise<boolean>;
   onStop: () => void;
+  suggestion?: { id: number; text: string };
 }) {
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
@@ -70,6 +72,30 @@ export function Composer({
   }, [text, files, conversationId, draftReady]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  const seenSuggestion = useRef<number | undefined>(undefined);
+  const [pendingSuggestion, setPendingSuggestion] = useState<string>();
+  const combinedSuggestion = pendingSuggestion
+    ? text.trim()
+      ? `${text}\n\n${pendingSuggestion}`
+      : pendingSuggestion
+    : "";
+  const suggestionFits = combinedSuggestion.length <= 32000;
+  useEffect(() => {
+    if (
+      !draftReady ||
+      loading ||
+      sending ||
+      !suggestion ||
+      seenSuggestion.current === suggestion.id
+    )
+      return;
+    seenSuggestion.current = suggestion.id;
+    if (text.trim() || files.length) setPendingSuggestion(suggestion.text);
+    else {
+      setText(suggestion.text);
+      setPendingSuggestion(undefined);
+    }
+  }, [draftReady, loading, sending, suggestion, text, files.length]);
   const submitting = useRef(false);
   const [uploadError, setUploadError] = useState<string>();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -208,6 +234,31 @@ export function Composer({
       onSubmit={submit}
       {...stylex.props(styles.composerArea, compact && styles.compactArea)}
     >
+      {pendingSuggestion && (
+        <div {...stylex.props(styles.suggestion)}>
+          <p {...stylex.props(styles.suggestionText)}>{pendingSuggestion}</p>
+          {!suggestionFits && (
+            <p {...stylex.props(styles.suggestionText)}>
+              Make room in your draft to add this question.
+            </p>
+          )}
+          <Button
+            type="button"
+            disabled={sending || loading || !suggestionFits}
+            onClick={() => {
+              if (!suggestionFits) return;
+              setText(combinedSuggestion);
+              setPendingSuggestion(undefined);
+              input.current?.focus();
+            }}
+          >
+            Add dashboard question
+          </Button>
+          <Button type="button" onClick={() => setPendingSuggestion(undefined)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
       {busy && responseStyle === "codex" && (
         <Appear role="status" xstyle={styles.progress}>
           <span {...stylex.props(styles.progressDot)} />
@@ -425,6 +476,8 @@ const styles = stylex.create({
         "max(8px, var(--roost-bottom-inset, env(safe-area-inset-bottom)))",
     },
   },
+  suggestion: { marginBottom: 12, fontSize: 12, color: colors.muted },
+  suggestionText: { marginBlock: 6, lineHeight: 1.5, overflowWrap: "anywhere" },
   progress: {
     display: "flex",
     alignItems: "center",

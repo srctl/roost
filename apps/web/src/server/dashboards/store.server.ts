@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { chartDataError } from "../../features/dashboards/chart-data";
 import {
   DashboardBlock,
@@ -13,6 +13,7 @@ import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
 import { assertAvailable } from "../maintenance.server";
 import { writeTransaction } from "../transaction.server";
+import { WeatherUnavailable, weatherProvider } from "./weather-provider.server";
 
 function enabled(db: DatabaseSync) {
   return (
@@ -59,6 +60,49 @@ export const listDashboards = (agentId: string) =>
   });
 
 export const saveDashboard = (agentId: string, input: SaveDashboard) =>
+  Effect.gen(function* () {
+    const data = yield* Schema.decodeUnknown(SaveDashboard)(input);
+    const weather = data.blocks.filter((block) => block.type === "weather");
+    if (weather.length) {
+      const existingLocations = yield* withAgentStore((db) => {
+        requireEnabled(db);
+        requireAgent(db, agentId);
+        const existing = db
+          .prepare("SELECT blocks FROM dashboards WHERE agentId=? AND key=?")
+          .get(agentId, data.key);
+        const blocks = existing
+          ? Schema.decodeUnknownSync(Schema.Array(DashboardBlock))(
+              JSON.parse(String(existing.blocks)),
+            )
+          : [];
+        return new Set(
+          blocks.flatMap((block) =>
+            block.type === "weather" ? [block.locationId] : [],
+          ),
+        );
+      });
+      for (const id of new Set(
+        weather
+          .map((block) => block.locationId)
+          .filter((id) => !existingLocations.has(id)),
+      ))
+        yield* Effect.tryPromise({
+          try: () => weatherProvider.location(id),
+          catch: (error) =>
+            new AgentStoreError({
+              message:
+                error instanceof WeatherUnavailable
+                  ? error.message
+                  : "Could not validate this weather location. Try again.",
+            }),
+        });
+    }
+    // Recheck enabled/ownership and the revision inside the write transaction
+    // after any asynchronous location validation.
+    return yield* persistDashboard(agentId, data);
+  });
+
+const persistDashboard = (agentId: string, input: SaveDashboard) =>
   withAgentStore((db) =>
     writeTransaction(db, () => {
       requireEnabled(db);

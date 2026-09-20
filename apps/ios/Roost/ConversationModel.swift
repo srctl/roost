@@ -5,6 +5,7 @@ import Observation
     var agent: Agent
     let conversationId: String
     let api: RoostAPI
+    let dashboards: ChatDashboardStore
     var entries: [Entry] = []
     var threads: [ReplyThread] = []
     var approvals: [Approval] = []
@@ -34,9 +35,13 @@ import Observation
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
     }
 
+    var messageLength: Int { draft.trimmingCharacters(in: .whitespacesAndNewlines).utf16.count }
+    var hasComposerContent: Bool { hasDraft }
+    var showsStop: Bool { busy && !hasDraft && pending == nil && !uploading }
+
     var canSend: Bool {
         isSessionActive && !sending && !uploading
-            && (pending != nil || (hasDraft && draft.count <= 32_000))
+            && (pending != nil || (hasDraft && messageLength <= 32_000))
     }
 
     var outgoingMessage: Message? {
@@ -60,11 +65,13 @@ import Observation
 
     init(
         agent: Agent, conversationId: String, api: RoostAPI,
-        sendMessage: (@MainActor (SendRequest) async throws -> Void)? = nil
+        sendMessage: (@MainActor (SendRequest) async throws -> Void)? = nil,
+        dashboards: ChatDashboardStore? = nil
     ) {
         self.agent = agent
         self.conversationId = conversationId
         self.api = api
+        self.dashboards = dashboards ?? ChatDashboardStore(api: api, agentId: agent.id)
         self.sendMessage =
             sendMessage ?? { input in
                 _ = try await api.post("agents/\(agent.id)/messages", input)
@@ -100,6 +107,7 @@ import Observation
     // Retire it before clearing the cache so late work cannot restore old drafts.
     func invalidateSession() {
         isSessionActive = false
+        approvals = []
         sending = false
         uploading = false
         stopping = false
@@ -164,10 +172,11 @@ import Observation
             busy = snapshot.busy
             runId = snapshot.runId
             status = snapshot.status
+            self.approvals = self.approvals.filter { $0.runId == snapshot.runId }
             let approvals: [Approval] = try await api.get(path + "approvals")
             try Task.checkCancellation()
             guard isSessionActive else { return }
-            self.approvals = approvals
+            self.approvals = approvals.filter { $0.runId == snapshot.runId }
             refreshError = nil
         } catch is CancellationError {} catch let failure as URLError
             where failure.code == .cancelled
@@ -198,7 +207,7 @@ import Observation
         guard isSessionActive else { throw CancellationError() }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard pending != nil || !text.isEmpty || !attachments.isEmpty else { return nil }
-        guard pending != nil || draft.count <= 32_000 else {
+        guard pending != nil || messageLength <= 32_000 else {
             throw APIError(message: "Keep your message under 32,000 characters.")
         }
         // Keep the exact payload and UUID after ambiguous network failure. A
@@ -212,7 +221,7 @@ import Observation
         pending = input
         do {
             try saveDraft()
-            deliveryUnconfirmed = false
+            if previous == nil { deliveryUnconfirmed = false }
             return input
         } catch {
             pending = previous
@@ -224,6 +233,7 @@ import Observation
         guard isSessionActive, !sending else { return }
         sending = true
         defer { sending = false }
+        let wasUnconfirmed = deliveryUnconfirmed
         var attempted: SendRequest?
         do {
             guard let input = try prepareSend() else { return }
@@ -241,8 +251,20 @@ import Observation
             // A receipt may have arrived through polling while POST was still
             // waiting. A late transport failure must not resurrect that send.
             if let attempted, entries.contains(where: { $0.id == attempted.messageId }) { return }
-            deliveryUnconfirmed = pending != nil
-            self.error = error.localizedDescription
+            let failure = error
+            if let failure = failure as? APIError, failure.rejectsMessage, !wasUnconfirmed {
+                pending = nil
+                deliveryUnconfirmed = false
+                do { try saveDraft() } catch {
+                    self.error =
+                        failure.localizedDescription + " Could not save your draft. "
+                        + error.localizedDescription
+                    return
+                }
+            } else {
+                deliveryUnconfirmed = pending != nil
+            }
+            self.error = failure.localizedDescription
         }
     }
 
@@ -277,6 +299,11 @@ import Observation
 
     func answer(_ approval: Approval, decision: String, answers: [String: String]) async throws {
         guard isSessionActive else { throw CancellationError() }
+        guard approval.runId == runId, approvals.contains(where: { $0.id == approval.id }) else {
+            throw APIError(
+                message:
+                    "This approval is no longer waiting in this conversation. Refresh to continue.")
+        }
 
         struct Response: Encodable {
             let decision: String
@@ -326,15 +353,20 @@ import Observation
     // state here would recursively invalidate that same view graph.
     @ObservationIgnored private var conversations: [String: ConversationModel] = [:]
     @ObservationIgnored private var connectionChangeID = UUID()
+    @ObservationIgnored private var chatDashboards: [String: ChatDashboardStore] = [:]
+    private let session: URLSession?
 
     private func retireConversations() {
         for conversation in conversations.values { conversation.invalidateSession() }
         conversations = [:]
+        for store in chatDashboards.values { store.invalidate() }
+        chatDashboards = [:]
         sessionID = UUID()
         loading = false
     }
 
-    init() {
+    init(session: URLSession? = nil) {
+        self.session = session
         Drafts.clearPreviews()
         #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset") {
@@ -350,7 +382,7 @@ import Observation
             self.error = error.localizedDescription
         }
     }
-    var api: RoostAPI? { connection.map { RoostAPI(connection: $0) } }
+    var api: RoostAPI? { connection.map { RoostAPI(connection: $0, session: session) } }
 
     func conversation(agent: Agent, id: String? = nil) -> ConversationModel? {
         guard let api else { return nil }
@@ -359,7 +391,10 @@ import Observation
         if let existing = conversations[key] {
             return existing
         }
-        let model = ConversationModel(agent: agent, conversationId: id, api: api)
+        let dashboards = chatDashboards[agent.id] ?? ChatDashboardStore(api: api, agentId: agent.id)
+        chatDashboards[agent.id] = dashboards
+        let model = ConversationModel(
+            agent: agent, conversationId: id, api: api, dashboards: dashboards)
         conversations[key] = model
         return model
     }
@@ -369,7 +404,7 @@ import Observation
         let changeID = UUID()
         connectionChangeID = changeID
         let connection = try Connection.make(server: server, token: token)
-        let api = RoostAPI(connection: connection)
+        let api = RoostAPI(connection: connection, session: self.session)
         let session: SessionResponse = try await api.get("session")
         guard session.apiVersion == 1 else {
             throw APIError(message: "Update the app to connect to this server.")
@@ -377,6 +412,7 @@ import Observation
         let agents: [Agent] = try await api.get("agents")
         try Task.checkCancellation()
         guard connectionChangeID == changeID else { throw CancellationError() }
+        for model in conversations.values { try model.saveDraft() }
         try SecureConnection.save(connection)
         ImageThumbnailStore.shared.clear()
         if self.connection == connection { retireConversations() }

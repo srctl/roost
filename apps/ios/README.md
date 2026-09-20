@@ -1,7 +1,12 @@
 # Roost for iPhone
 
 A native SwiftUI client for an existing Roost server. Requires iOS 17 or later
-and Xcode 16 or later. No third-party Swift packages are required.
+and Xcode 16 or later. JuxiSwiftUI is supplied as a pinned local source snapshot
+under `packages/juxi-swiftui`; no network package resolution is needed.
+
+Dashboard views now share Juxi plans with the web app while rendering native SwiftUI
+components. See [adaptive dashboard configuration and verification](../../docs/juxi.md).
+Settings also supports replacing a device token without losing same-server drafts.
 
 [Simulator screenshots and verification](screenshots/README.md).
 

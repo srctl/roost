@@ -125,29 +125,49 @@ struct CodingJobView: View {
                 }
                 if let detail = model.detail {
                     header(detail)
-                    workspace(detail)
-                    NavigationLink {
-                        WorkerConversationView(model: model)
-                    } label: {
-                        workspaceLink(
-                            "Talk to worker",
-                            subtitle: "Speak directly to this assignment’s worker", icon: "terminal"
+                    if detail.job.status == "blocked" || !detail.queueBlockers.isEmpty {
+                        ErrorNotice(
+                            text:
+                                "This job needs attention. Open the worker conversation to inspect approvals or unresolved submissions before continuing."
                         )
                     }
-                    .accessibilityIdentifier("open-worker")
-                    NavigationLink {
-                        if let conversation = app.conversation(
-                            agent: model.agent, id: detail.workspace.conversationId)
-                        {
-                            ConversationView(app: app, model: conversation, title: "Job discussion")
+                    if let presentation = detail.presentation, presentation.availableViews.count > 1
+                    {
+                        Picker(
+                            "Handoff view",
+                            selection: Binding(
+                                get: { model.draft.handoff ?? presentation.defaultView },
+                                set: { model.draft.handoff = $0 })
+                        ) {
+                            ForEach(presentation.availableViews) { view in
+                                Text(view.title).tag(view)
+                            }
                         }
-                    } label: {
-                        workspaceLink(
-                            "Talk to \(model.agent.name)",
-                            subtitle: "Discuss the assignment with your agent",
-                            icon: "bubble.left.and.bubble.right")
+                        .pickerStyle(.segmented).accessibilityIdentifier("coding-handoff-picker")
                     }
-                    DisclosureGroup("Saved feedback") { feedback(detail).padding(.top, 16) }
+                    if (model.draft.handoff ?? detail.presentation?.defaultView ?? .overview)
+                        == .overview
+                    {
+                        conversationLinks(detail)
+                    }
+                    NativeCodingHandoff(
+                        detail: detail,
+                        selection: model.draft.handoff ?? detail.presentation?.defaultView
+                            ?? .overview
+                    ) { view in
+                        workspace(detail, view: view)
+                    }
+                    if (model.draft.handoff ?? detail.presentation?.defaultView ?? .overview)
+                        != .overview
+                    {
+                        conversationLinks(detail)
+                    }
+                    if (model.draft.handoff ?? detail.presentation?.defaultView) == .tryIt {
+                        Text("Feedback").font(.headline)
+                        feedback(detail)
+                    } else {
+                        DisclosureGroup("Saved feedback") { feedback(detail).padding(.top, 16) }
+                    }
                     DisclosureGroup("Assignment") {
                         MarkdownText(text: detail.job.brief).padding(.top, 12)
                     }
@@ -182,11 +202,35 @@ struct CodingJobView: View {
             }
         }
         .onChange(of: model.draft.feedback) { _, _ in model.persist() }
+        .onChange(of: model.draft.handoff) { _, _ in model.persist() }
         .confirmationDialog(
             "Stop this job? The worker will be interrupted; its work is preserved.",
             isPresented: $showStop, titleVisibility: .visible
         ) {
             Button("Stop job", role: .destructive) { Task { await model.action("stop") } }
+        }
+    }
+    @ViewBuilder private func conversationLinks(_ detail: CodingDetail) -> some View {
+        NavigationLink {
+            WorkerConversationView(model: model)
+        } label: {
+            workspaceLink(
+                "Talk to worker",
+                subtitle: "Speak directly to this assignment’s worker", icon: "terminal"
+            )
+        }
+        .accessibilityIdentifier("open-worker")
+        NavigationLink {
+            if let conversation = app.conversation(
+                agent: model.agent, id: detail.workspace.conversationId)
+            {
+                ConversationView(app: app, model: conversation, title: "Job discussion")
+            }
+        } label: {
+            workspaceLink(
+                "Talk to \(model.agent.name)",
+                subtitle: "Discuss the assignment with your agent",
+                icon: "bubble.left.and.bubble.right")
         }
     }
     private func header(_ detail: CodingDetail) -> some View {
@@ -200,53 +244,83 @@ struct CodingJobView: View {
             if !detail.job.error.isEmpty { ErrorNotice(text: detail.job.error) }
         }
     }
-    private func workspace(_ detail: CodingDetail) -> some View {
+    private func workspace(_ detail: CodingDetail, view: CodingHandoffView) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            if let url = workspaceURL(detail.workspace.previewUrl) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let running = detail.workspace.previewState(now: context.date) == "running"
-                    VStack(alignment: .leading, spacing: 8) {
-                        Link(destination: url) {
-                            Label(
-                                running ? "Open preview" : "Try last preview", systemImage: "safari"
-                            )
-                            .frame(maxWidth: .infinity).padding(12)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        Text(
-                            running
-                                ? "Reported running · expires \(Date(milliseconds: detail.workspace.previewExpiresAt).formatted(date: .omitted, time: .shortened))"
-                                : "Preview is not currently confirmed running"
+            if view == .tryIt {
+                Text(
+                    workspaceURL(detail.workspace.previewUrl) == nil
+                        ? "No preview has been shared yet. You can still leave feedback below."
+                        : "Try the preview, then leave specific feedback for the worker."
+                )
+                .font(.subheadline).foregroundStyle(palette.muted)
+                preview(detail)
+                changes(detail)
+                verification(detail)
+                pullRequests(detail)
+            } else if view == .review {
+                changes(detail)
+                verification(detail)
+                pullRequests(detail)
+                preview(detail)
+            } else {
+                preview(detail)
+                changes(detail)
+                verification(detail)
+                pullRequests(detail)
+            }
+        }
+    }
+    @ViewBuilder private func preview(_ detail: CodingDetail) -> some View {
+        if let url = workspaceURL(detail.workspace.previewUrl) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let running = detail.workspace.previewState(now: context.date) == "running"
+                VStack(alignment: .leading, spacing: 8) {
+                    Link(destination: url) {
+                        Label(
+                            running ? "Open preview" : "Try last preview", systemImage: "safari"
                         )
-                        .font(.caption).foregroundStyle(palette.muted)
-                        if !detail.workspace.previewRevision.isEmpty {
-                            Text("Last reported revision: \(detail.workspace.previewRevision)")
-                                .font(.caption).foregroundStyle(palette.muted)
-                        }
+                        .frame(maxWidth: .infinity).padding(12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Text(
+                        running
+                            ? "Reported running · expires \(Date(milliseconds: detail.workspace.previewExpiresAt).formatted(date: .omitted, time: .shortened))"
+                            : "Preview is not currently confirmed running"
+                    )
+                    .font(.caption).foregroundStyle(palette.muted)
+                    if !detail.workspace.previewRevision.isEmpty {
+                        Text("Last reported revision: \(detail.workspace.previewRevision)")
+                            .font(.caption).foregroundStyle(palette.muted)
                     }
                 }
             }
-            if !detail.workspace.latestChanges.isEmpty {
-                Text("Latest changes").font(.headline)
-                MarkdownText(text: detail.workspace.latestChanges)
-            }
-            if !detail.workspace.verification.isEmpty {
-                Text("Verification").font(.headline)
-                MarkdownText(text: detail.workspace.verification)
-                Text(
-                    detail.workspace.integration == "verified"
-                        ? "Integration reported verified" : "Integration pending"
-                )
-                .font(.caption).foregroundStyle(palette.muted)
-            }
-            ForEach(Array(detail.workspace.pullRequests.enumerated()), id: \.offset) {
-                index, value in
-                if let url = workspaceURL(value) {
-                    Link(destination: url) {
-                        Label(
-                            "Review pull request\(detail.workspace.pullRequests.count > 1 ? " \(index + 1)" : "")",
-                            systemImage: "arrow.up.right")
-                    }
+        }
+    }
+    @ViewBuilder private func changes(_ detail: CodingDetail) -> some View {
+        if !detail.workspace.latestChanges.isEmpty {
+            Text("Latest changes").font(.headline)
+            MarkdownText(text: detail.workspace.latestChanges)
+        }
+    }
+    @ViewBuilder private func verification(_ detail: CodingDetail) -> some View {
+        if !detail.workspace.verification.isEmpty {
+            Text("Verification").font(.headline)
+            MarkdownText(text: detail.workspace.verification)
+            Text(
+                detail.workspace.integration == "verified"
+                    ? "Integration reported verified" : "Integration pending"
+            )
+            .font(.caption).foregroundStyle(palette.muted)
+        }
+    }
+    @ViewBuilder private func pullRequests(_ detail: CodingDetail) -> some View {
+        ForEach(Array(detail.workspace.pullRequests.enumerated()), id: \.offset) {
+            index, value in
+            if let url = workspaceURL(value) {
+                Link(destination: url) {
+                    Label(
+                        "Review pull request\(detail.workspace.pullRequests.count > 1 ? " \(index + 1)" : "")",
+                        systemImage: "arrow.up.right")
                 }
             }
         }

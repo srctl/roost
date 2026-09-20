@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Schema } from "effect";
 import type { Message } from "../../features/chat/schema";
+import { codingHandoffPresentation } from "../../features/coding/presentation";
 import {
   CodingWorkspace,
   type JobFeedback,
@@ -106,10 +107,11 @@ export function readJobFeedback(
 
 export const getJobWorkspace = (agentId: string, id: string) =>
   withAgentStore((db) => {
-    requireWorkspaceJob(db, agentId, id);
+    const job = requireWorkspaceJob(db, agentId, id);
     const workspace = readCodingWorkspace(db, agentId, id);
     return {
       workspace,
+      presentation: codingHandoffPresentation(job, workspace),
       previewStatus: previewState(workspace),
       feedback: readJobFeedback(db, agentId, id),
       messages: readWorkerMessages(db, agentId, id),

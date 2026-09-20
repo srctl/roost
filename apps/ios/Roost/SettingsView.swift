@@ -84,7 +84,8 @@ struct SettingsView: View {
                 }
                 .listRowBackground(palette.surface)
                 Section {
-                    Button("Reconnect with a new token") { reconnect = true }
+                    Button("Replace device token") { reconnect = true }
+                        .accessibilityIdentifier("replaceDeviceToken")
                         .disabled(working)
                     Button("Disconnect this iPhone", role: .destructive) { confirm = true }
                         .disabled(working)
@@ -92,7 +93,7 @@ struct SettingsView: View {
                         .disabled(working)
                 } footer: {
                     Text(
-                        "Disconnect revokes this device token. Removing only the saved connection is available when the server cannot be reached."
+                        "Disconnecting clears drafts on this iPhone. To renew an expired token and keep your drafts, use Replace device token. Remove only the saved connection when the server cannot be reached."
                     )
                 }
                 .listRowBackground(palette.surface)
@@ -112,7 +113,7 @@ struct SettingsView: View {
                 }
             }
             .sheet(isPresented: $reconnect) {
-                ConnectView(app: app, serverAddress: app.connection?.server.absoluteString ?? "") {
+                ConnectView(app: app, replacingConnection: true) {
                     reconnect = false
                 }
                 .onChange(of: app.connection) { _, _ in reconnect = false }

@@ -21,11 +21,17 @@ import {
   readCodingWorkspace,
   writeCodingWorkspace,
 } from "../../src/server/coding/workspace-store.server";
+import { createDashboardTracker } from "../../src/server/dashboards/actions.server";
+import { showDashboard } from "../../src/server/dashboards/chat.server";
 import {
   saveDashboard,
   saveDataset,
   setDashboardPreference,
 } from "../../src/server/dashboards/store.server";
+import {
+  WeatherProvider,
+  weatherProvider,
+} from "../../src/server/dashboards/weather-provider.server";
 import {
   DEFAULT_FEED_SETTINGS,
   putFeedItem,
@@ -37,7 +43,11 @@ import { createMobileAgentManagementRequest } from "../../src/server/mobile/agen
 import { createMobileHandler } from "../../src/server/mobile/http.server";
 import { MobileTokens } from "../../src/server/mobile/tokens.server";
 import { saveNote } from "../../src/server/notes/store.server";
-import { enqueueChat } from "../../src/server/runs/store.server";
+import {
+  enqueueChat,
+  finishRun,
+  type Run,
+} from "../../src/server/runs/store.server";
 import { putMessage } from "../../src/server/runs/timeline.server";
 
 const root = mkdtempSync(join(tmpdir(), "roost-native-ui-"));
@@ -51,9 +61,99 @@ const feedImage = readFileSync(
 const run = Effect.runPromise;
 let loseNextSendResponse = false;
 let fixtureLogin: CodexLogin = { status: "idle" };
+let rejectNextSend = false;
+let fixtureAgentId = "";
+const weatherCity = {
+  id: 5809844,
+  name: "Seattle",
+  admin1: "Washington",
+  country: "United States",
+  latitude: 47.6062,
+  longitude: -122.3321,
+  timezone: "America/Los_Angeles",
+};
+function fixtureForecast(temperatureUnit: string) {
+  const now = new Date();
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: weatherCity.timezone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  const offset =
+    (Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    ) -
+      Math.floor(now.getTime() / 1000) * 1000) /
+    1000;
+  const midnight =
+    Date.UTC(parts.year, parts.month - 1, parts.day) / 1000 - offset;
+  const fahrenheit = temperatureUnit === "fahrenheit";
+  const unit = fahrenheit ? "°F" : "°C";
+  return {
+    utc_offset_seconds: offset,
+    current_units: {
+      temperature_2m: unit,
+      apparent_temperature: unit,
+      wind_speed_10m: "km/h",
+    },
+    daily_units: { temperature_2m_max: unit, temperature_2m_min: unit },
+    current: {
+      time: Math.floor(now.getTime() / 1000),
+      temperature_2m: fahrenheit ? 68 : 20,
+      apparent_temperature: fahrenheit ? 66 : 19,
+      weather_code: 2,
+      is_day: 1,
+      wind_speed_10m: 12,
+    },
+    daily: {
+      time: Array.from({ length: 5 }, (_, i) => midnight + i * 86400),
+      weather_code: [2, 3, 61, 2, 0],
+      temperature_2m_max: fahrenheit
+        ? [72, 70, 66, 69, 73]
+        : [22, 21, 19, 21, 23],
+      temperature_2m_min: fahrenheit
+        ? [54, 53, 51, 52, 54]
+        : [12, 12, 11, 11, 12],
+      precipitation_probability_max: [10, 20, 70, 25, 5],
+    },
+  };
+}
+
+function installWeatherFixture() {
+  // Local-only transport: exercise the real provider validation/cache and all
+  // authenticated routes without transferring searches or locations externally.
+  const local = new WeatherProvider({
+    transport: {
+      search: async (query) => ({
+        results: query.toLowerCase().includes("seattle") ? [weatherCity] : [],
+      }),
+      location: async () => weatherCity,
+      forecast: async (_location, unit) => fixtureForecast(unit),
+    },
+  });
+  weatherProvider.search = local.search.bind(local);
+  weatherProvider.location = local.location.bind(local);
+  weatherProvider.forecast = local.forecast.bind(local);
+}
 async function seed() {
+  installWeatherFixture();
   loseNextSendResponse = false;
   fixtureLogin = { status: "idle" };
+  rejectNextSend = false;
   rmSync(root, { recursive: true, force: true });
   const tokens = new MobileTokens(root);
   const device = tokens.create("UI test fixture");
@@ -76,6 +176,7 @@ async function seed() {
       model: "fixture",
     }),
   );
+  fixtureAgentId = moss.id;
   const wisp = await run(
     saveAgent({
       id: randomUUID(),
@@ -448,6 +549,39 @@ const server = createServer(async (incoming, outgoing) => {
       return;
     }
     if (
+      incoming.url === "/__fixture/reject-next-send" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      rejectNextSend = true;
+      outgoing.writeHead(204);
+      outgoing.end();
+      return;
+    }
+    if (
+      incoming.url === "/__fixture/expire-token" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      const db = new DatabaseSync(join(root, "mobile.sqlite"));
+      db.prepare("UPDATE devices SET expires=0").run();
+      db.close();
+      const tokens = new MobileTokens(root);
+      const replacement = tokens.create("Replacement UI test fixture");
+      tokens.close();
+      const updated = new DatabaseSync(join(root, "mobile.sqlite"));
+      updated.prepare("UPDATE devices SET hash=? WHERE id=?").run(
+        createHash("sha256")
+          .update(`roost_mobile_${"b".repeat(43)}`)
+          .digest("hex"),
+        replacement.id,
+      );
+      updated.close();
+      outgoing.writeHead(204);
+      outgoing.end();
+      return;
+    }
+    if (
       incoming.url === "/__fixture/lose-next-send-response" &&
       incoming.method === "POST" &&
       incoming.headers["x-roost-test"] === "reset"
@@ -469,6 +603,65 @@ const server = createServer(async (incoming, outgoing) => {
     }
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    if (
+      incoming.url === "/__fixture/chat-tracker" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      const input = JSON.parse(Buffer.concat(chunks).toString());
+      await run(
+        createDashboardTracker(fixtureAgentId, {
+          key: input.key,
+          kind: input.kind,
+          title: input.title,
+          ...(input.kind === "weather"
+            ? { locationId: input.locationId, unit: input.unit }
+            : {}),
+        }),
+      );
+      await run(
+        withAgentStore((db) => {
+          db.prepare("UPDATE runs SET status='completed' WHERE agentId=?").run(
+            fixtureAgentId,
+          );
+        }),
+      );
+      const runId = randomUUID();
+      await run(
+        enqueueChat({
+          agentId: fixtureAgentId,
+          messageId: runId,
+          conversationId: input.conversationId,
+          text: `Show my ${input.title.toLowerCase()} here.`,
+        }),
+      );
+      await run(
+        withAgentStore((db) => {
+          db.prepare(
+            "UPDATE runs SET status='running',threadId='ui-fixture-chat' WHERE id=?",
+          ).run(runId);
+        }),
+      );
+      const shown = await run(
+        showDashboard(fixtureAgentId, runId, { key: input.key }),
+      );
+      if (input.complete === true) {
+        const completed = await run(
+          withAgentStore(
+            (db) =>
+              db
+                .prepare(
+                  "UPDATE runs SET owner='ui-fixture-chat' WHERE id=? RETURNING *",
+                )
+                .get(runId) as Run,
+          ),
+        );
+        await run(finishRun(completed, "completed", []));
+      }
+      outgoing.writeHead(200, { "Content-Type": "application/json" });
+      outgoing.end(JSON.stringify({ agentId: fixtureAgentId, ...shown }));
+      return;
+    }
     const headers = new Headers();
     for (const [key, value] of Object.entries(incoming.headers))
       if (value)
@@ -492,6 +685,21 @@ const server = createServer(async (incoming, outgoing) => {
       outgoing.end(
         JSON.stringify({
           models: [{ model: "fixture", displayName: "Fixture" }],
+        }),
+      );
+      return;
+    }
+    if (
+      rejectNextSend &&
+      incoming.method === "POST" &&
+      incoming.url?.endsWith("/messages")
+    ) {
+      rejectNextSend = false;
+      outgoing.writeHead(400, { "Content-Type": "application/json" });
+      outgoing.end(
+        JSON.stringify({
+          error: "Fixture rejected this message. Edit and retry.",
+          code: "message_rejected",
         }),
       );
       return;

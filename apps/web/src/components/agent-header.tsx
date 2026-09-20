@@ -78,6 +78,13 @@ export function AgentHeader({
 const styles = stylex.create({
   header: {
     display: "grid",
+    position: { default: "static", "@media (max-width: 700px)": "sticky" },
+    top: { default: "auto", "@media (max-width: 700px)": 0 },
+    zIndex: { default: "auto", "@media (max-width: 700px)": 1 },
+    backgroundColor: {
+      default: "transparent",
+      "@media (max-width: 700px)": colors.background,
+    },
     gridTemplateColumns: {
       default: "minmax(0, auto) 1fr auto",
       "@media (max-width: 700px)": "minmax(0, 1fr) auto",

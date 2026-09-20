@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: Read-only report snapshots allow duplicate labels and cells, with no editable row state to preserve.
 import * as stylex from "@stylexjs/stylex";
+import { Link } from "@tanstack/react-router";
 import type {
   DashboardBlock,
   DashboardDataset,
@@ -8,6 +9,8 @@ import type {
 import { colors } from "../styles/tokens.stylex";
 import { MessageContent } from "./conversation/message-content";
 import { DashboardChart } from "./dashboard-chart";
+import { DashboardTracker } from "./dashboard-tracker";
+import { DashboardWeather } from "./dashboard-weather";
 import { Button } from "./ui/button";
 
 function Chart({
@@ -74,9 +77,7 @@ function Chart({
               rx="2"
               fill="currentColor"
             >
-              <title>
-                {point.label}: {point.value}
-              </title>
+              <title>{`${point.label}: ${point.value}`}</title>
             </rect>
           ) : (
             <circle
@@ -86,9 +87,7 @@ function Chart({
               r="2.5"
               fill="currentColor"
             >
-              <title>
-                {point.label}: {point.value}
-              </title>
+              <title>{`${point.label}: ${point.value}`}</title>
             </circle>
           ),
         )}
@@ -129,11 +128,36 @@ function Chart({
 function Block({
   block,
   datasets,
+  widget,
+  onChange,
+  onReload,
 }: {
   block: DashboardBlock;
   datasets: readonly DashboardDataset[];
+  widget: Widget;
+  onChange: (widget: Widget) => void;
+  onReload: () => Promise<void>;
 }) {
   switch (block.type) {
+    case "weather":
+      return (
+        <DashboardWeather
+          block={block}
+          widget={widget}
+          onChange={onChange}
+          onReload={onReload}
+        />
+      );
+    case "todo-list":
+    case "calorie-log":
+      return (
+        <DashboardTracker
+          block={block}
+          widget={widget}
+          onChange={onChange}
+          onReload={onReload}
+        />
+      );
     case "markdown":
       return <MessageContent>{block.text}</MessageContent>;
     case "metrics":
@@ -239,11 +263,17 @@ export function DashboardWidget({
   agentName,
   onDiscuss,
   datasets = [],
+  onChange,
+  onReload,
+  inline = false,
 }: {
   widget: Widget;
   datasets?: readonly DashboardDataset[];
   agentName: string;
-  onDiscuss: () => void;
+  onDiscuss: (question: string) => void;
+  onChange: (widget: Widget) => void;
+  onReload: () => Promise<void>;
+  inline?: boolean;
 }) {
   return (
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
@@ -252,19 +282,53 @@ export function DashboardWidget({
       </header>
       <div {...stylex.props(styles.blocks)}>
         {widget.blocks.map((block, index) => (
-          <Block key={index} block={block} datasets={datasets} />
+          <Block
+            key={
+              "id" in block
+                ? `interactive:${block.type}:${block.id}`
+                : `static:${index}`
+            }
+            block={block}
+            datasets={datasets}
+            widget={widget}
+            onChange={onChange}
+            onReload={onReload}
+          />
         ))}
       </div>
       <footer {...stylex.props(styles.footer)}>
-        <time dateTime={new Date(widget.updatedAt).toISOString()}>
-          Updated{" "}
-          {new Date(widget.updatedAt)
-            .toISOString()
-            .replace("T", " ")
-            .slice(0, 16)}{" "}
-          UTC
-        </time>
-        <Button onClick={onDiscuss}>Discuss with {agentName}</Button>
+        {inline ? (
+          <>
+            <span>Live tracker · changes save to Dashboard</span>
+            <Link
+              to="/agents/$agentId/dashboard"
+              params={{ agentId: widget.agentId }}
+              {...stylex.props(styles.link)}
+            >
+              Open dashboard
+            </Link>
+          </>
+        ) : (
+          <>
+            <time dateTime={new Date(widget.updatedAt).toISOString()}>
+              Updated{" "}
+              {new Date(widget.updatedAt)
+                .toISOString()
+                .replace("T", " ")
+                .slice(0, 16)}{" "}
+              UTC
+            </time>
+            <Button
+              onClick={() =>
+                onDiscuss(
+                  `Give me a brief update on the "${widget.title}" dashboard (key: ${widget.key}), including unfinished tasks and suggested next steps. Read the current dashboard data first.`,
+                )
+              }
+            >
+              Discuss with {agentName}
+            </Button>
+          </>
+        )}
       </footer>
     </article>
   );

@@ -90,6 +90,27 @@ test("native API authenticates independently, preserves retry identity and threa
     );
     assert.equal((await (await request("agents"))!.json()).length, 2);
     const path = `agents/${agent.id}/`;
+    const rejected = await request(`${path}messages`, "POST", {
+      messageId: randomUUID(),
+      text: "🌱".repeat(16001),
+    });
+    assert.equal(rejected?.status, 400);
+    assert.equal((await rejected!.json()).code, "message_rejected");
+    assert.equal(
+      (await (await request(`${path}conversation`))!.json()).entries.length,
+      0,
+    );
+    const missingFile = await request(`${path}messages`, "POST", {
+      messageId: randomUUID(),
+      text: "",
+      attachmentIds: [randomUUID()],
+    });
+    assert.equal(missingFile?.status, 400);
+    assert.equal((await missingFile!.json()).code, "message_rejected");
+    assert.equal(
+      (await (await request(`${path}conversation`))!.json()).entries.length,
+      0,
+    );
     const input = { messageId: randomUUID(), text: "Plan the week" };
     assert.equal(
       (await request(`${path}messages`, "POST", input))?.status,
@@ -99,10 +120,15 @@ test("native API authenticates independently, preserves retry identity and threa
       (await request(`${path}messages`, "POST", input))?.status,
       202,
     );
+    const conflict = await request(`${path}messages`, "POST", {
+      ...input,
+      text: "Changed",
+    });
+    assert.equal(conflict?.status, 400);
     assert.equal(
-      (await request(`${path}messages`, "POST", { ...input, text: "Changed" }))
-        ?.status,
-      400,
+      (await conflict!.json()).code,
+      undefined,
+      "An existing request cannot be classified as never enqueued",
     );
     let snapshot = await (await request(`${path}conversation`))!.json();
     assert.equal(snapshot.entries.length, 1);

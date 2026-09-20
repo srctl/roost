@@ -5,17 +5,25 @@ struct DashboardView: View {
     @Environment(\.palette) private var palette
     @Environment(\.scenePhase) private var scenePhase
     let agent: Agent
-    let api: RoostAPI
     let discuss: (String) -> Void
-    @State private var snapshot: DashboardSnapshot?
-    @State private var error: String?
-    @State private var updating = false
+    @State private var model: JuxiDashboardModel
+    @State private var showsIntent = false
+    @State private var newTracker: DashboardTrackerKind?
+    @FocusState private var intentFocused: Bool
+
+    init(agent: Agent, api: RoostAPI, discuss: @escaping (String) -> Void) {
+        self.agent = agent
+        self.discuss = discuss
+        _model = State(
+            initialValue: JuxiDashboardModel(
+                transport: DashboardTransport(api: api, agentId: agent.id)))
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if let error { ErrorNotice(text: error) }
-                if let snapshot {
+                if let error = model.error { ErrorNotice(text: error) }
+                if let snapshot = model.snapshot {
                     if !snapshot.enabled {
                         ContentUnavailableView {
                             Label("A place for the big picture", systemImage: "chart.xyaxis.line")
@@ -24,9 +32,9 @@ struct DashboardView: View {
                                 "Enable dashboards for Roost to keep trackers, charts, and updates with each agent."
                             )
                         } actions: {
-                            Button("Enable dashboards") { Task { await enable() } }
+                            Button("Enable dashboards") { Task { await model.enable() } }
                                 .buttonStyle(.borderedProminent)
-                                .disabled(updating)
+                                .disabled(model.updating)
                         }
                     } else if snapshot.widgets.isEmpty && snapshot.datasets.isEmpty {
                         ContentUnavailableView {
@@ -42,98 +50,243 @@ struct DashboardView: View {
                             .buttonStyle(.borderedProminent)
                         }
                     } else {
-                        ForEach(snapshot.widgets) { widget in
-                            VStack(alignment: .leading, spacing: 20) {
-                                Text(widget.title).font(.title3.weight(.semibold))
-                                ForEach(Array(widget.blocks.enumerated()), id: \.offset) {
-                                    _, block in
-                                    DashboardBlockView(block: block, datasets: snapshot.datasets)
-                                }
-                                HStack {
-                                    Text(Date(milliseconds: widget.updatedAt), style: .relative)
-                                        .font(.caption).foregroundStyle(palette.muted)
-                                    Spacer()
-                                    Button {
-                                        discuss(
-                                            "Let's discuss the \"\(widget.title)\" dashboard widget."
-                                        )
-                                    } label: {
-                                        Label("Discuss", systemImage: "bubble.left")
-                                    }
-                                    .font(.subheadline)
-                                }
-                            }
-                            .padding(20)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 24))
+                        if let presentation = snapshot.presentation {
+                            presentationControls(presentation)
                         }
-                        if !snapshot.datasets.isEmpty {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Data sources").font(.headline)
-                                ForEach(snapshot.datasets) { dataset in
-                                    DisclosureGroup {
-                                        VStack(alignment: .leading, spacing: 12) {
-                                            if let description = dataset.description {
-                                                Text(description).font(.subheadline)
-                                            }
-                                            if let source = dataset.sourceUrl,
-                                                let url = workspaceURL(source)
-                                            {
-                                                Link("Open source", destination: url)
-                                            }
-                                            DataTable(
-                                                columns: dataset.columns.map(\.label),
-                                                rows: dataset.rows.map { $0.map(\.text) })
-                                            Text(
-                                                "Revision \(dataset.revision) · \(Date(milliseconds: dataset.updatedAt).formatted(date: .abbreviated, time: .shortened))"
-                                            )
-                                            .font(.caption).foregroundStyle(palette.muted)
-                                        }
-                                        .padding(.top, 12)
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(dataset.title)
-                                            Text("\(dataset.rows.count) rows").font(.caption)
-                                                .foregroundStyle(palette.muted)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 4)
-                        }
+                        JuxiDashboardContent(snapshot: snapshot, discuss: discuss)
                     }
-                } else if error == nil {
+                } else if model.error == nil {
                     ProgressView("Loading dashboard…").frame(maxWidth: .infinity).padding(.top, 80)
+                } else {
+                    Button("Try again") { Task { await model.refresh() } }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
                 }
             }
             .padding(16)
         }
+        .environment(model)
         .themedScreen()
+        .toolbar {
+            if model.snapshot?.enabled == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        if let request = model.pendingTrackerCreation {
+                            Button("Finish creating \(request.title)") { newTracker = request.kind }
+                        } else {
+                            ForEach(DashboardTrackerKind.allCases) { kind in
+                                Button {
+                                    newTracker = kind
+                                } label: {
+                                    Label(kind.title, systemImage: kind.symbol)
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "plus").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Add tracker").accessibilityIdentifier("add-tracker")
+                    .disabled(model.updating)
+                }
+            }
+        }
+        .sheet(item: $newTracker) { kind in DashboardTrackerCreation(kind: kind).environment(model)
+        }
         .navigationTitle("\(agent.name)’s dashboard")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await refresh() }
+        .refreshable { await model.refresh() }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             while !Task.isCancelled {
-                await refresh()
+                await model.refresh()
                 do { try await Task.sleep(for: .seconds(15)) } catch { break }
             }
         }
     }
 
-    private func refresh() async {
-        do {
-            snapshot = try await api.get("agents/\(agent.id)/dashboard")
-            error = nil
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+    @ViewBuilder private func presentationControls(_ presentation: DashboardPresentation)
+        -> some View
+    {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Menu {
+                    ForEach(presentation.availableFocus) { focus in
+                        Button {
+                            intentFocused = false
+                            Task { await model.select(focus) }
+                        } label: {
+                            Label(focus.title, systemImage: focus.symbol)
+                        }
+                    }
+                } label: {
+                    Label(
+                        presentation.focus?.title ?? "Everything",
+                        systemImage: "line.3.horizontal.decrease"
+                    )
+                    .font(.subheadline.weight(.medium))
+                    .frame(minHeight: 44)
+                }
+                .disabled(model.updating || presentation.availableFocus.count < 2)
+                .accessibilityLabel("Dashboard view")
+                .accessibilityValue(presentation.focus?.title ?? "Everything")
+                .accessibilityIdentifier("dashboard-view-picker")
+                Spacer()
+                if model.updating {
+                    ProgressView().accessibilityLabel("Updating dashboard view")
+                }
+                if presentation.focus != nil || presentation.hasInvalidPlan
+                    || !presentation.intent.isEmpty
+                {
+                    Button("Reset") {
+                        intentFocused = false
+                        Task { await model.reset() }
+                    }
+                    .font(.subheadline)
+                    .frame(minHeight: 44)
+                    .disabled(model.updating)
+                    .accessibilityLabel("Reset dashboard view")
+                }
+            }
+            if let key = presentation.widgetKey,
+                let widget = model.snapshot?.widgets.first(where: { $0.key == key })
+            {
+                Label("Focused on \(widget.title)", systemImage: "scope")
+                    .font(.subheadline).foregroundStyle(palette.muted)
+            }
+            if !presentation.intent.isEmpty {
+                Text("For “\(presentation.intent)”")
+                    .font(.caption).foregroundStyle(palette.muted)
+            }
+            if presentation.canAdapt {
+                DisclosureGroup("Describe a view", isExpanded: $showsIntent) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField(
+                            "For example, focus on progress and next steps",
+                            text: $model.intentDraft, axis: .vertical
+                        )
+                        .lineLimit(1...4)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($intentFocused)
+                        .submitLabel(.go)
+                        .onSubmit { applyIntent() }
+                        .accessibilityLabel("Dashboard view description")
+                        .accessibilityIdentifier("dashboard-view-intent")
+                        HStack {
+                            Text("Changes the view of your existing data.")
+                                .font(.caption).foregroundStyle(palette.muted)
+                            Spacer()
+                            Button("Apply", action: applyIntent)
+                                .buttonStyle(.borderedProminent)
+                                .disabled(
+                                    model.updating
+                                        || model.intentDraft
+                                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                )
+                        }
+                    }
+                    .padding(.top, 10)
+                }
+                .font(.subheadline)
+            }
+            if let notice = presentation.notice {
+                Label(notice, systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(palette.muted)
+            }
+        }
     }
-    private func enable() async {
-        updating = true
-        defer { updating = false }
-        do {
-            _ = try await api.post("agents/\(agent.id)/dashboard", ["enabled": true])
-            await refresh()
-        } catch { self.error = error.localizedDescription }
+
+    private func applyIntent() {
+        guard !model.updating else { return }
+        intentFocused = false
+        Task { await model.adapt() }
+    }
+}
+
+struct DashboardWidgetCard: View {
+    @Environment(\.palette) private var palette
+    @Environment(\.dashboardCardContext) private var cardContext
+    let widget: DashboardWidget
+    let blocks: [DashboardBlock]
+    let datasets: [DashboardDataset]
+    let discuss: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: cardContext.inline ? 16 : 20) {
+            Text(widget.title).font(cardContext.inline ? .headline : .title3.weight(.semibold))
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                if block.type == "weather" {
+                    DashboardWeatherView(
+                        widgetKey: widget.key, revision: widget.revision, block: block
+                    )
+                    .id(block.id)
+                } else if ["todo-list", "calorie-log"].contains(block.type) {
+                    DashboardTrackerView(
+                        widgetKey: widget.key, revision: widget.revision, block: block
+                    )
+                    .id(block.id)
+                } else {
+                    DashboardBlockView(block: block, datasets: datasets)
+                }
+            }
+            HStack {
+                Text(Date(milliseconds: widget.updatedAt), style: .relative)
+                    .font(.caption).foregroundStyle(palette.muted)
+                Spacer()
+                if !cardContext.inline {
+                    Button {
+                        discuss(
+                            "Give me a brief update on the \"\(widget.title)\" dashboard (key: \(widget.key)), including unfinished tasks and suggested next steps. Read the current dashboard data first."
+                        )
+                    } label: {
+                        Label("Discuss", systemImage: "bubble.left")
+                    }
+                    .font(.subheadline)
+                }
+            }
+        }
+        .padding(cardContext.inline ? 16 : 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.surface, in: RoundedRectangle(cornerRadius: 24))
+    }
+}
+
+struct DashboardDataSources: View {
+    @Environment(\.palette) private var palette
+    let datasets: [DashboardDataset]
+
+    var body: some View {
+        if !datasets.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Data sources").font(.headline)
+                ForEach(datasets) { dataset in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if let description = dataset.description {
+                                Text(description).font(.subheadline)
+                            }
+                            if let source = dataset.sourceUrl, let url = workspaceURL(source) {
+                                Link("Open source", destination: url)
+                            }
+                            DataTable(
+                                columns: dataset.columns.map(\.label),
+                                rows: dataset.rows.map { $0.map(\.text) })
+                            Text(
+                                "Revision \(dataset.revision) · \(Date(milliseconds: dataset.updatedAt).formatted(date: .abbreviated, time: .shortened))"
+                            )
+                            .font(.caption).foregroundStyle(palette.muted)
+                        }
+                        .padding(.top, 12)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(dataset.title)
+                            Text("\(dataset.rows.count) rows").font(.caption)
+                                .foregroundStyle(palette.muted)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
     }
 }
 

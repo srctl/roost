@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the dependency-free Xcode project and pixel artwork from Roost SVGs."""
+"""Regenerate the Xcode project and pixel artwork from Roost SVGs."""
 import hashlib
 import json
 import os
@@ -133,6 +133,12 @@ assets = root / "Roost/Resources/Assets.xcassets"
 products = []
 groups = []
 targets = []
+# Use the verified, vendored upstream adapter without network access at build time.
+juxi_package = obj(
+    "juxi-swiftui-package",
+    "XCLocalSwiftPackageReference",
+    relativePath="../../packages/juxi-swiftui",
+)
 for name, kind in [
     ("Roost", "application"),
     ("RoostTests", "bundle.unit-test"),
@@ -184,6 +190,19 @@ for name, kind in [
         sourceTree="BUILT_PRODUCTS_DIR",
     )
     products.append(product)
+    package_products = []
+    frameworks = []
+    if name in ("Roost", "RoostTests"):
+        package_product = obj(
+            name + "-juxi-product",
+            "XCSwiftPackageProductDependency",
+            package=juxi_package,
+            productName="JuxiSwiftUI",
+        )
+        package_products.append(package_product)
+        frameworks.append(
+            obj(name + "-juxi-build", "PBXBuildFile", productRef=package_product)
+        )
     phases = [
         obj(
             name + "-sources",
@@ -196,7 +215,7 @@ for name, kind in [
             name + "-frameworks",
             "PBXFrameworksBuildPhase",
             buildActionMask=2147483647,
-            files=[],
+            files=frameworks,
             runOnlyForDeploymentPostprocessing=0,
         ),
         obj(
@@ -284,6 +303,7 @@ for name, kind in [
             buildPhases=phases,
             buildRules=[],
             dependencies=deps,
+            packageProductDependencies=package_products,
             name=name,
             productName=name,
             productReference=product,
@@ -305,6 +325,9 @@ configs = [
             "IPHONEOS_DEPLOYMENT_TARGET": "17.0",
             "SDKROOT": "iphoneos",
             "ENABLE_TESTABILITY": "YES" if mode == "Debug" else "NO",
+            # Match SwiftPM's Debug behavior for the selected simulator/device.
+            # Release still builds every supported architecture for distribution.
+            "ONLY_ACTIVE_ARCH": "YES" if mode == "Debug" else "NO",
             "DEBUG_INFORMATION_FORMAT": "dwarf",
             "GCC_PREPROCESSOR_DEFINITIONS": (
                 ["$(inherited)", "DEBUG=1"] if mode == "Debug" else ["$(inherited)"]
@@ -333,6 +356,7 @@ obj(
     productRefGroup=productsGroup,
     projectDirPath="",
     projectRoot="",
+    packageReferences=[juxi_package],
     targets=targets,
 )
 

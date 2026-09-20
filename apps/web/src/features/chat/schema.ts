@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { OptionalMessageUI } from "../dashboards/chat";
 import { MAX_ATTACHMENTS } from "./files";
 import { isReactionEmoji } from "./reactions";
 
@@ -49,6 +50,7 @@ export const Message = Schema.Struct({
   id: Schema.String,
   role: Schema.Literal("user", "assistant", "notice", "activity"),
   text: Schema.String,
+  ui: Schema.optional(OptionalMessageUI),
   files: Schema.optional(Schema.Array(FileAttachment)),
   reactions: Schema.optional(Schema.Array(MessageReaction)),
   title: Schema.optional(Schema.String),

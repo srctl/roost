@@ -13,7 +13,11 @@
     "test:threads:browser": "node --import tsx tests/browser/threads.ts",
     "test:mobile": "node --import tsx --test tests/mobile*.test.ts tests/*-mobile.test.ts",
     "test:mobile:production": "node --import tsx scripts/test-mobile-production.ts",
-    "dev:mobile-fixture": "node --import tsx tests/fixtures/mobile-server.ts"
+    "dev:mobile-fixture": "node --import tsx tests/fixtures/mobile-server.ts",
+    "test:dashboard:browser": "node --import tsx tests/browser/dashboard-presentation.ts",
+    "test:trackers:browser": "node --import tsx tests/browser/trackers.ts",
+    "test:chat-trackers:browser": "node --import tsx tests/browser/chat-trackers.ts",
+    "test:weather:browser": "node --import tsx tests/browser/weather.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
@@ -37,11 +41,13 @@
     "effect": "3.22.1",
     "entities": "^8.1.0",
     "fast-xml-parser": "^5.11.1",
+    "juxi": "file:../../packages/juxi-vendor/juxi-0.0.0.tgz",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "4.0.1",
-    "web-push": "3.6.7"
+    "web-push": "3.6.7",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@babel/core": "7.29.7",

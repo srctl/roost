@@ -179,16 +179,52 @@ export function createMobileHandler(
         return json(await Effect.runPromise(readApprovals(agentId)));
       if (request.method !== "POST")
         return json({ error: "Method not allowed." }, 405);
-      const data = await body(request);
       if (action === "messages") {
-        const input = Schema.decodeUnknownSync(SendMessage)({
-          ...data,
-          agentId,
-        });
-        await Effect.runPromise(withAgentStore(assertAvailable));
-        await prepare(agentId);
-        return json(await Effect.runPromise(enqueueChat(input)), 202);
+        const rejected = () =>
+          json(
+            {
+              error:
+                "This message was not sent. Check the message and attachments, refresh, and try again.",
+              code: "message_rejected",
+            },
+            400,
+          );
+        let input: SendMessage;
+        try {
+          input = Schema.decodeUnknownSync(SendMessage)({
+            ...(await body(request)),
+            agentId,
+          });
+          await Effect.runPromise(withAgentStore(assertAvailable));
+          await prepare(agentId);
+        } catch {
+          // No enqueue has been attempted. Native clients can safely unlock
+          // their draft for editing. Errors after enqueue must stay ambiguous
+          // so retries keep the same message identity.
+          return rejected();
+        }
+        try {
+          return json(await Effect.runPromise(enqueueChat(input)), 202);
+        } catch (error) {
+          // Attachment/conversation checks can fail inside the enqueue
+          // transaction. Only release the draft after confirming that its
+          // identity has no persisted run or message; an existing identity or
+          // an unreadable store must retain the exact retry payload.
+          const absent = await Effect.runPromise(
+            withAgentStore(
+              (db) =>
+                !db
+                  .prepare(
+                    "SELECT 1 FROM runs WHERE id=? UNION ALL SELECT 1 FROM timeline WHERE id=? LIMIT 1",
+                  )
+                  .get(input.messageId, input.messageId),
+            ),
+          );
+          if (absent) return rejected();
+          throw error;
+        }
       }
+      const data = await body(request);
       if (action === "stop")
         return json(await Effect.runPromise(cancelRun(agentId, uuid(data.id))));
       if (action === "threads") {
