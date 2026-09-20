@@ -5,6 +5,15 @@ and open it as a web app. Roost provides a standalone manifest, app icons, and a
 Apple touch icon. The page and browser chrome follow the device's light/dark
 appearance. The installed iOS status bar overlays a safe-area-padded header.
 
+Mobile headers use an opaque background and `position: sticky; top: 0` while
+remaining in the layout. This gives WebKit a small, independently detected top
+bar whose color can extend into the status-bar area, instead of depending on the
+full-height app shell for scroll-edge rendering. It targets the iOS 27 blur that
+can cover the menu and title. Safe-area padding, viewport height, and keyboard
+handling remain unchanged. See WebKit's [fixed-edge detection change](https://github.com/WebKit/WebKit/commit/8b209a7da992cc5728c936b41afc2ae5dbafd2e5).
+Desktop browser checks can verify geometry and navigation, but this OS-rendered
+effect still needs confirmation in an installed app on the affected iOS version.
+
 Startup at `/` reopens the last agent visited in this browser or home-screen app.
 The choice is stored locally on the device. If the agent is missing, storage is
 unavailable, or no agent has been visited yet, startup shows the agent list.
