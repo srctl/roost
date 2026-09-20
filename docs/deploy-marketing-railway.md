@@ -52,7 +52,7 @@ railway cdn status --service marketing --environment production --json
 
 The cache policy matches the docs service: HTML, SVGs, Markdown, and `llms.txt`
 revalidate in browsers and cache for five minutes at Railway's edge. Existing
-fingerprinted CSS and JavaScript cache for one year with `immutable`. Health
+fingerprinted CSS, JavaScript, and PNG screenshots cache for one year with `immutable`. Health
 checks and errors use `no-store`. Purge-all on successful deploy refreshes stable
 URLs too; purges may take around ten seconds to propagate. CDN access has no
 additional CDN charge, but the separate origin service incurs Railway usage.
