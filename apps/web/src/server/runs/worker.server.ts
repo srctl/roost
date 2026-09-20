@@ -18,7 +18,7 @@ import {
   type Run,
   schedulerTick,
 } from "./store.server";
-import { providerMessageId, putMessage, readTimeline } from "./timeline.server";
+import { providerMessageId, putMessage } from "./timeline.server";
 
 export const ensureTimeline = (agentId: string) =>
   Effect.gen(function* () {
@@ -96,12 +96,28 @@ async function execute(run: Run, signal: AbortSignal) {
   let error: string | undefined;
   try {
     await Effect.runPromise(ensureTimeline(run.agentId), { signal });
-    const timeline = await Effect.runPromise(
-      readTimeline(run.agentId, run.conversationId),
-    );
-    const oldIds = new Set(timeline.map((m) => m.id));
-    const taskNotice = timeline.find(
-      (m) => m.id === run.id && m.role === "notice",
+    // Existing display payloads can contain large historical screenshots. Only
+    // identity is needed here, plus this run's own optional task notice.
+    const { oldIds, taskNotice } = await Effect.runPromise(
+      withAgentStore((db) => {
+        const ids = db
+          .prepare(
+            "SELECT id FROM timeline WHERE agentId=? AND conversationId=?",
+          )
+          .all(run.agentId, run.conversationId);
+        const row = db
+          .prepare(
+            "SELECT message FROM timeline WHERE agentId=? AND conversationId=? AND id=?",
+          )
+          .get(run.agentId, run.conversationId, run.id);
+        const message = row
+          ? (JSON.parse(String(row.message)) as Message)
+          : undefined;
+        return {
+          oldIds: new Set(ids.map((row) => String(row.id))),
+          taskNotice: message?.role === "notice" ? message : undefined,
+        };
+      }),
     );
     oldIds.delete(run.id);
 

@@ -106,6 +106,10 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     };
   }
   if (method === "thread/resume") thread.resumeOptions = params;
+  if (method === "thread/read" && thread.rejectHistoryRead) {
+    send({ id, error: { code: -32000, message: "History unavailable" } });
+    return;
+  }
   if (method.startsWith("thread/")) {
     persist();
     send({ id, result: { thread } });
@@ -118,6 +122,111 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     return;
   }
   if (method === "turn/start") {
+    if (params.input[0].text === "steer-completion-race") {
+      const turn = {
+        id: "race-old-turn",
+        status: "inProgress",
+        items: [
+          {
+            type: "userMessage",
+            id: "race-first-user",
+            clientId: params.clientUserMessageId,
+            content: params.input,
+          },
+          { type: "agentMessage", id: "race-old-reply", text: "Partial old" },
+        ],
+      };
+      thread.turns.push(turn);
+      persist();
+      send({ id, result: { turn } });
+      send({
+        method: "item/agentMessage/delta",
+        params: {
+          threadId: thread.id,
+          turnId: turn.id,
+          itemId: "race-old-reply",
+          delta: "Partial old",
+        },
+      });
+      return;
+    }
+    if (params.input[0].text.startsWith("complete-racing-turn")) {
+      const previous = thread.turns.at(-1);
+      previous.status = params.input[0].text.endsWith("-failed")
+        ? "failed"
+        : "completed";
+      if (previous.status === "failed")
+        previous.error = {
+          message: "Previous turn failed before the follow-up",
+        };
+      previous.items[1].text = "Final old reply";
+      const activity = {
+        type: "commandExecution",
+        id: "race-old-command",
+        command: "printf old",
+        aggregatedOutput: "old command output",
+        status: "completed",
+        exitCode: 0,
+      };
+      previous.items.push(activity);
+      // These final notifications arrive while Roost awaits the steering
+      // response. That response switches to a NEW turn before it drains them.
+      send({
+        method: "item/started",
+        params: {
+          threadId: thread.id,
+          turnId: previous.id,
+          item: { ...activity, aggregatedOutput: "", status: "inProgress" },
+        },
+      });
+      send({
+        method: "item/commandExecution/outputDelta",
+        params: {
+          threadId: thread.id,
+          turnId: previous.id,
+          itemId: activity.id,
+          delta: "old command output",
+        },
+      });
+      send({
+        method: "item/completed",
+        params: { threadId: thread.id, turnId: previous.id, item: activity },
+      });
+      send({
+        method: "turn/completed",
+        params: {
+          threadId: thread.id,
+          turn: { ...previous, items: [previous.items[1]] },
+        },
+      });
+      const turn = {
+        id: "race-new-turn",
+        status: "completed",
+        items: [
+          {
+            type: "userMessage",
+            id: "race-followup-user",
+            clientId: params.clientUserMessageId,
+            content: params.input,
+          },
+          {
+            type: "agentMessage",
+            id: "race-new-reply",
+            text: "New reply completed",
+          },
+        ],
+      };
+      thread.turns.push(turn);
+      thread.rejectHistoryRead = true;
+      persist();
+      send({ id, result: { turn: { ...turn, status: "inProgress" } } });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      send({
+        method: "turn/completed",
+        params: { threadId: thread.id, turn },
+      });
+      return;
+    }
     const active = thread.turns.find((turn) => turn.status === "inProgress");
     if (params.input[0].text === "steer-wait" || active) {
       const turn = active ?? {
@@ -355,6 +464,12 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
       });
     }
     thread.turns.push(turn);
+    if (params.input[0].text.startsWith("no-completion-history"))
+      thread.rejectHistoryRead = true;
+    if (params.input[0].text === "no-completion-history-failed") {
+      turn.status = "failed";
+      turn.error = { message: "Upstream failure" };
+    }
     persist();
     if (params.input[0].text === "stream") {
       acknowledged = true;
@@ -387,7 +502,10 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
         threadId: thread.id,
         turn: {
           ...turn,
-          items: turn.items.filter((item) => item.type !== "userMessage"),
+          items:
+            params.input[0].text === "no-completion-history-stream-only"
+              ? []
+              : turn.items.filter((item) => item.type !== "userMessage"),
         },
       },
     });
