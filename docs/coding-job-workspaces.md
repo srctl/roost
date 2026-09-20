@@ -7,6 +7,13 @@ iteration; a verified workspace with PR links makes Review PR primary. Terminal
 execution states remain visible. A ready worker without verification is not
 labeled ready for PR review.
 
+The **Review**, **Try**, and **Overview** controls choose a Juxi-authored handoff.
+Review emphasizes changes, verification and PR links. Try emphasizes the current
+preview and saved feedback. Overview keeps the worker discussion first. The
+suggested view follows the current job state; manual choices survive reopening.
+Status, errors and Stop remain visible in every view, and switching views preserves
+drafts. See [adaptive views](juxi.md) for the shared web/SwiftUI contract.
+
 ## Durable state and authorization
 
 `coding_job_workspaces` stores a revisioned preview URL/current revision/reported

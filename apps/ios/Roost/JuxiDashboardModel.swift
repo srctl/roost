@@ -22,8 +22,8 @@ enum DashboardFocus: String, Codable, CaseIterable, Identifiable {
         case .all: true
         case .summary: ["metrics", "markdown"].contains(block.type)
         case .charts: ["chart", "dataset-chart"].contains(block.type)
-        case .tables: block.type == "table"
-        case .tasks: block.type == "tasks"
+        case .tables: ["table", "calorie-log"].contains(block.type)
+        case .tasks: ["tasks", "todo-list"].contains(block.type)
         }
     }
 }
@@ -38,6 +38,8 @@ struct DashboardTransport {
     var load: () async throws -> DashboardSnapshot
     var present: (DashboardPresentationRequest) async throws -> DashboardPresentation
     var enable: () async throws -> Void
+    var action: (DashboardActionRequest) async throws -> DashboardWidget
+    var create: (DashboardTrackerRequest) async throws -> DashboardWidget
 
     init(api: RoostAPI, agentId: String) {
         let path = "agents/\(agentId)/dashboard"
@@ -53,16 +55,32 @@ struct DashboardTransport {
             }
         }
         enable = { _ = try await api.post(path, ["enabled": true]) }
+        action = {
+            try JSONDecoder()
+                .decode(DashboardWidget.self, from: await api.post(path + "/action", $0))
+        }
+        create = {
+            try JSONDecoder()
+                .decode(DashboardWidget.self, from: await api.post(path + "/tracker", $0))
+        }
     }
 
     init(
         load: @escaping () async throws -> DashboardSnapshot,
         present: @escaping (DashboardPresentationRequest) async throws -> DashboardPresentation,
-        enable: @escaping () async throws -> Void = {}
+        enable: @escaping () async throws -> Void = {},
+        action: @escaping (DashboardActionRequest) async throws -> DashboardWidget = { _ in
+            throw APIError(message: "Tracker unavailable")
+        },
+        create: @escaping (DashboardTrackerRequest) async throws -> DashboardWidget = { _ in
+            throw APIError(message: "Tracker unavailable")
+        }
     ) {
         self.load = load
         self.present = present
         self.enable = enable
+        self.action = action
+        self.create = create
     }
 }
 
@@ -71,6 +89,10 @@ struct DashboardTransport {
     private(set) var error: String?
     private(set) var updating = false
     var intentDraft = ""
+    var trackerDrafts: [String: DashboardTrackerDraft] = [:]
+    private(set) var trackerRequests: [String: DashboardActionRequest] = [:]
+    private(set) var trackerErrors: [String: String] = [:]
+    private(set) var pendingTrackerCreation: DashboardTrackerRequest?
     private let transport: DashboardTransport
     private var generation = 0
     private var refreshID = 0
@@ -154,6 +176,96 @@ struct DashboardTransport {
             }
         } catch {
             if !Task.isCancelled { self.error = error.localizedDescription }
+        }
+    }
+
+    func trackerAction(_ input: DashboardActionRequest) async -> Bool {
+        guard !updating else { return false }
+        let token = input.key + "/" + input.blockId
+        let request = trackerRequests[token] ?? input
+        trackerRequests[token] = request
+        trackerErrors[token] = nil
+        updating = true
+        generation += 1
+        defer { updating = false }
+        do {
+            let widget = try await transport.action(request)
+            guard !Task.isCancelled else { return false }
+            mergeWidget(widget)
+            trackerRequests[token] = nil
+            if request.action == .addTodo,
+                trackerDrafts[token]?.todo.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == request.label
+            {
+                trackerDrafts[token]?.todo = ""
+            }
+            if request.action == .addMeal,
+                trackerDrafts[token]?.meal.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == request.label,
+                DashboardTrackerValues.calories(trackerDrafts[token]?.calories ?? "")
+                    == request.calories
+            {
+                trackerDrafts[token]?.meal = ""
+                trackerDrafts[token]?.calories = ""
+            }
+            return true
+        } catch let failure as APIError where failure.status == 409 {
+            trackerRequests[token] = nil
+            let reloaded = await load(clearError: false)
+            trackerErrors[token] =
+                reloaded
+                ? "This tracker changed. Your draft is kept; review the latest entries and try again."
+                : "This tracker changed. Your draft is kept; refresh before trying again."
+        } catch {
+            if (error as? APIError)?.status == 400 { trackerRequests[token] = nil }
+            if !Task.isCancelled { trackerErrors[token] = error.localizedDescription }
+        }
+        return false
+    }
+
+    func createTracker(_ input: DashboardTrackerRequest) async -> Bool {
+        guard !updating else { return false }
+        let request = pendingTrackerCreation ?? input
+        pendingTrackerCreation = request
+        updating = true
+        error = nil
+        generation += 1
+        do {
+            let widget = try await transport.create(request)
+            guard !Task.isCancelled else {
+                updating = false
+                return false
+            }
+            mergeWidget(widget)
+            pendingTrackerCreation = nil
+            updating = false
+            // Creating a tracker should reveal it even when the prior view hid its block type.
+            if snapshot?.presentation != nil { await reset() }
+            await load(clearError: false)
+            if let presentation = snapshot?.presentation,
+                presentation.focus != nil || presentation.widgetKey != nil
+            {
+                error = "Tracker created. Reset the dashboard view to see it."
+            }
+            return true
+        } catch {
+            if [400, 409].contains((error as? APIError)?.status ?? 0) {
+                pendingTrackerCreation = nil
+            }
+            updating = false
+            if !Task.isCancelled { self.error = error.localizedDescription }
+            return false
+        }
+    }
+
+    private func mergeWidget(_ widget: DashboardWidget) {
+        guard let current = snapshot else { return }
+        if let index = current.widgets.firstIndex(where: { $0.key == widget.key }) {
+            if (widget.revision ?? 0) >= (current.widgets[index].revision ?? 0) {
+                snapshot?.widgets[index] = widget
+            }
+        } else {
+            snapshot?.widgets.append(widget)
         }
     }
 

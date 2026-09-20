@@ -91,9 +91,9 @@ export function filterDashboardWidgets(
           case "charts":
             return block.type === "chart" || block.type === "dataset-chart";
           case "tables":
-            return block.type === "table";
+            return block.type === "table" || block.type === "calorie-log";
           case "tasks":
-            return block.type === "tasks";
+            return block.type === "tasks" || block.type === "todo-list";
         }
         return false;
       });

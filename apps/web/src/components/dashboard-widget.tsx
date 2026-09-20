@@ -8,6 +8,7 @@ import type {
 import { colors } from "../styles/tokens.stylex";
 import { MessageContent } from "./conversation/message-content";
 import { DashboardChart } from "./dashboard-chart";
+import { DashboardTracker } from "./dashboard-tracker";
 import { Button } from "./ui/button";
 
 function Chart({
@@ -125,11 +126,27 @@ function Chart({
 function Block({
   block,
   datasets,
+  widget,
+  onChange,
+  onReload,
 }: {
   block: DashboardBlock;
   datasets: readonly DashboardDataset[];
+  widget: Widget;
+  onChange: (widget: Widget) => void;
+  onReload: () => Promise<void>;
 }) {
   switch (block.type) {
+    case "todo-list":
+    case "calorie-log":
+      return (
+        <DashboardTracker
+          block={block}
+          widget={widget}
+          onChange={onChange}
+          onReload={onReload}
+        />
+      );
     case "markdown":
       return <MessageContent>{block.text}</MessageContent>;
     case "metrics":
@@ -235,11 +252,15 @@ export function DashboardWidget({
   agentName,
   onDiscuss,
   datasets = [],
+  onChange,
+  onReload,
 }: {
   widget: Widget;
   datasets?: readonly DashboardDataset[];
   agentName: string;
   onDiscuss: (question: string) => void;
+  onChange: (widget: Widget) => void;
+  onReload: () => Promise<void>;
 }) {
   return (
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
@@ -248,7 +269,18 @@ export function DashboardWidget({
       </header>
       <div {...stylex.props(styles.blocks)}>
         {widget.blocks.map((block, index) => (
-          <Block key={index} block={block} datasets={datasets} />
+          <Block
+            key={
+              "id" in block
+                ? `interactive:${block.type}:${block.id}`
+                : `static:${index}`
+            }
+            block={block}
+            datasets={datasets}
+            widget={widget}
+            onChange={onChange}
+            onReload={onReload}
+          />
         ))}
       </div>
       <footer {...stylex.props(styles.footer)}>

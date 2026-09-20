@@ -14,7 +14,8 @@
     "test:mobile": "node --import tsx --test tests/mobile.test.ts tests/mobile-workspaces.test.ts",
     "test:mobile:production": "node --import tsx scripts/test-mobile-production.ts",
     "dev:mobile-fixture": "node --import tsx tests/fixtures/mobile-server.ts",
-    "test:dashboard:browser": "node --import tsx tests/browser/dashboard-presentation.ts"
+    "test:dashboard:browser": "node --import tsx tests/browser/dashboard-presentation.ts",
+    "test:trackers:browser": "node --import tsx tests/browser/trackers.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",

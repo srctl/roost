@@ -12,6 +12,13 @@ The setting is saved on the Roost server and applies to every device.
 Turning it off hides the page's content and prevents dashboard reads and updates;
 existing widgets remain saved for when you enable it again.
 
+Use **Add tracker** to create an editable to-do list or calorie log. Tasks can be
+added, completed, reopened and removed. Meal entries accept a label, date and
+explicit calorie count, with a total for the selected day. These controls save
+directly to Roost and work in the native iPhone app too. They do not estimate
+nutrition values or create a calorie target. Existing drafts survive conflicts;
+retries do not silently duplicate additions.
+
 Talk to an agent about what you want to track and which information will be useful.
 For example:
 

@@ -1,4 +1,4 @@
-# Adaptive dashboard views
+# Adaptive views and interactive trackers
 
 Roost uses Juxi to select an application-authored dashboard view. The web app renders
 that plan with React; the iPhone app renders the same plan with native SwiftUI
@@ -50,6 +50,41 @@ Deleting an agent deletes its saved presentation. Removing a selected tracker fa
 back to the complete dashboard with a notice. Scoped option identifiers are rebuilt
 from the current sorted widget inventory; only the stable widget key is persisted.
 
+## Interactive trackers
+
+Choose **Add tracker** on an enabled dashboard to create a **To-do list** or
+**Calorie log** with a name. These are working forms on web and iPhone. Agents can
+also compose `todo-list` and `calorie-log` blocks with existing dashboard blocks
+through `roost_save_dashboard`.
+
+To-do lists support adding, completing, reopening, and removing tasks with visible
+completion state. Calorie logs accept a meal label, an explicit calorie
+count, and a calendar date. The total is calculated from the entries for the selected
+day. No calorie estimates or targets are generated. Dates are calendar dates in the
+user's local day, not timestamps converted to another time zone.
+
+Each block and item has a stable ID. Writes use the current widget revision and
+preserve other blocks in that widget. Stale writes return a conflict and refresh
+while keeping form text. Lost-response retries retain the original payload and ID;
+matching additions and tracker creation are idempotent. The authenticated mobile API
+uses `POST dashboard/tracker` for creation and `POST dashboard/action` for bounded
+item actions. These share the browser's server implementation and ownership checks.
+Existing static `tasks` blocks remain report snapshots; `todo-list` is editable.
+
+## Coding handoff
+
+Coding job workspaces now have **Review**, **Try**, and **Overview** views backed by
+the shared `CodingHandoff` Juxi contract. Review brings changes, verification, and PR
+links forward. Try brings the current preview and the existing feedback form forward.
+Overview starts with the worker discussion. Other job details remain available.
+
+The suggested view follows current job/workspace state without an external planner
+call. A manual view choice is kept per job (in the web URL or native workspace
+preferences). Status, Stop, errors, and failed-submission inspection remain outside
+the adaptive content. Juxi does not invent verification, execute buttons, approve
+work, or launch another worker. Feedback save and Continue retain their existing
+authenticated behavior and request identities.
+
 ## Where generated UI helps Roost
 
 The first useful loop is **ask → focus → inspect → discuss**. Agent-maintained
@@ -58,15 +93,11 @@ topic and presentation from those authored views; Roost renders the same current
 on web and iPhone. This is especially useful when one agent maintains several trackers.
 It does not generate a new summary, transform data, or execute the requested work.
 
-Two further applications fit existing Roost data but are not implemented in this slice:
-
-- **Needs attention:** combine unfinished tracked tasks with blocked coding jobs and
-  pending approvals. Approvals and required actions must stay visible independently
-  of any model decision. Current trackers have no due-date or priority fields, so a
-  view must not invent urgency.
-- **Coding handoff:** emphasize changes, verification and pull requests when reviewing
-  work, or emphasize a preview and feedback when trying it. Existing job workspace
-  sections can become authored Juxi options while retaining their current actions.
+A possible next surface is **Needs attention**: combine unfinished tracked tasks
+with blocked coding jobs and pending approvals. That combined surface is not
+implemented here. Approvals and required actions must stay visible independently
+of any model decision. Trackers have no due-date or priority fields, so a view must
+not invent urgency.
 
 Keep navigation, sending, connection management, and approval decisions stable.
 Generated views should reduce the work needed to understand agent output and choose
@@ -102,11 +133,15 @@ Use the pinned Corepack pnpm toolchain from the repository root:
 ```sh
 corepack pnpm check
 corepack pnpm test:dashboard:browser
+corepack pnpm test:trackers:browser
 corepack pnpm dev:mobile-fixture
 ```
 
 The browser test launches a disposable built server/database and verifies focus
 selection, reload, shared mobile state, conflicts, reset, and viewport geometry.
+The tracker browser test creates both tracker types through the UI, checks daily
+totals and task completion, and exercises concurrent edits and a lost save response.
+It also verifies that form drafts and exact retry requests survive view changes.
 Set `ROOST_TEST_CHROME` if using an installed Chrome executable instead of Playwright's
 browser. It does not make live model calls. Server tests mock the TypeSafe HTTP
 transport while exercising Juxi's actual planner and validation.
@@ -118,3 +153,7 @@ Stop, dashboard focus, notes, and coding workspace navigation. Fixture workers a
 disabled, so these tests do not prove external model execution or physical-device
 distribution. Signing, TestFlight/App Store publication, and APNs remain separate
 configuration work.
+
+`TrackerUITests` covers creating and editing both trackers, retaining a draft after
+a real revision conflict, changing coding handoff views, and restoring the chosen
+view after relaunch. Unit tests cover malformed plans and exact-request recovery.

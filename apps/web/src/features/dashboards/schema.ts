@@ -103,7 +103,53 @@ export type DashboardDataset = typeof DashboardDataset.Type;
 export type SaveDataset = typeof SaveDataset.Type;
 export type DatasetChart = typeof DatasetChart.Type;
 
+export const DashboardItemLabel = Schema.Trim.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(200),
+);
+export const DashboardDate = Schema.String.pipe(
+  Schema.pattern(/^(?!0000)\d{4}-\d{2}-\d{2}$/),
+  Schema.filter(
+    (value) => {
+      const [year, month, day] = value.split("-").map(Number);
+      if (!year || !month || !day || month > 12) return false;
+      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      return day <= days[month - 1]!;
+    },
+    { message: () => "Use a valid calendar date in YYYY-MM-DD format." },
+  ),
+);
+export const DashboardCalories = Schema.Int.pipe(Schema.between(0, 20000));
+export const DashboardTodo = Schema.Struct({
+  id: Schema.UUID,
+  label: DashboardItemLabel,
+  done: Schema.Boolean,
+});
+export const DashboardMeal = Schema.Struct({
+  id: Schema.UUID,
+  date: DashboardDate,
+  label: DashboardItemLabel,
+  calories: DashboardCalories,
+});
+export const DashboardTodoList = Schema.Struct({
+  type: Schema.Literal("todo-list"),
+  id: DashboardKey,
+  items: Schema.Array(DashboardTodo).pipe(Schema.maxItems(100)),
+});
+export const DashboardCalorieLog = Schema.Struct({
+  type: Schema.Literal("calorie-log"),
+  id: DashboardKey,
+  entries: Schema.Array(DashboardMeal).pipe(Schema.maxItems(200)),
+});
+export type DashboardTodo = typeof DashboardTodo.Type;
+export type DashboardMeal = typeof DashboardMeal.Type;
+export type DashboardTodoList = typeof DashboardTodoList.Type;
+export type DashboardCalorieLog = typeof DashboardCalorieLog.Type;
+
 export const DashboardBlock = Schema.Union(
+  DashboardTodoList,
+  DashboardCalorieLog,
   DatasetChart,
   Schema.Struct({
     type: Schema.Literal("markdown"),
@@ -156,6 +202,22 @@ export const DashboardBlock = Schema.Union(
   }),
 );
 
+function uniqueActionIds(blocks: readonly (typeof DashboardBlock.Type)[]) {
+  const actionable = blocks.filter(
+    (block) => block.type === "todo-list" || block.type === "calorie-log",
+  );
+  const blockIds = actionable.map((block) => block.id);
+  const itemIds = actionable.flatMap((block) =>
+    (block.type === "todo-list" ? block.items : block.entries).map(
+      (item) => item.id,
+    ),
+  );
+  return (
+    new Set(blockIds).size === blockIds.length &&
+    new Set(itemIds).size === itemIds.length
+  );
+}
+
 export const SaveDashboard = Schema.Struct({
   key: DashboardKey,
   title: label,
@@ -167,8 +229,16 @@ export const SaveDashboard = Schema.Struct({
     Schema.NonNegativeInt.pipe(Schema.greaterThan(0)),
   ),
 }).pipe(
-  Schema.filter((widget) => JSON.stringify(widget).length <= 64000, {
-    message: () => "Keep each dashboard widget under 64 KB.",
+  Schema.filter(
+    (widget) =>
+      new TextEncoder().encode(JSON.stringify(widget)).byteLength <= 64000,
+    {
+      message: () => "Keep each dashboard widget under 64 KB.",
+    },
+  ),
+  Schema.filter((widget) => uniqueActionIds(widget.blocks), {
+    message: () =>
+      "Use unique interactive block IDs and unique todo or meal IDs within each widget.",
   }),
 );
 
@@ -183,7 +253,12 @@ export const DashboardWidget = Schema.Struct({
   blocks: Schema.Array(DashboardBlock),
   revision: Schema.NonNegativeInt.pipe(Schema.greaterThan(0)),
   updatedAt: Schema.Number,
-});
+}).pipe(
+  Schema.filter((widget) => uniqueActionIds(widget.blocks), {
+    message: () =>
+      "Interactive block and item IDs must be unique within each widget.",
+  }),
+);
 
 export type DashboardBlock = typeof DashboardBlock.Type;
 export type DashboardWidget = typeof DashboardWidget.Type;

@@ -113,6 +113,47 @@ const feedback = (
   text = "Keep the compact layout",
 ) => ({ agentId, id, requestId: randomUUID(), text, previewRevision: "r05" });
 
+test("workspace rebuilds authored handoff plans from current state without changing feedback or worker identity", () =>
+  fixture(async (agent, id, runId) => {
+    const before = await run(getCodingJob(agent, id));
+    const initial = await run(getJobWorkspace(agent, id));
+    assert.equal(initial.presentation.defaultView, "review");
+    assert.deepEqual(initial.presentation.availableViews, [
+      "overview",
+      "review",
+      "try",
+    ]);
+    await report(agent, id, runId, {
+      latestChanges: "Live preview ready",
+      verification: "Build passed",
+    });
+    const preview = await run(getJobWorkspace(agent, id));
+    assert.equal(preview.presentation.defaultView, "try");
+    assert.deepEqual(preview.presentation.plans.try.nodes[0]!.props, {
+      jobId: id,
+      view: "try",
+    });
+    await report(agent, id, runId, {
+      latestChanges: "Review the final change",
+      previewAvailability: "not_needed",
+    });
+    const review = await run(getJobWorkspace(agent, id));
+    assert.equal(review.presentation.defaultView, "review");
+    assert.equal(review.workspace.latestChanges, "Review the final change");
+    assert.equal(
+      JSON.stringify(review.presentation).includes("Live preview ready"),
+      false,
+      "Plans never retain copied content",
+    );
+    assert.deepEqual(review.feedback, []);
+    assert.deepEqual(review.messages, []);
+    assert.equal(
+      (await run(getCodingJob(agent, id))).sessionIdentity,
+      before.sessionIdentity,
+    );
+    await assert.rejects(run(getJobWorkspace(randomUUID(), id)), /not found/);
+  }));
+
 test("preview metadata persists independently of execution and completion; rejects stale and unsafe reports", () =>
   fixture(async (agent, id, runId) => {
     const before = await run(getCodingJob(agent, id));

@@ -4,10 +4,15 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { AdaptiveDashboard } from "../components/adaptive-dashboard";
 import { AgentHeader } from "../components/agent-header";
 import { Conversation } from "../components/conversation";
+import { CreateTracker } from "../components/create-tracker";
+import { DashboardTrackerDrafts } from "../components/dashboard-tracker";
 import { Button } from "../components/ui/button";
 import type { Agent } from "../features/agents/schema";
 import { getConversationSnapshot } from "../features/chat/functions";
-import { getDashboard } from "../features/dashboards/functions";
+import {
+  changeDashboardPresentation,
+  getDashboard,
+} from "../features/dashboards/functions";
 import { updateDashboardPreference } from "../features/dashboards/preference";
 import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
@@ -119,19 +124,21 @@ function DashboardWorkspace({
           aria-label="Dashboard widgets"
           {...stylex.props(styles.content, chatOpen && styles.contentHidden)}
         >
-          <AgentDashboard
-            agent={agent}
-            loaded={loaded.dashboard}
-            onDiscuss={(question) => {
-              setSuggestion((previous) => ({
-                id: (previous?.id ?? 0) + 1,
-                text: question,
-              }));
-              setChatCollapsed(false);
-              setChatOpen(true);
-              chat.current?.querySelector("textarea")?.focus();
-            }}
-          />
+          <DashboardTrackerDrafts>
+            <AgentDashboard
+              agent={agent}
+              loaded={loaded.dashboard}
+              onDiscuss={(question) => {
+                setSuggestion((previous) => ({
+                  id: (previous?.id ?? 0) + 1,
+                  text: question,
+                }));
+                setChatCollapsed(false);
+                setChatOpen(true);
+                chat.current?.querySelector("textarea")?.focus();
+              }}
+            />
+          </DashboardTrackerDrafts>
         </section>
         {!chatCollapsed && (
           // biome-ignore lint/a11y/useSemanticElements: This is an interactive pane splitter, not a thematic break.
@@ -213,6 +220,7 @@ function AgentDashboard({
 }) {
   const [result, setResult] = useState(loaded);
   const [refreshError, setRefreshError] = useState(false);
+  const refreshSequence = useRef(0);
   useEffect(() => {
     setResult((previous) => newerDashboard(previous, loaded));
   }, [loaded]);
@@ -220,8 +228,9 @@ function AgentDashboard({
     let active = true;
     const refresh = async () => {
       if (document.visibilityState !== "visible") return;
+      const sequence = ++refreshSequence.current;
       const next = await loadDashboard(agent.id);
-      if (!active) return;
+      if (!active || sequence !== refreshSequence.current) return;
       if (next.ok) {
         setResult((previous) => newerDashboard(previous, next));
         setRefreshError(false);
@@ -261,8 +270,33 @@ function AgentDashboard({
       </div>
     );
   const widgets = result.value.widgets;
+  const reload = async () => {
+    const sequence = ++refreshSequence.current;
+    const next = await loadDashboard(agent.id);
+    if (sequence !== refreshSequence.current) return;
+    if (next.ok) {
+      setResult((previous) => newerDashboard(previous, next));
+      setRefreshError(false);
+    } else setRefreshError(true);
+  };
   return (
     <>
+      <CreateTracker
+        agentId={agent.id}
+        onCreated={async () => {
+          const reset = await changeDashboardPresentation({
+            data: {
+              agentId: agent.id,
+              intent: "",
+              revision: result.value.presentation.revision,
+            },
+          });
+          await reload();
+          return reset.ok
+            ? null
+            : "Tracker created. The view changed on another device; reset the dashboard view to see it.";
+        }}
+      />
       {refreshError && (
         <p role="status" {...stylex.props(styles.description)}>
           Could not refresh. Showing the last loaded dashboard.
@@ -276,6 +310,24 @@ function AgentDashboard({
           datasets={result.value.datasets}
           presentation={result.value.presentation}
           onDiscuss={onDiscuss}
+          onWidgetChange={(widget) => {
+            refreshSequence.current += 1;
+            setResult((previous) => {
+              if (!previous.ok) return previous;
+              return {
+                ...previous,
+                value: {
+                  ...previous.value,
+                  widgets: previous.value.widgets.map((existing) =>
+                    existing.key === widget.key &&
+                    existing.revision <= widget.revision
+                      ? widget
+                      : existing,
+                  ),
+                },
+              };
+            });
+          }}
           onPresentation={(presentation) =>
             setResult((previous) => {
               if (
@@ -289,13 +341,7 @@ function AgentDashboard({
               };
             })
           }
-          onReload={async () => {
-            const next = await loadDashboard(agent.id);
-            if (next.ok) {
-              setResult((previous) => newerDashboard(previous, next));
-              setRefreshError(false);
-            } else setRefreshError(true);
-          }}
+          onReload={reload}
         />
       ) : (
         <div {...stylex.props(styles.empty)}>

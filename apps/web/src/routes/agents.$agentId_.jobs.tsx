@@ -9,10 +9,10 @@ import {
   useState,
 } from "react";
 import { AgentHeader } from "../components/agent-header";
+import { CodingHandoff } from "../components/coding-handoff";
 import { Conversation } from "../components/conversation";
 import { MessageContent } from "../components/conversation/message-content";
 import { Button } from "../components/ui/button";
-import { Icon } from "../components/ui/primitives";
 import type { Agent } from "../features/agents/schema";
 import {
   getCodingJobs,
@@ -23,6 +23,11 @@ import {
   stopCodingJob,
   submitJobFeedback,
 } from "../features/coding/functions";
+import {
+  type CodingHandoffView,
+  codingHandoffPresentation,
+  codingHandoffViewSchema,
+} from "../features/coding/presentation";
 import type { CodingJob } from "../features/coding/schema";
 import {
   type CodingWorkspace,
@@ -36,7 +41,10 @@ import { colors } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/agents/$agentId_/jobs")({
-  validateSearch: (search: Record<string, unknown>): { job?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { job?: string; view?: CodingHandoffView } => ({
+    view: codingHandoffViewSchema.safeParse(search.view).data,
     job:
       typeof search.job === "string" && /^[\da-f-]{36}$/i.test(search.job)
         ? search.job
@@ -138,19 +146,11 @@ function AgentJobs({
   loaded: Awaited<ReturnType<typeof loadJobs>>;
 }) {
   const router = useRouter();
-  const { job: selected } = Route.useSearch();
+  const { job: selected, view: selectedView } = Route.useSearch();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [stopping, setStopping] = useState<string>();
   const [filter, setFilter] = useState("All work");
-  const metadata = useRef<HTMLDetailsElement | null>(null);
-  const attachMetadata = useCallback((node: HTMLDetailsElement | null) => {
-    metadata.current = node;
-    if (node) node.open = false;
-  }, []);
-  useEffect(() => {
-    if (metadata.current) metadata.current.open = false;
-  }, [selected]);
   const [now, setClock] = useState(Date.now);
   useEffect(() => {
     const tick = () => setClock(Date.now());
@@ -172,7 +172,18 @@ function AgentJobs({
   const result = loaded.jobs.ok ? loaded.jobs : lastJobs;
   const refreshError = !loaded.jobs.ok && lastJobs.ok ? loaded.jobs.error : "";
   const jobs = result.ok ? result.value : [];
-  const job = jobs.find((item) => item.id === selected);
+  const listedJob = jobs.find((item) => item.id === selected);
+  const job =
+    listedJob && loaded.detail?.ok
+      ? { ...listedJob, workspace: loaded.detail.value.workspace }
+      : listedJob;
+  const handoffView =
+    selectedView ??
+    (loaded.detail?.ok
+      ? loaded.detail.value.presentation.defaultView
+      : job
+        ? codingHandoffPresentation(job, job.workspace).defaultView
+        : "overview");
   const running = jobs.some(
     (item) => active(item) || (item.cancelRequested && canStop(item)),
   );
@@ -305,6 +316,16 @@ function AgentJobs({
               </div>
               <div {...stylex.props(s.actions)}>
                 <Primary job={job} now={now} />
+                {canStop(job) && (
+                  <Button
+                    disabled={Boolean(stopping) || job.cancelRequested}
+                    onClick={() => void stop(job.id)}
+                  >
+                    {stopping === job.id || job.cancelRequested
+                      ? "Stopping…"
+                      : "Stop job"}
+                  </Button>
+                )}
                 <Button
                   disabled={!interactive || busy}
                   onClick={() => void manualRefresh()}
@@ -313,16 +334,52 @@ function AgentJobs({
                 </Button>
               </div>
             </div>
-            <div {...stylex.props(s.workspace)}>
-              <div {...stylex.props(s.discussionColumn)}>
-                {loaded.detail?.ok ? (
+            <JobAttention
+              job={job}
+              messages={loaded.detail?.ok ? loaded.detail.value.messages : []}
+              queueBlockers={
+                loaded.detail?.ok ? loaded.detail.value.queueBlockers : []
+              }
+              onInspect={async (inputId) => {
+                try {
+                  const result = await inspectWorkerFailure({
+                    data: { agentId: job.agentId, id: job.id, inputId },
+                  });
+                  if (!result.ok) setError(result.error);
+                  else await refresh();
+                } catch {
+                  setError(
+                    "Could not acknowledge this submission. Refresh before retrying.",
+                  );
+                }
+              }}
+            />
+            <CodingHandoff
+              key={job.id}
+              job={job}
+              now={now}
+              presentation={
+                loaded.detail?.ok ? loaded.detail.value.presentation : undefined
+              }
+              selectedView={selectedView}
+              onSelect={(view) =>
+                void router.navigate({
+                  to: "/agents/$agentId/jobs",
+                  params: { agentId: agent.id },
+                  search: { job: job.id, view },
+                  replace: true,
+                  resetScroll: false,
+                })
+              }
+              discussion={
+                loaded.detail?.ok ? (
                   <Discussion
                     key={job.id}
                     agent={agent}
                     job={job}
+                    view={handoffView}
                     feedback={loaded.detail.value.feedback}
                     messages={loaded.detail.value.messages}
-                    queueBlockers={loaded.detail.value.queueBlockers}
                     refresh={refresh}
                   />
                 ) : (
@@ -331,160 +388,9 @@ function AgentJobs({
                       ? loaded.detail.error
                       : "Loading discussion…"}
                   </p>
-                )}
-              </div>
-              <details
-                {...stylex.props(s.workspaceDetails)}
-                ref={attachMetadata}
-              >
-                <summary {...stylex.props(s.workspaceDetailsSummary)}>
-                  Preview & job details
-                </summary>
-                <section {...stylex.props(s.section)}>
-                  <div {...stylex.props(s.sectionHeading)}>
-                    <h3 {...stylex.props(s.sectionTitle)}>Current preview</h3>
-                    <span {...stylex.props(s.muted)}>
-                      {previewState(job.workspace, now) === "running"
-                        ? "Reported running"
-                        : job.workspace.previewAvailability === "not_needed"
-                          ? "Not needed"
-                          : previewState(job.workspace, now) === "unknown"
-                            ? "Unknown · report expired"
-                            : "Unavailable"}
-                    </span>
-                  </div>
-                  <div {...stylex.props(s.preview)}>
-                    <Icon name="monitor" size={24} />
-                    <div {...stylex.props(s.previewText)}>
-                      {job.workspace.previewUrl ? (
-                        <>
-                          <p {...stylex.props(s.summary)}>
-                            Revision{" "}
-                            {job.workspace.previewRevision || "not recorded"}
-                          </p>
-                          <span {...stylex.props(s.muted)}>
-                            {new URL(job.workspace.previewUrl).host}
-                          </span>
-                        </>
-                      ) : (
-                        <p {...stylex.props(s.summary)}>
-                          No preview has been shared yet.
-                        </p>
-                      )}
-                    </div>
-                    {job.workspace.previewUrl && (
-                      <a
-                        href={job.workspace.previewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        {...stylex.props(s.actionLink)}
-                      >
-                        {previewState(job.workspace, now) === "running"
-                          ? "Open ↗"
-                          : "Try last preview ↗"}
-                      </a>
-                    )}
-                  </div>
-                  {previewState(job.workspace, now) !== "running" && (
-                    <p {...stylex.props(s.muted)}>
-                      Preview availability does not change this job’s status.
-                      Your work and feedback remain here.
-                    </p>
-                  )}
-                  {job.workspace.previewReportedAt > 0 && (
-                    <p {...stylex.props(s.muted)}>
-                      Last reported{" "}
-                      {new Date(
-                        job.workspace.previewReportedAt,
-                      ).toLocaleString()}
-                      . Running reports expire after 15 minutes.
-                    </p>
-                  )}
-                </section>
-                <section {...stylex.props(s.section)}>
-                  <h3 {...stylex.props(s.sectionTitle)}>Latest changes</h3>
-                  <p {...stylex.props(s.summary)}>
-                    {job.workspace.latestChanges ||
-                      job.summary ||
-                      "No update shared yet."}
-                  </p>
-                  {job.error && <p {...stylex.props(s.error)}>{job.error}</p>}
-                </section>
-                {job.workspace.pullRequests.length > 0 && (
-                  <section {...stylex.props(s.section)}>
-                    <h3 {...stylex.props(s.sectionTitle)}>Pull requests</h3>
-                    <div {...stylex.props(s.actions)}>
-                      {job.workspace.pullRequests.map((url, index) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          {...stylex.props(s.link)}
-                        >
-                          PR {index + 1} ↗
-                        </a>
-                      ))}
-                    </div>
-                    <p {...stylex.props(s.summary)}>
-                      {job.workspace.verification ||
-                        "Implementation verification has not been recorded."}
-                    </p>
-                    <p {...stylex.props(s.muted)}>
-                      Integration verification: {job.workspace.integration}.
-                    </p>
-                  </section>
-                )}
-                <section {...stylex.props(s.section)}>
-                  <h3 {...stylex.props(s.sectionTitle)}>Task description</h3>
-                  <p {...stylex.props(s.summary)}>
-                    {job.assignment || job.brief}
-                  </p>
-                  {/^https?:\/\//i.test(job.sourceUrl) && (
-                    <a
-                      href={job.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      {...stylex.props(s.link)}
-                    >
-                      Open task source ↗
-                    </a>
-                  )}
-                </section>
-                <details {...stylex.props(s.technical)}>
-                  <summary {...stylex.props(s.technicalSummary)}>
-                    Technical details & worker output
-                  </summary>
-                  <dl {...stylex.props(s.metadata)}>
-                    {[
-                      ["Machine", job.remoteTarget || "Roost host"],
-                      ["Workspace", job.cwd],
-                      ["Herdr session", job.sessionName],
-                      ["Worker", `${job.workerName} · ${job.workerKind}`],
-                      ["Execution state", job.status],
-                    ].map(([key, value]) => (
-                      <div key={key} style={{ display: "contents" }}>
-                        <dt>{key}</dt>
-                        <dd {...stylex.props(s.value)}>{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <pre {...stylex.props(s.output)}>
-                    {job.output || "No output yet."}
-                  </pre>
-                  {canStop(job) && (
-                    <Button
-                      disabled={Boolean(stopping) || job.cancelRequested}
-                      onClick={() => void stop(job.id)}
-                    >
-                      {stopping === job.id || job.cancelRequested
-                        ? "Stopping…"
-                        : "Stop job"}
-                    </Button>
-                  )}
-                </details>
-              </details>
-            </div>
+                )
+              }
+            />
           </>
         ) : (
           <>
@@ -592,20 +498,73 @@ function AgentJobs({
   );
 }
 
+function JobAttention({
+  job,
+  messages,
+  queueBlockers,
+  onInspect,
+}: {
+  job: Job;
+  messages: WorkerMessage[];
+  queueBlockers: string[];
+  onInspect: (inputId: string) => Promise<void>;
+}) {
+  const unsettled = [
+    ...new Set([
+      ...queueBlockers,
+      ...messages
+        .filter((message) => message.status === "failed")
+        .map((message) => message.id),
+    ]),
+  ];
+  return (
+    <div data-job-attention>
+      {job.error && (
+        <p role="alert" {...stylex.props(s.error)}>
+          {job.error}
+        </p>
+      )}
+      {(job.status === "blocked" ||
+        (["running", "review"].includes(job.status) &&
+          (!job.sessionIdentity ||
+            !["working", "idle", "done"].includes(job.lastWorkerState)))) && (
+        <p role="status" {...stylex.props(s.muted)}>
+          Resolve approvals or restore and verify this same worker in Herdr
+          before continuing. Queued messages stay with this job.
+        </p>
+      )}
+      {unsettled.map((inputId) => (
+        <div key={inputId} {...stylex.props(s.section)}>
+          <p role="alert" {...stylex.props(s.error)}>
+            {messages.find((message) => message.id === inputId)?.error ||
+              "An uncertain submission is holding this queue. Inspect it in the existing worker; it will not be replayed."}
+          </p>
+          <Button
+            xstyle={s.wrappingButton}
+            onClick={() => void onInspect(inputId)}
+          >
+            I inspected this submission in Herdr; release remaining queue
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type Draft = { text: string; requestId: string; previewRevision: string };
 function Discussion({
   agent,
   job,
   feedback,
   messages,
-  queueBlockers,
+  view,
   refresh,
 }: {
   job: Job;
   agent: Agent;
   feedback: JobFeedback[];
   messages: WorkerMessage[];
-  queueBlockers: string[];
+  view: CodingHandoffView;
   refresh: () => Promise<void>;
 }) {
   const [discuss, setDiscuss] = useState(false);
@@ -620,7 +579,12 @@ function Discussion({
     setFocusTarget(view);
     if (navigation.current) navigation.current.open = false;
   }
-  const [worker, setWorker] = useState(true);
+  const [worker, setWorker] = useState(view !== "try");
+  useEffect(() => {
+    setWorker(view !== "try");
+    setDiscuss(false);
+    setFocusTarget(null);
+  }, [view]);
   const key = `roost-job-feedback-${job.agentId}-${job.id}`;
   const [draft, setDraft] = useState<Draft>();
   const [ready, setReady] = useState(false);
@@ -789,7 +753,6 @@ function Discussion({
         <WorkerDiscussion
           job={job}
           messages={messages}
-          queueBlockers={queueBlockers}
           refresh={refresh}
           navigationControls={navigationControls}
           focusRequested={focusTarget === "worker"}
@@ -934,7 +897,6 @@ function Discussion({
 function WorkerDiscussion({
   job,
   messages,
-  queueBlockers,
   refresh,
   navigationControls,
   focusRequested,
@@ -942,7 +904,6 @@ function WorkerDiscussion({
 }: {
   job: Job;
   messages: WorkerMessage[];
-  queueBlockers: string[];
   refresh: () => Promise<void>;
   navigationControls: ReactNode;
   focusRequested: boolean;
@@ -1110,24 +1071,6 @@ function WorkerDiscussion({
         </p>
       )}
       {message.error && <p {...stylex.props(s.error)}>{message.error}</p>}
-      {message.status === "failed" && (
-        <Button
-          xstyle={s.wrappingButton}
-          onClick={async () => {
-            const result = await inspectWorkerFailure({
-              data: {
-                agentId: job.agentId,
-                id: job.id,
-                inputId: message.id,
-              },
-            });
-            if (!result.ok) setError(result.error);
-            else await refresh();
-          }}
-        >
-          I inspected this submission in Herdr; release remaining queue
-        </Button>
-      )}
       {message.previewCheck && <PreviewReceipt value={message.previewCheck} />}
       {message.response && (
         <>
@@ -1154,28 +1097,6 @@ function WorkerDiscussion({
   );
   return (
     <div {...stylex.props(s.workerDiscussion)}>
-      {queueBlockers
-        .filter(
-          (id) => !messages.some((m) => m.id === id && m.status === "failed"),
-        )
-        .map((inputId) => (
-          <p key={inputId} {...stylex.props(s.error)}>
-            An uncertain coordinator submission is holding this queue. Inspect
-            it in the existing worker; it will not be replayed.{" "}
-            <Button
-              xstyle={s.wrappingButton}
-              onClick={async () => {
-                const result = await inspectWorkerFailure({
-                  data: { agentId: job.agentId, id: job.id, inputId },
-                });
-                if (!result.ok) setError(result.error);
-                else await refresh();
-              }}
-            >
-              I inspected the submission; release remaining queue
-            </Button>
-          </p>
-        ))}
       {unavailable && (
         <p role="status" {...stylex.props(s.muted)}>
           {["completed", "cancelled", "failed"].includes(job.status)

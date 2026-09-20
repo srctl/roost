@@ -4,6 +4,10 @@ import {
   JobFeedbackInput,
   WorkerMessageInput,
 } from "../../features/coding/workspace-schema";
+import {
+  decodeCreateDashboardTracker,
+  decodeDashboardAction,
+} from "../../features/dashboards/actions";
 import { chartDataError } from "../../features/dashboards/chart-data";
 import { changeDashboardPresentationSchema } from "../../features/dashboards/presentation";
 import {
@@ -26,6 +30,10 @@ import {
   saveJobFeedback,
 } from "../coding/workspace-store.server";
 import {
+  createDashboardTracker,
+  updateDashboardContent,
+} from "../dashboards/actions.server";
+import {
   readDashboard,
   updateDashboardPresentation,
 } from "../dashboards/presentation.server";
@@ -43,10 +51,11 @@ import {
 export class MobileWorkspaceError extends Error {
   status: number;
   constructor(message: string) {
-    super(message.replace(/^PRESENTATION_CONFLICT:\s*/, ""));
+    super(message.replace(/^(?:PRESENTATION|DASHBOARD)_CONFLICT:\s*/, ""));
     this.status =
       message.startsWith("NOTE_CONFLICT:") ||
-      message.startsWith("PRESENTATION_CONFLICT:")
+      message.startsWith("PRESENTATION_CONFLICT:") ||
+      message.startsWith("DASHBOARD_CONFLICT:")
         ? 409
         : 400;
   }
@@ -139,6 +148,36 @@ export async function mobileWorkspaceRequest(
           ),
         };
     }
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "tracker" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    return {
+      value: await run(
+        createDashboardTracker(
+          agentId,
+          decodeCreateDashboardTracker(await body(request)),
+        ),
+      ),
+    };
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "action" &&
+    !action &&
+    request.method === "POST"
+  ) {
+    return {
+      value: await run(
+        updateDashboardContent(
+          agentId,
+          decodeDashboardAction(await body(request)),
+        ),
+      ),
+    };
   }
   if (
     section === "dashboard" &&

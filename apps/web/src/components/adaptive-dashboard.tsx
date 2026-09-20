@@ -26,6 +26,8 @@ type DashboardContent = {
   datasets: readonly DashboardDataset[];
   agentName: string;
   onDiscuss: (question: string) => void;
+  onWidgetChange: (widget: Widget) => void;
+  onReload: () => Promise<void>;
 };
 
 const ContentContext = createContext<DashboardContent | null>(null);
@@ -55,11 +57,15 @@ function DashboardContents({
   datasets,
   agentName,
   onDiscuss,
+  onWidgetChange,
+  onReload,
   showDataSources = true,
 }: DashboardContent & { showDataSources?: boolean }) {
   return (
     <>
-      {showDataSources && <DashboardDataSources datasets={datasets} />}
+      {showDataSources && datasets.length > 0 && (
+        <DashboardDataSources datasets={datasets} />
+      )}
       <div {...stylex.props(styles.grid)}>
         {widgets.map((widget) => (
           <DashboardWidget
@@ -68,6 +74,8 @@ function DashboardContents({
             datasets={datasets}
             agentName={agentName}
             onDiscuss={onDiscuss}
+            onChange={onWidgetChange}
+            onReload={onReload}
           />
         ))}
       </div>
@@ -79,7 +87,6 @@ export function AdaptiveDashboard({
   agentId,
   presentation,
   onPresentation,
-  onReload,
   ...content
 }: DashboardContent & {
   agentId: string;
@@ -87,6 +94,7 @@ export function AdaptiveDashboard({
   onPresentation: (value: DashboardPresentation) => void;
   onReload: () => Promise<void>;
 }) {
+  const onReload = content.onReload;
   const [intent, setIntent] = useState("");
   const [describing, setDescribing] = useState(false);
   const [saving, setSaving] = useState(false);

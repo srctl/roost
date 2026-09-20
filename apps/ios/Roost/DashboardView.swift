@@ -8,6 +8,7 @@ struct DashboardView: View {
     let discuss: (String) -> Void
     @State private var model: JuxiDashboardModel
     @State private var showsIntent = false
+    @State private var newTracker: DashboardTrackerKind?
     @FocusState private var intentFocused: Bool
 
     init(agent: Agent, api: RoostAPI, discuss: @escaping (String) -> Void) {
@@ -64,7 +65,33 @@ struct DashboardView: View {
             }
             .padding(16)
         }
+        .environment(model)
         .themedScreen()
+        .toolbar {
+            if model.snapshot?.enabled == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        if let request = model.pendingTrackerCreation {
+                            Button("Finish creating \(request.title)") { newTracker = request.kind }
+                        } else {
+                            ForEach(DashboardTrackerKind.allCases) { kind in
+                                Button {
+                                    newTracker = kind
+                                } label: {
+                                    Label(kind.title, systemImage: kind.symbol)
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "plus").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Add tracker").accessibilityIdentifier("add-tracker")
+                    .disabled(model.updating)
+                }
+            }
+        }
+        .sheet(item: $newTracker) { kind in DashboardTrackerCreation(kind: kind).environment(model)
+        }
         .navigationTitle("\(agent.name)’s dashboard")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.refresh() }
@@ -186,7 +213,14 @@ struct DashboardWidgetCard: View {
         VStack(alignment: .leading, spacing: 20) {
             Text(widget.title).font(.title3.weight(.semibold))
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                DashboardBlockView(block: block, datasets: datasets)
+                if ["todo-list", "calorie-log"].contains(block.type) {
+                    DashboardTrackerView(
+                        widgetKey: widget.key, revision: widget.revision, block: block
+                    )
+                    .id(block.id)
+                } else {
+                    DashboardBlockView(block: block, datasets: datasets)
+                }
             }
             HStack {
                 Text(Date(milliseconds: widget.updatedAt), style: .relative)
