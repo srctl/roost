@@ -19,8 +19,7 @@ directly to Roost and work in the native iPhone app too. They do not estimate
 nutrition values or create a calorie target. Existing drafts survive conflicts;
 retries do not silently duplicate additions.
 
-Weather is under development in this branch: the live service is not yet connected.
-With the local test fixture, search for a city, select the matching location, and choose °C or °F.
+For live weather, search for a city, select the matching location, and choose °C or °F.
 The card shows current conditions and a five-day forecast from Open-Meteo. It
 includes the city, update time, attribution, and a **Refresh** control. Forecasts
 are cached for 15 minutes; a provider outage clearly labels any older saved

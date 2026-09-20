@@ -5,6 +5,7 @@ import {
   WeatherLocation,
   WeatherReport,
 } from "../../features/dashboards/weather";
+import { createOpenMeteoTransport } from "./weather-http.server";
 
 const MINUTE = 60_000;
 const FORECAST_TTL = 15 * MINUTE;
@@ -64,19 +65,6 @@ export type WeatherTransport = {
   location: (id: number) => Promise<unknown>;
   forecast: (location: WeatherLocation, unit: WeatherUnit) => Promise<unknown>;
 };
-// No live connection until the provider adapter is configured. Tests supply a
-// local transport to exercise validation, caching and persisted settings.
-const disconnected: WeatherTransport = {
-  search: async () => {
-    throw new WeatherUnavailable("Weather service is not connected yet.");
-  },
-  location: async () => {
-    throw new WeatherUnavailable("Weather service is not connected yet.");
-  },
-  forecast: async () => {
-    throw new WeatherUnavailable("Weather service is not connected yet.");
-  },
-};
 
 function locationFromProvider(input: unknown): WeatherLocation {
   const value = locationSchema.parse(input);
@@ -117,7 +105,7 @@ export class WeatherProvider {
   constructor(
     options: { transport?: WeatherTransport; now?: () => number } = {},
   ) {
-    this.transport = options.transport ?? disconnected;
+    this.transport = options.transport ?? createOpenMeteoTransport();
     this.now = options.now ?? (() => Date.now());
   }
 

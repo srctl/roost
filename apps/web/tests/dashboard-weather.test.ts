@@ -120,10 +120,6 @@ test("weather provider validates canonical values, shares requests, and marks bo
   now += 25 * 3600000;
   failure = true;
   await assert.rejects(provider.forecast(1, "celsius"), /unavailable/);
-  await assert.rejects(
-    new WeatherProvider().search("Test City"),
-    /not connected/,
-  );
 });
 
 test("weather rejects malformed provider data instead of inventing values and handles timezone transitions", async () => {

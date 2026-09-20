@@ -73,12 +73,6 @@ Existing static `tasks` blocks remain report snapshots; `todo-list` is editable.
 
 ## Weather
 
-**Current branch status:** weather rendering, configuration, authenticated routes,
-and local provider fixtures are implemented. The live Open-Meteo adapter remains
-disconnected pending approval to send an explicitly chosen city to that service.
-City search and forecasts currently work only with the test fixture. The behavior
-below describes that implemented flow; it is not yet available with live weather.
-
 Choose **Add tracker → Weather**, search for a city or postal code, choose a matching
 location, and select Celsius or Fahrenheit. The same card works in Dashboard,
 Summary, and inline chat on web and iPhone. It shows current conditions, feels-like
@@ -99,12 +93,17 @@ reference in an active conversation. The authenticated mobile read endpoints are
 `GET dashboard/weather/locations?query=…` and
 `GET dashboard/weather?key=…&blockId=…`; both enforce enabled dashboards and agent
 ownership. The provider layer validates locations and forecasts, bounds its cache, and shares
-in-flight requests. The live HTTP adapter has not been added.
+in-flight requests. The HTTP adapter uses only the fixed public hosts
+`geocoding-api.open-meteo.com` and `api.open-meteo.com`. It sends the chosen search
+text, canonical location ID, or public coordinates and forecast settings. It does
+not send chat content, account data, or device location. Each request has an
+eight-second timeout and a 128 KiB response limit; redirects are rejected and
+provider error details are replaced with a retryable message.
 
 The public Open-Meteo service is for non-commercial use; commercial hosting needs
 its customer service. See [Open-Meteo pricing and terms](https://open-meteo.com/en/pricing).
-The planned adapter will use fixed provider hosts and server-only credentials where
-required. No weather credentials are read by this branch. Both renderers include
+This adapter uses the public service and does not read or transmit credentials.
+Commercial customer-service support is not configured. Both renderers include
 provider attribution.
 
 ## Trackers in chat
@@ -210,6 +209,10 @@ inline chat, draft preservation, stale recovery, and layouts at 1440, 390, and
 Native weather UI tests use the same local provider seam and verify creation,
 unit changes, refresh, and the saved card in chat. These are fixture-data checks;
 they do not verify a live provider connection.
+The HTTP adapter's unit tests cover fixed request parameters, malformed or oversized
+responses, timeouts, redirects, and safe errors. A separate live smoke check on
+2026-09-19 verified Seattle search, canonical location resolution, and a fresh
+five-day forecast through the production provider without credentials.
 Set `ROOST_TEST_CHROME` if using an installed Chrome executable instead of Playwright's
 browser. It does not make live model calls. Server tests mock the TypeSafe HTTP
 transport while exercising Juxi's actual planner and validation.
