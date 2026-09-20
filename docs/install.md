@@ -46,7 +46,7 @@ Setup supports `--port 3000` and `--skip-login`. After installation,
 
 With no existing file-based Codex login, interactive setup starts device
 authentication.
-For a noninteractive installation, open **Settings → Connect Codex** in the
+For a noninteractive installation, open **Settings → Account & security → Connect Codex** in the
 Roost UI afterward. Copy the device code, open the OpenAI sign-in page, and
 enter the code. The connection status updates when sign-in finishes. Use
 **Reconnect Codex** if a saved login expires or becomes invalid.

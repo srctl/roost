@@ -1,3 +1,7 @@
+import { initializeAnalytics } from "@roost/site-analytics";
+
+void initializeAnalytics("roost-marketing");
+
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const agentButtons =

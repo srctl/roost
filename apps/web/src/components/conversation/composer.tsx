@@ -20,6 +20,7 @@ import { colors } from "../../styles/tokens.stylex";
 import { Appear } from "../ui/appear";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/primitives";
+import { ImagePreview } from "./image-preview";
 
 export function Composer({
   agentId,
@@ -217,6 +218,7 @@ export function Composer({
         <ul aria-label="Attached files" {...stylex.props(styles.attachments)}>
           {files.map((file) => (
             <li key={file.id} {...stylex.props(styles.attachment)}>
+              <ImagePreview file={file} compact />
               <span {...stylex.props(styles.filename)}>{file.name}</span>
               <span>{formatFileSize(file.size)}</span>
               <Button

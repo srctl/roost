@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { agentResources, renderMarkdown } from "./src/agent-docs.ts";
+import { documentImagePath, documentImages } from "./src/images.ts";
 import { type Document, loadDocuments, renderPage } from "./src/render";
 
 const options = {
@@ -200,6 +201,41 @@ test("loading agent resources reflects added, changed, and removed source docs w
     const removed = agentResources(loadDocuments(directory));
     assert.ok(!removed.has("deploy-linux.md"));
     assert.doesNotMatch(removed.get("llms.txt") || "", /deploy-linux.md/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("guide images are published once and resolve from nested HTML and Markdown routes", () => {
+  const directory = mkdtempSync(join(tmpdir(), "roost-docs-images-"));
+  try {
+    const bytes = Buffer.from("sample image bytes");
+    writeFileSync(join(directory, "sample.png"), bytes);
+    writeFileSync(join(directory, "linked.png"), bytes);
+    const document = page(
+      "# Guide\n\n[![Sample screen](sample.png)](sample.png)\n\n![Again](sample.png)\n\n[Full size](linked.png)\n\n```md\n![Not an image](missing.png)\n```",
+      "settings",
+    );
+    const resources = documentImages([document], directory);
+    assert.equal(resources.size, 2);
+    assert.deepEqual(resources.get("/media/sample.png"), bytes);
+    const html = renderPage(document, [document], options);
+    assert.match(html, /href="\/media\/sample.png"/);
+    assert.match(
+      html,
+      /src="\/media\/sample.png" alt="Sample screen" loading="lazy"/,
+    );
+    assert.match(
+      renderMarkdown(document, [document], options.origin),
+      /https:\/\/docs.roost.example.com\/media\/sample.png/,
+    );
+    assert.equal(documentImagePath("../private.png"), undefined);
+    assert.equal(documentImagePath("https://example.com/photo.png"), undefined);
+    assert.equal(documentImagePath("./sample.png"), "/media/sample.png");
+    assert.throws(
+      () => documentImages([page("![Missing](absent.png)")], directory),
+      /ENOENT/,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

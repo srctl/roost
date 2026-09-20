@@ -18,7 +18,7 @@ Create a project and an empty service named `docs`. Keep its source root at the
 | Dockerfile path | `apps/docs/Dockerfile` |
 | Health check path | `/healthz` |
 | Health check timeout | 60 seconds |
-| Watch paths | `/docs/**`, `/apps/docs/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
+| Watch paths | `/docs/**`, `/apps/docs/**`, `/sites/shared/**`, `/package.json`, `/pnpm-lock.yaml`, `/.dockerignore` |
 
 Leave build/start command overrides empty; the Dockerfile supplies both. Do not
 set the source root to `apps/docs` or use the app's default build/start commands.

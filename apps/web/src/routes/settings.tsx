@@ -9,11 +9,13 @@ import { AgentMessage, UserMessage } from "../components/conversation/message";
 import { ToolActivity } from "../components/conversation/tool-activity";
 import { DashboardSetting } from "../components/dashboard-setting";
 import { PasskeySetting } from "../components/passkey-setting";
+import { PaymentsSetting } from "../components/payments-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { ThemeSetting } from "../components/theme-setting";
 import { Button } from "../components/ui/button";
 import { getCodexAccount, getCodexLogin } from "../features/auth/functions";
 import { getPushSettings } from "../features/notifications/functions";
+import { getPaymentSettings } from "../features/payments/functions";
 import {
   findSettings,
   readSettingsGroup,
@@ -29,7 +31,7 @@ export const Route = createFileRoute("/settings")({
       ? {}
       : { group: readSettingsGroup(search.group) },
   loader: async () => {
-    const [connection, notifications] = await Promise.all([
+    const [connection, notifications, payments] = await Promise.all([
       Promise.all([getCodexAccount(), getCodexLogin()])
         .then(([account, login]) => ({ ...account, login }))
         .catch(() => null),
@@ -38,15 +40,19 @@ export const Route = createFileRoute("/settings")({
         error:
           "Could not load notification settings. Reload Roost to try again.",
       })),
+      getPaymentSettings({ data: {} }).catch(() => ({
+        ok: false as const,
+        error: "Could not load payment settings. Refresh to try again.",
+      })),
     ]);
-    return { connection, notifications };
+    return { connection, notifications, payments };
   },
   headers: () => ({ "Cache-Control": "private, no-store" }),
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const { connection, notifications } = Route.useLoaderData();
+  const { connection, notifications, payments } = Route.useLoaderData();
   const { group = "appearance" } = Route.useSearch();
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -151,6 +157,12 @@ function SettingsPage() {
               <p {...stylex.props(styles.groupCaption)}>Notifications</p>
             )}
             <PushNotifications initial={notifications} />
+          </section>
+          <section hidden={!visible("payments")} aria-label="Payment settings">
+            {searching && (
+              <p {...stylex.props(styles.groupCaption)}>Payments</p>
+            )}
+            <PaymentsSetting initial={payments} active={visible("payments")} />
           </section>
           <section
             hidden={!visible("account")}

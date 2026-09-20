@@ -35,22 +35,27 @@ struct ApprovalView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(minHeight: 44)
                             .padding(.vertical, 6)
                         }
+                        .accessibilityAddTraits(
+                            answers[question.id] == option.label ? [.isSelected] : [])
                     }
                     if question.allowOther {
                         TextField(
-                            "Your answer",
+                            "Or write your own answer",
                             text: Binding(
                                 get: { answers[question.id] ?? "" },
                                 set: { answers[question.id] = $0 }), axis: .vertical
                         )
                         .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel(question.question)
                     }
                 }
             }
             if let error { ErrorNotice(text: error) }
             HStack {
+                if working { ProgressView().accessibilityLabel("Sending response") }
                 if approval.questions?.isEmpty != false {
                     Button("Decline", role: .destructive) { respond("decline") }
                         .buttonStyle(.bordered)
@@ -72,13 +77,21 @@ struct ApprovalView: View {
         }
         .padding(16)
         .background(palette.surface, in: RoundedRectangle(cornerRadius: 16))
+        .disabled(working)
     }
 
     private func respond(_ decision: String) {
+        guard !working else { return }
         working = true
+        error = nil
+        let submittedAnswers = answers.mapValues {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         Task {
             defer { working = false }
-            do { try await model.answer(approval, decision: decision, answers: answers) } catch {
+            do {
+                try await model.answer(approval, decision: decision, answers: submittedAnswers)
+            } catch {
                 self.error = error.localizedDescription
             }
         }

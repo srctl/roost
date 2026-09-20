@@ -60,7 +60,7 @@ other installations; exe.dev keeps its existing `workspace-write` sandbox.
 Don't place unrelated accounts or secrets in this VM.
 
 Open your saved setup link, choose **Create passkey**, then use
-**Settings → Connect Codex**. Ask an agent to create a small file and reload to
+**Settings → Account & security → Connect Codex**. Ask an agent to create a small file and reload to
 check persistence. A signed-out browser should see Roost's passkey login.
 [Auth setup and recovery](authentication.md) covers backup passkeys and sign-out.
 

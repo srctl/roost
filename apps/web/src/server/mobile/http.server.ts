@@ -9,6 +9,18 @@ import { readConversationSnapshot } from "../runs/conversation-snapshot.server";
 import { cancelRun, enqueueChat } from "../runs/store.server";
 import { openReplyThread } from "../runs/threads.server";
 import { ensureTimeline, startWorker } from "../runs/worker.server";
+import { mobileAccountRequest } from "./account.server";
+import {
+  MobileAgentManagementError,
+  mobileAgentManagementRequest,
+} from "./agent-management.server";
+import { mobileAutomationRequest } from "./automations.server";
+import { mobileComputerRequest } from "./computer.server";
+import { mobileDisplaySettingsRequest } from "./display-settings.server";
+import { mobileFeedRequest } from "./feed.server";
+import { mobileNotificationsRequest } from "./notifications.server";
+import { mobilePaymentRequest } from "./payments.server";
+import { mobileSettingsRequest } from "./settings.server";
 import { MobileTokens, mobileIdentity } from "./tokens.server";
 import {
   MobileWorkspaceError,
@@ -67,6 +79,8 @@ export function createMobileHandler(
     startWorker();
     await Effect.runPromise(ensureTimeline(agentId));
   },
+  manageAgents = mobileAgentManagementRequest,
+  accountRequest = mobileAccountRequest,
 ) {
   return async (request: Request): Promise<Response | null> => {
     const url = new URL(request.url);
@@ -106,8 +120,46 @@ export function createMobileHandler(
           ? downloadFileRequest(internal)
           : uploadFileRequest(internal);
       }
+      const payments = await mobilePaymentRequest(path, request, body);
+      if (payments) return json(payments.value, payments.status);
+      const management = await manageAgents(path, request, body);
+      if (management) return json(management.value, management.status);
+      const automation = await mobileAutomationRequest(
+        path,
+        request,
+        body,
+        prepare,
+      );
+      if (automation) return json(automation.value, automation.status);
+      const settings = await mobileSettingsRequest(path, request, body);
+      if (settings) return json(settings.value, settings.status);
+      const push = await mobileNotificationsRequest(
+        path,
+        request,
+        body,
+        identity,
+      );
+      if (push) return json(push.value, push.status);
+      const displaySettings = await mobileDisplaySettingsRequest(
+        path,
+        request,
+        body,
+      );
+      if (displaySettings)
+        return json(displaySettings.value, displaySettings.status);
+      const account = await accountRequest(path, request, body);
+      if (account) return json(account.value, account.status);
+      const computer = await mobileComputerRequest(
+        path,
+        request,
+        body,
+        identity,
+      );
+      if (computer) return json(computer.value, computer.status);
       const workspace = await mobileWorkspaceRequest(path, request, body);
       if (workspace) return json(workspace.value, workspace.status);
+      const feed = await mobileFeedRequest(path, request, body, prepare);
+      if (feed) return json(feed.value, feed.status);
       const match =
         /^agents\/([^/]+)\/(conversation|messages|stop|threads|approvals)$/.exec(
           path,
@@ -181,6 +233,8 @@ export function createMobileHandler(
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
+      if (error instanceof MobileAgentManagementError)
+        return json({ error: error.message }, 400);
       if (error instanceof MobileWorkspaceError)
         return json({ error: error.message }, error.status);
       return json(

@@ -48,6 +48,16 @@ try {
   );
   assert.match(article, /Getting started/i);
   assert.notEqual(article, html, "Article must not be the home page");
+  const jobs = await request(
+    "/coding-job-workspaces/",
+    200,
+    /text\/html/,
+    mutable,
+  );
+  const screenshot = jobs.match(/<img[^>]+src="(\/media\/[^"\s]+\.png)"/)?.[1];
+  assert(screenshot, "Jobs guide must include its published screenshot");
+  await request(screenshot, 200, /image\/png/, mutable);
+
   const script = html.match(/src="(\/assets\/[^"\s]+\.js)"/)?.[1];
   assert(script, "Missing fingerprinted client script");
   await request(

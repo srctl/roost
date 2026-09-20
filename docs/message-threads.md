@@ -1,21 +1,47 @@
 # Message threads
 
-The assistant message’s “Reply in thread” icon creates or reopens one thread per
-message. It sits just outside the message or bubble’s right edge, near the bottom.
-The message and control share a hover area, including the gap between them. The
-icon appears on hover or keyboard focus and stays visible on touch/no-hover devices. User messages do not offer new thread
-creation. Existing thread counts, unread markers and status remain available on historical roots,
-including user messages, and reopen their threads. Main stays
-mounted beside the thread on desktop; mobile makes the background inert and shows
-the thread full screen. Escape and Close restore the opener. The original parent,
-including files, remains available even if its timeline row later disappears.
-Reply counts include user and assistant messages, excluding tools and notices.
-Unread markers use the last viewed revision in browser storage; hidden tabs do
-not acknowledge new replies. Draft text, attachment references, pending send IDs,
-and scroll offsets are stored separately per conversation in session storage.
-Drafts intentionally belong to a tab; read markers are shared across tabs.
+Reply to a particular message to keep a focused follow-up beside your main
+conversation. Threads belong to the same agent and share its soul and memory,
+while keeping their own conversation history and drafts.
 
-## Identity and persistence
+[![Desktop conversation beside its reply thread, showing the parent message and two replies.](screenshots/reply-threads.png)](screenshots/reply-threads.png)
+
+*A focused watering discussion beside the main garden plan. Real Roost interface with fictional sample data. Select the image for full size.*
+
+## Open and return to a thread
+
+Choose **Reply in thread** on an assistant message. Roost creates one thread for
+that message, or reopens the existing one. On desktop, the thread sits alongside
+the main conversation. On mobile, it opens full screen. **Close thread** or
+Escape returns you to where you opened it. The reply icon sits just outside the
+message's right edge and appears on hover or keyboard focus; touch devices keep
+it visible. Historical threads rooted in user messages remain accessible through
+their existing thread counts.
+
+The original message and its files stay visible at the top. Reply counts include
+user and assistant messages; unread markers help you find new replies. Thread
+links and notifications reopen the relevant conversation.
+
+## Send a follow-up
+
+Use the thread's composer to send text and attachments as you would in the main
+conversation. Each conversation keeps its own draft and scroll position in the
+current browser tab. Read markers are shared across tabs; drafts are not synced
+to other devices. Browser storage must be available for this persistence.
+
+One turn runs per agent at a time. A follow-up to the active conversation can
+steer it; a message in another conversation queues until the agent is available.
+Stop and approval controls apply to their originating work. Scheduled automation
+and reflection results continue to appear in the main conversation.
+
+The agent receives the parent message and a bounded amount of recent context
+when a thread starts. It can retrieve relevant messages from its other
+conversations, but does not automatically receive every conversation in full.
+Ask it to check another thread when a decision there matters.
+
+## Technical reference
+
+### Identity and persistence
 
 The agent's UUID is its stable main conversation ID. Child UUIDs and explicit
 parent conversation/message references live in `conversation_records`. Product
@@ -42,7 +68,7 @@ uses a tombstone, fences new sends/reopens and requests cancellation; archived
 rows remain in the origin and are excluded from retrieval. No cascading history
 or native-session deletion is performed.
 
-## Shared context
+### Shared context
 
 A new child session receives its parent and bounded recent main/reply context.
 `roost_read_conversations` reads only the runtime agent's conversations. It accepts

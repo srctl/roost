@@ -7,6 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import Markdown, { type Components } from "react-markdown";
 import { docsUrl, markdownUrl } from "./agent-docs.ts";
 
+import { documentImagePath } from "./images.ts";
+
 const repositoryUrl = "https://github.com/srctl/roost";
 
 const groups = [
@@ -33,7 +35,9 @@ const groups = [
     title: "Use Roost",
     pages: [
       ["agents-and-memory", "Agents & memory"],
+      ["message-threads", "Message threads"],
       ["coding-agents", "Coding agents"],
+      ["coding-job-workspaces", "Jobs workspaces"],
       ["automations", "Automations"],
       ["delegation", "Delegation"],
       ["files-and-approvals", "Files & approvals"],
@@ -41,6 +45,8 @@ const groups = [
       ["dashboards", "Dashboards"],
       ["notifications", "Notifications"],
       ["mobile", "Mobile & home screen"],
+      ["settings", "Settings & appearance"],
+      ["custom-themes", "Color themes"],
     ],
   },
   {
@@ -129,6 +135,8 @@ function nodeText(node: ReactNode): string {
 
 function documentLink(href: string | undefined, documents: Document[]) {
   if (!href || /^(?:[a-z]+:|\/\/|#)/i.test(href)) return href;
+  const image = documentImagePath(href);
+  if (image) return image;
   const target = new URL(href, "https://docs.invalid/docs/");
   const slug = target.pathname.match(/^\/docs\/([^/]+)\.md$/)?.[1];
   if (slug && documents.some((document) => document.slug === slug)) {
@@ -293,6 +301,16 @@ export function renderPage(
     h2: heading(2),
     h3: heading(3),
     h4: heading(4),
+    img: ({ src, alt, title }) => (
+      <img
+        src={
+          documentImagePath(typeof src === "string" ? src : undefined) ?? src
+        }
+        alt={alt}
+        title={title}
+        loading="lazy"
+      />
+    ),
     a: ({ href, children }) => (
       <a href={documentLink(href, documents)}>{children}</a>
     ),

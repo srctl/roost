@@ -1,0 +1,7 @@
+{
+  "extends": "@roost/typescript-config/base.json",
+  "compilerOptions": {
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

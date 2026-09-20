@@ -24,6 +24,7 @@ async function verifyReplyActions(browser: Browser, base: string) {
       ["desktop-touch", 1440, 1000, true],
     ] as const) {
       const id = randomUUID();
+      const fileId = randomUUID();
       await Effect.runPromise(
         saveAgent({
           id,
@@ -71,12 +72,12 @@ async function verifyReplyActions(browser: Browser, base: string) {
                 " | Ready |",
               files: [
                 {
-                  id: "fixture-file",
+                  id: fileId,
                   name: "release-checklist-with-a-long-name.txt",
                   mimeType: "text/plain",
                   size: 48,
                   kind: "attachment" as const,
-                  url: "/api/files/fixture-file",
+                  url: `/api/files?agentId=${id}&id=${fileId}`,
                 },
               ],
             },

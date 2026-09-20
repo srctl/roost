@@ -842,6 +842,74 @@ a:focus-visible {
   font-size: 10px;
   margin-top: 7px;
 }
+.feature-illustration {
+  align-self: center;
+  justify-self: end;
+  width: 180px;
+  max-width: 100%;
+  color: #828b78;
+}
+.feature-illustration svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.job-preview-labels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+  font-size: 10px;
+}
+.illustration-caption {
+  display: block;
+  margin-top: 10px;
+  font-size: 10px;
+  text-align: center;
+}
+.palette-swatches {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.palette-swatch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 38px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid #dfe3d7;
+  border-radius: 5px;
+  background: var(--palette-light);
+}
+.palette-swatch i:first-child {
+  grid-column: 1 / -1;
+}
+.palette-swatch i:nth-child(2) {
+  background: var(--palette-dark);
+}
+.palette-swatch i:last-child {
+  background: var(--palette-accent);
+}
+.palette-default {
+  --palette-light: #f2f2e9;
+  --palette-dark: #20221e;
+  --palette-accent: #657553;
+}
+.palette-rose {
+  --palette-light: #faf4ed;
+  --palette-dark: #191724;
+  --palette-accent: #c4a7e7;
+}
+.palette-carbon {
+  --palette-light: #f2f4f8;
+  --palette-dark: #161616;
+  --palette-accent: #78a9ff;
+}
+.palette-cat {
+  --palette-light: #eff1f5;
+  --palette-dark: #1e1e2e;
+  --palette-accent: #cba6f7;
+}
 .ownership {
   background: #2c3527;
   color: #f2f4eb;
@@ -1066,6 +1134,7 @@ a:focus-visible {
     grid-template-columns: 1fr 1.7fr;
   }
   .feature-row > :last-child {
+    justify-self: start;
     grid-column: 2;
     justify-content: flex-start;
   }

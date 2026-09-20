@@ -47,7 +47,8 @@ struct RoostAPI {
         if http.statusCode == 401 {
             throw APIError(
                 message:
-                    "Your device token expired or was revoked. Reconnect in Settings with a new token."
+                    "Your device token expired or was revoked. Reconnect in Settings with a new token.",
+                status: 401
             )
         }
         if (300...399).contains(http.statusCode) {

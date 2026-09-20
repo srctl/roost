@@ -26,6 +26,10 @@ export default defineConfig({
       features: { websocket: true },
       handlers: [
         {
+          route: "/api/mobile/v1/computer/socket",
+          handler: "./src/server/mobile/computer-socket.server.ts",
+        },
+        {
           route: "/api/desktop/socket",
           handler: "./src/server/computer/socket.server.ts",
         },

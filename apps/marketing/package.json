@@ -13,5 +13,8 @@
     "typescript": "7.0.2",
     "vite": "8.2.2",
     "@roost/typescript-config": "workspace:*"
+  },
+  "dependencies": {
+    "@roost/site-analytics": "workspace:*"
   }
 }

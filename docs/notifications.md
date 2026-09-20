@@ -23,7 +23,9 @@ Notifications name the agent and preview useful content: the final response,
 failure reason, approval request, or an update written by the agent. For example,
 **Shoppy · Package delivered** might say “Your order was delivered at 2:14 PM.
 The carrier says it is by the front door.” These previews can appear on your lock
-screen. Tapping one opens the agent's conversation; it does not approve anything.
+screen. Tapping one opens the originating conversation, including a
+[reply thread](message-threads.md) or [job discussion](coding-job-workspaces.md)
+when applicable; it does not approve anything.
 
 Quiet automations that return `ROOST_NO_UPDATE` stay quiet. Cancelled runs and
 intermediate specialist delegations do not send completion notifications. When an

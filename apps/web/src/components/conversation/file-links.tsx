@@ -1,5 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
-import { type FileAttachment, formatFileSize } from "../../features/chat/files";
+import {
+  type FileAttachment,
+  formatFileSize,
+  safeAttachmentUrl,
+} from "../../features/chat/files";
+import { ImagePreview } from "./image-preview";
 
 export function FileLinks({ files }: { files?: readonly FileAttachment[] }) {
   if (!files?.length) return null;
@@ -7,9 +12,11 @@ export function FileLinks({ files }: { files?: readonly FileAttachment[] }) {
     <ul aria-label="Files" {...stylex.props(styles.files)}>
       {files.map((file) => (
         <li key={file.id}>
+          <ImagePreview file={file} />
           <a
-            href={file.url}
+            href={safeAttachmentUrl(file)}
             download={file.name}
+            aria-disabled={!safeAttachmentUrl(file) || undefined}
             {...stylex.props(styles.link)}
           >
             <svg

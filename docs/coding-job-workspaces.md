@@ -1,11 +1,54 @@
 # Coding job workspaces
 
-Jobs now opens an assignment workspace inside the existing Roost app. The compact
-list retains refresh, errors, empty/non-coding states and stop controls. Detail
-URLs use `/agents/:agentId/jobs?job=:jobId`. Preview links are primary during
-iteration; a verified workspace with PR links makes Review PR primary. Terminal
-execution states remain visible. A ready worker without verification is not
-labeled ready for PR review.
+Open **Jobs** under a coding agent, then choose an assignment to see its preview,
+latest changes, verification notes, PR links, and discussion. Jobs stays available
+when dashboards are off. To configure a project or start an assignment, see
+[Coding agents](coding-agents.md).
+
+[![Jobs workspace with a preview, latest changes, and saved feedback that has not been submitted.](screenshots/jobs-workspace.png)](screenshots/jobs-workspace.png)
+
+*Saved feedback stays with the assignment until you choose to continue. Real Roost interface with fictional sample data. Select the image for full size.*
+
+## Inspect the result
+
+Choose **Open preview** when the coordinator has reported a running preview.
+Preview status is a report that expires after 15 minutes, not a live health check.
+An expired report becomes **Preview status unknown**; **Try last preview** lets
+you try its saved address. A stopped preview does not stop or complete the job.
+
+When the coordinator marks work ready for review with PR links and verification
+notes, **Review PR** becomes the main action. Completed jobs offer **View PR**.
+Read the verification and integration status before deciding the work is ready:
+these are the coordinator's recorded findings, not an independent CI guarantee.
+
+## Save feedback and continue work
+
+1. Open **Worker feedback**, describe the change, and choose **Save feedback**.
+   The note records the preview revision you reviewed. Saving alone does not
+   send a message to the worker or restart paused work.
+2. Select the saved notes you want to send using **Include in continuation**.
+3. Choose **Continue with selected feedback** when the existing worker is ready.
+   Roost sends the selected notes to that same assignment and worker.
+4. Check the delivery status alongside the notes. Failed or uncertain delivery
+   needs inspection and a fresh explicit instruction; it is not silently replayed.
+
+Continuation stays unavailable while the worker is busy or has a terminal
+blocker. Resolve approval prompts in the worker's terminal. **Stop job** requests
+an interruption and preserves the session and work; it does not undo changes or
+delete infrastructure.
+
+## Talk through the assignment
+
+Choose **Talk to agent** for a conversation with the coordinating agent about
+this job. Its replies, workspace updates, and notifications stay with the
+assignment. Talking does not automatically submit saved worker feedback. An
+explicit request in this job discussion can authorize further work; an unrelated
+main-conversation message does not release a job's feedback pause.
+
+Bookmark the job's URL to reopen its workspace. Job discussions are separate
+from [reply threads](message-threads.md), but both can retrieve relevant context
+from the same agent's conversations. Start additional assignments in the agent's
+main conversation.
 
 ## Durable state and authorization
 
@@ -61,14 +104,8 @@ receipts remain durable after that browser state is gone.
 
 ## Thread and migration boundaries
 
-Remote inspection on 2026-09-13 confirmed #22 → #23 → #24 remain open, at
-`d88cc45`, `4ed0831`, and `ee30154`. The integration branch explicitly combines
-that inspected dependency with Jobs #27 → #28. Original branches are preserved;
-no thread migration was copied and nothing was merged to main. Review the
-bounded integration commit separately from its dependency merge, then verify the
-aggregate. This layer requires the thread stack and cannot ship independently.
-#20 → #21 Notes and execution settings remain out of scope and are not part of
-this verified aggregate.
+Reply threads and Jobs workspaces shipped together in v0.1.41. The workspace
+migration depends on the conversation storage shipped in that release.
 
 Each job owns a `conversation_records` entry keyed by its existing job UUID,
 without a manufactured parent message. This is a job conversation, not a nested
@@ -105,32 +142,13 @@ fence and queued routing without replay. Existing thread migration, routing,
 provider/session, notification and coding identity regressions run in the same
 aggregate. All test stores are disposable, with no live data or real workers.
 
-## Isolated real-app feedback preview
+## Development preview
 
-`apps/web/tests/fixtures/jobs-preview/vite.config.ts` extends the normal app config. It
-requires a newly seeded `/tmp/roost-jobs-app-preview-*` directory and marker before
-startup. Only that test config aliases the Herdr transport to a simulator; the
-normal build contains the real transport. The simulator refuses other storage,
-never invokes shells/SSH/agents, rejects new worker launches, and simulates a
-same-worker revision after submitted feedback. A separate fake Codex binary and
-empty provider home prevent access to live credentials. Desktop integration is
-unset. All settings, messages, requests and worker effects are test-only.
-
-Seed with `pnpm --filter @roost/web exec node --import tsx tests/fixtures/jobs-preview/seed.ts`; the generated
-path is recorded in `/tmp/jobs-app-preview-directory`. Start Vite using the fixture
-config with `ROOST_DATA_DIR`, `ROOST_CODEX_BINARY=<fixture>/fake-codex`, and
-`CODEX_HOME=<fixture>/codex`. The coordinator handoff records the complete minimal
-environment and owned PID. The private URL stays `https://roost-dev.exe.xyz:4322/`.
-The fixture-only root redirect opens the actual Jobs route; sample preview/PR
-links open an explicitly simulated destination. Port 3000 and host proxy/auth
-configuration remain untouched. Do not use this test config for a deployment.
-
-The earlier standalone prototype was removed; its historical source remains in
-the task branch history and its evidence is retained outside the source tree.
-Actual before/after captures render the original and implemented Jobs routes in
-the real App/Sidebar/AgentHeader with matched desktop/mobile data and viewport.
-Keep the task worktree/runtime during user feedback. Attach evidence to review
-PRs before final cleanup; do not create evidence branches or commit recordings.
+The fixture in `apps/web/tests/fixtures/jobs-preview/` renders the real Jobs route with
+sample assignments, simulated worker updates, and a fake Codex provider. Its
+Vite configuration requires newly seeded temporary storage and refuses live
+storage. Use it only for development and screenshots, never for deployment.
+The production build uses the real Herdr transport.
 
 ## Direct conversation with the existing worker
 

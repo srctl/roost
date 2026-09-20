@@ -17,6 +17,11 @@ computer or phone.
 
 - **Give every agent a role.** Choose a name, character, model, and instructions.
   Each agent keeps its own conversation, workspace, soul, and Codex memory.
+- **Keep follow-ups focused.** Reply in a thread alongside the main conversation,
+  with separate drafts and shared agent context.
+- **Move coding work toward review.** Configure project agents and execution
+  profiles, then use Jobs for previews, saved feedback, worker continuation,
+  and PR links.
 - **Put recurring work on autopilot.** Schedule briefings, checks, and follow-ups
   in chat or the automation editor. Review runs, pause schedules, or run a task
   now. Work continues with the browser closed while Roost and its host are running.
@@ -28,6 +33,8 @@ computer or phone.
   signed-in browser and take control when you need to.
 - **Turn conversations into dashboards.** Enable agent-maintained notes, metrics,
   tables, charts, and task lists, with a conversation pane alongside your results.
+- **Make it feel familiar.** Preview Default, Rosé Pine, Carbonfox, or Catppuccin
+  themes, with System, Light, and Dark appearance and a choice of response styles.
 - **Take your agents with you.** Use the mobile layout in light or dark mode, add
   Roost to your phone's home screen, and enable push notifications for results
   or approvals.
@@ -64,7 +71,7 @@ own Node and Codex runtimes.
 
 1. Follow the [installation guide](docs/install.md) to install a release and open
    Roost through a local connection or SSH tunnel.
-2. Open **Settings → Connect Codex** and complete sign-in.
+2. Open **Settings → Account & security → Connect Codex** and complete sign-in.
 3. Choose **Create an agent**, give it a purpose, and send your first task.
 
 The [getting started guide](docs/getting-started.md) walks through your first
@@ -85,6 +92,8 @@ accounts; they are not isolated operating-system users.
 
 - [Documentation](docs/index.md)
 - [Agents and memory](docs/agents-and-memory.md)
+- [Message threads](docs/message-threads.md) and [Jobs workspaces](docs/coding-job-workspaces.md)
+- [Settings and appearance](docs/settings.md)
 - [Coding agents](docs/coding-agents.md), [automations](docs/automations.md), and [delegation](docs/delegation.md)
 - [Files and approvals](docs/files-and-approvals.md)
 - [Shared computer](docs/computer.md), [dashboards](docs/dashboards.md), and [mobile access](docs/mobile.md)

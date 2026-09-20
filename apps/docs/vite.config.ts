@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { agentContentType, agentResources } from "./src/agent-docs.ts";
+import { documentImages } from "./src/images.ts";
 import { loadDocuments, renderPage, searchIndex } from "./src/render.tsx";
 
 const siteRoot = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,27 @@ export default defineConfig(({ command, mode }) => {
       server.middlewares.use((request, response, next) => {
         const pathname = new URL(request.url || "/", "http://localhost")
           .pathname;
+        if (pathname.startsWith("/media/")) {
+          const content = documentImages(
+            documents(),
+            resolve(repositoryRoot, "docs"),
+          ).get(pathname);
+          if (!content) {
+            response.statusCode = 404;
+            response.end("Image not found.");
+            return;
+          }
+          const extension = pathname.split(".").pop()?.toLowerCase();
+          const type =
+            extension === "svg"
+              ? "svg+xml"
+              : extension === "jpg"
+                ? "jpeg"
+                : extension;
+          response.setHeader("Content-Type", `image/${type}`);
+          response.end(content);
+          return;
+        }
         if (
           pathname.endsWith(".md") ||
           /^\/llms(?:-full)?\.txt$/.test(pathname)
@@ -117,6 +139,12 @@ export default defineConfig(({ command, mode }) => {
       );
       if (!entry) throw new Error("Documentation client entry was not built.");
       const pages = documents();
+      for (const [path, source] of documentImages(
+        pages,
+        resolve(repositoryRoot, "docs"),
+      )) {
+        this.emitFile({ type: "asset", fileName: path.slice(1), source });
+      }
       for (const [fileName, source] of agentResources(pages, options.origin)) {
         this.emitFile({ type: "asset", fileName, source });
       }

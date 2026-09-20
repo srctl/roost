@@ -1,4 +1,6 @@
-export {};
+import { initializeAnalytics } from "@roost/site-analytics";
+
+void initializeAnalytics("roost-docs");
 
 document.documentElement.classList.add("js");
 

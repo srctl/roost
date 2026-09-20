@@ -47,6 +47,11 @@ struct AgentWorkspaceView: View {
                 }
                 .tabItem { Label("Notes", systemImage: "note.text") }
                 .tag("notes")
+                WorkspaceTab(back: close) {
+                    WorkspaceMoreView(agent: model.agent, api: model.api)
+                }
+                .tabItem { Label("More", systemImage: "ellipsis") }
+                .tag("more")
             }
             .toolbar(.hidden, for: .tabBar)
             .layoutPriority(1)
@@ -59,6 +64,7 @@ struct AgentWorkspaceView: View {
                             "coding", "Coding", "chevron.left.forwardslash.chevron.right")
                     }
                     navigationButton("notes", "Notes", "note.text")
+                    navigationButton("more", "More", "ellipsis")
                 }
                 .padding(5)
                 .background {

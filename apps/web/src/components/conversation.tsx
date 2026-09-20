@@ -30,6 +30,7 @@ import { ConversationNotice } from "./conversation/notice";
 import { ThreadMessage } from "./conversation/thread-message";
 import { ToolActivity } from "./conversation/tool-activity";
 import { TypingIndicator } from "./conversation/typing-indicator";
+import { PaymentRequests } from "./payment-requests";
 import { Appear } from "./ui/appear";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -653,6 +654,7 @@ export function Conversation({
         busy={busy}
         runId={runId ?? undefined}
       />
+      <PaymentRequests agentId={agent.id} busy={busy} />
       <Composer
         compact={!!parent}
         agentId={agent.id}

@@ -46,13 +46,14 @@ struct FlyingMessage: View {
     let container: CGRect
     let agent: Agent
     let style: ResponseStyle
+    let api: RoostAPI
     let completion: () -> Void
     @State private var landed = false
 
     var body: some View {
         MessageView(
             message: flight.message, agent: agent, style: style, canReply: false,
-            reply: {}, file: { _ in }
+            reply: {}, file: { _ in }, api: api
         )
         .frame(width: destination.width)
         .fixedSize(horizontal: false, vertical: true)

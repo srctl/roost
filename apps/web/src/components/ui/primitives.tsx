@@ -47,6 +47,25 @@ export function Avatar({
 }
 
 const paths = {
+  feed: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 8h4v4H7zM15 8h2M15 12h2M7 16h10" />
+    </>
+  ),
+  bookmark: <path d="M6 4h12v17l-6-4-6 4z" />,
+  refresh: (
+    <path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3" />
+  ),
+  external: (
+    <path d="M14 3h7v7M10 14 21 3M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 6 9 7 9-7" />
+    </>
+  ),
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   plus: <path d="M12 5v14M5 12h14" />,
   settings: (

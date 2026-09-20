@@ -68,9 +68,20 @@ export function connectViewer(
   origin: string | null,
   session: string | null = null,
 ) {
+  if (!checkComputerOrigin(origin)) return false;
+  return connectBoundViewer(id, session);
+}
+
+// Native tickets have a distinct namespace and can only be connected after
+// device-token authentication. Browser origins never authorize this path.
+export function connectMobileViewer(id: string, deviceId: string) {
+  if (!computerEnabled()) return false;
+  return connectBoundViewer(id, `mobile:${deviceId}`);
+}
+
+function connectBoundViewer(id: string, session: string | null) {
   const viewer = state.viewers.get(id);
   if (
-    !checkComputerOrigin(origin) ||
     !viewer ||
     viewer.session !== session ||
     viewer.connected ||

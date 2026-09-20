@@ -4,6 +4,65 @@ Captured from the native SwiftUI app on an iPhone 16 Pro simulator running iOS
 18.6. All conversations and agents shown are fictional fixture data. No live
 Roost account or provider was used.
 
+## iPhone polish and parity — September 19, 2026
+
+- [Inline image preview](image-message-native.png)
+- [Photo attached before sending](image-composer-native.png)
+- [Full-screen image preview](image-fullscreen-native.png)
+- [Live desktop with the native keyboard](computer-control-native.png)
+- [Desktop restored after backgrounding](computer-reconnected-native.png)
+- [Agent sections](agent-sections-native.png)
+- [Automation details](automation-native.png)
+- [Display preferences](display-preferences-native.png)
+- [Saved coding project and execution profile](coding-settings-native.png)
+- [Verified coding workspace](workspace-verified-native.png)
+- [Shared Notes and native keyboard](notes-verified-native.png)
+- [Matching web/PWA previews](image-web-mobile.png)
+- [Web/PWA full-image viewer](image-web-viewer.png)
+
+See the [current verification record](../VERIFICATION.md) for test coverage,
+reproduction commands, and remaining Apple/physical-device setup.
+
+## Feed time groups and images — September 19, 2026
+
+- [Chronological Feed with a landscape image](feed-time-groups-native.png)
+- [Story reader with the decoded photo](feed-story-photo-native.png)
+- [Reader after rotating to landscape](feed-landscape-photo-native.png)
+
+All and Saved replace the unread workflow. Stories use local publishing-time
+sections, fuller summaries, and landscape images below the summary. Personal
+updates do not load images. The reader preserves a bounded landscape image area.
+All 64 native unit tests and the complete Feed UI flow passed in
+`/private/tmp/roost-native-feed-followup-9.xcresult`, including actual image decode,
+portrait/landscape bounds, save, preferences, dismiss/restore and discussion.
+
+Photo: [Joe Mabel, April 3, 2017, Volunteer Park Seventh Day Adventist Church](https://commons.wikimedia.org/wiki/File:Seattle_-_Volunteer_Park_Seventh_Day_Adventist_Church_02.jpg),
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), displayed with a
+landscape crop. The article is fictional fixture content; this photograph does
+not substantiate the fictional project. The checked-in fixture includes the
+[original photo credit](../../web/tests/fixtures/feed-neighborhood-credit.md).
+
+## Earlier Shared Feed verification
+
+- [Shared feed beside Agents](shared-feed-native.png)
+- [Article reader and source link](feed-reader-native.png)
+- [Interests, priorities, and publications](feed-preferences-native.png)
+- [Discussion with the contributing agent](feed-discussion-native.png)
+
+The native feed uses the same authenticated server state as the web surface.
+The full suite passed 22 unit tests and all three native UI flows in
+`/tmp/roost-feed-native-final.xcresult`. A focused follow-up passed all 22 unit
+tests and the Feed UI flow after reader refinements in
+`/tmp/roost-feed-native-reviewed.xcresult`. The Feed flow verifies original source
+attribution, reader navigation, read/save persistence through the mobile API,
+Saved/Unread filters, preference persistence, dismissal/restoration, and discussion
+navigation. Existing chat, replies, approvals, themes, relaunch, dashboard,
+coding, and shared Notes continue to pass.
+
+The feed is deliberately paused in the fixture so verification never fetches
+publications or invokes a real agent/provider. Native project generation is
+deterministic; strict Swift formatting and changed-fixture Biome checks pass.
+
 ## Compact navigation and continuous Notes
 
 The refreshed workspace screenshots below show the smaller floating material

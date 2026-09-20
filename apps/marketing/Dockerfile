@@ -4,8 +4,13 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/marketing/package.json ./apps/marketing/package.json
 COPY packages/typescript-config ./packages/typescript-config
+COPY packages/site-analytics ./packages/site-analytics
 RUN corepack pnpm --filter @roost/marketing... install --frozen-lockfile
 COPY apps/marketing ./apps/marketing
+ARG VITE_DATADOG_APPLICATION_ID
+ARG VITE_DATADOG_CLIENT_TOKEN
+ARG VITE_DATADOG_SITE
+ARG VITE_DATADOG_ENV
 ARG ROOST_WEBSITE_URL
 ARG ROOST_DOCS_URL
 ARG RAILWAY_PUBLIC_DOMAIN

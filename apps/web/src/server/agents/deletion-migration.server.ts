@@ -36,6 +36,8 @@ export const agentOwnedTables = [
   "coding_job_feedback",
   "coding_worker_messages",
   "coding_worker_fences",
+  "feed_publications",
+  "feed_discussions",
 ] as const;
 
 // Feature-keyed: PR12 originally used core11, now owned by Threads/Notes.

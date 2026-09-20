@@ -2,7 +2,8 @@
 
 Open your Roost HTTPS address in Safari, then choose **Share → Add to Home Screen**
 and open it as a web app. Roost provides a standalone manifest, app icons, and an
-Apple touch icon. The page and browser chrome follow the device's light/dark
+Apple touch icon. The page and browser chrome follow your saved
+[theme and appearance](settings.md); System follows the device's light/dark
 appearance. The installed iOS status bar overlays a safe-area-padded header.
 
 Startup at `/` reopens the last agent visited in this browser or home-screen app.
@@ -37,6 +38,10 @@ both Send and Stop; adding text hides Stop without changing attachment submissio
 Uploads, loading, and pending sends still disable Send. Failed sends retain the
 draft, and text edited while a send is pending is preserved. Idle turns keep their
 existing Send control, disabled until there is text or an attachment to send.
+
+[![A full-screen mobile reply thread with the original message, two replies, close button, and composer.](screenshots/reply-thread-mobile.png)](screenshots/reply-thread-mobile.png)
+
+*A reply thread opens full screen on mobile; closing it returns to the main conversation. Real Roost interface with fictional sample data. Select the image for full size.*
 
 Production builds register a service worker that caches immutable build assets,
 supports push notifications, and supplies an offline screen when a navigation

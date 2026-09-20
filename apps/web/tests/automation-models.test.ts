@@ -207,7 +207,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     assert.ok((await run(getAgentConversation(agent.id))).threadId);
     // Either feature preview used tool version 11; base threads used 10.
     // Both must get a fresh native thread with the combined tool inventory.
-    for (const version of [10, 11, 13, 14]) {
+    for (const version of [10, 11, 13, 14, 15]) {
       const old = await run(getAgentConversation(agent.id));
       await run(
         withAgentStore((store) =>
@@ -226,7 +226,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 15);
+      assert.equal(migrated.toolVersion, 17);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
@@ -245,6 +245,8 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_list_datasets",
         "roost_save_dataset",
         "roost_delete_dataset",
+        "roost_read_feed",
+        "roost_publish_feed_item",
       ])
         assert.ok(names.includes(name), name);
     }

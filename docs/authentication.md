@@ -41,7 +41,7 @@ supported; remote addresses require HTTPS.
 
 ## 2. Add a backup and manage sessions
 
-Open **Settings → Manage passkeys and signed-in sessions**. Give a second
+Open **Settings → Account & security → Manage passkeys and signed-in sessions**. Give a second
 passkey a recognizable name, then choose **Add a passkey**. You can remove old
 passkeys, revoke another browser's session, or sign out of this browser.
 
@@ -50,7 +50,7 @@ a sign-in within the last five minutes; choose **Verify with a passkey** when
 prompted. Removing a passkey also revokes the sessions created with it. You
 cannot remove your last passkey through the web.
 
-Roost sign-in is separate from **Settings → Connect Codex**, which connects the
+Roost sign-in is separate from **Settings → Account & security → Connect Codex**, which connects the
 account your agents use.
 
 ## Lost your passkeys?

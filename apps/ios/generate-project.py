@@ -2,7 +2,9 @@
 """Regenerate the dependency-free Xcode project and pixel artwork from Roost SVGs."""
 import hashlib
 import json
+import os
 import pathlib
+import plistlib
 import re
 import struct
 import xml.etree.ElementTree as ET
@@ -10,6 +12,23 @@ import zlib
 
 root = pathlib.Path(__file__).resolve().parent
 objects = {}
+apns_environment = os.environ.get("ROOST_IOS_APNS_ENVIRONMENT", "")
+if apns_environment not in ("", "sandbox", "production"):
+    raise ValueError("ROOST_IOS_APNS_ENVIRONMENT must be sandbox or production")
+# Signing remains opt-in: simulator/development builds need no Apple account.
+entitlements = root / "Roost/Roost.entitlements"
+if apns_environment:
+    entitlements.write_bytes(
+        plistlib.dumps(
+            {
+                "aps-environment": (
+                    "development" if apns_environment == "sandbox" else "production"
+                )
+            }
+        )
+    )
+elif entitlements.exists():
+    entitlements.unlink()
 
 
 def oid(name):
@@ -140,6 +159,8 @@ for name, kind in [
             ("Themes.json", "text.json"),
             ("Assets.xcassets", "folder.assetcatalog"),
             ("PrivacyInfo.xcprivacy", "text.xml"),
+            ("DesktopViewer.js", "sourcecode.javascript"),
+            ("DesktopLicense.txt", "text"),
         ]:
             ref = obj(
                 file,
@@ -204,11 +225,16 @@ for name, kind in [
             SWIFT_OPTIMIZATION_LEVEL="-Onone" if mode == "Debug" else "-O",
         )
         if name == "Roost":
+            if apns_environment:
+                settings.update(
+                    CODE_SIGN_ENTITLEMENTS="Roost/Roost.entitlements",
+                    INFOPLIST_KEY_RoostAPNSEnvironment=apns_environment,
+                )
             settings.update(
                 INFOPLIST_KEY_CFBundleDisplayName="Roost",
                 INFOPLIST_KEY_UIApplicationSceneManifest_Generation="YES",
                 INFOPLIST_KEY_UILaunchScreen_Generation="YES",
-                INFOPLIST_KEY_UISupportedInterfaceOrientations="UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight",
+                INFOPLIST_KEY_UISupportedInterfaceOrientations="UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight",
                 INFOPLIST_KEY_NSLocalNetworkUsageDescription="Connect to your Roost server on your local network.",
                 INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking="YES",
                 ASSETCATALOG_COMPILER_APPICON_NAME="AppIcon",

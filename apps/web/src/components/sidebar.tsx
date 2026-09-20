@@ -129,7 +129,7 @@ export function Sidebar({
     <aside
       id={drawer ? "mobile-agent-sidebar" : "agent-sidebar"}
       {...stylex.props(styles.sidebar, drawer && styles.drawer)}
-      aria-label="Agents"
+      aria-label="Navigation"
     >
       <div {...stylex.props(styles.brandRow)}>
         <Link onClick={onNavigate} to="/" {...stylex.props(styles.brand)}>
@@ -144,6 +144,17 @@ export function Sidebar({
           <Icon name={drawer ? "close" : "panel"} />
         </Button>
       </div>
+      <nav aria-label="Roost" {...stylex.props(styles.primaryNavigation)}>
+        <Link
+          to="/feed"
+          onClick={onNavigate}
+          {...stylex.props(styles.row)}
+          activeProps={stylex.props(styles.active)}
+        >
+          <Icon name="feed" />
+          <span {...stylex.props(styles.name)}>Feed</span>
+        </Link>
+      </nav>
       <div {...stylex.props(styles.heading)}>
         <span>Agents</span>
         <Button
@@ -356,6 +367,7 @@ export function Sidebar({
 }
 
 const styles = stylex.create({
+  primaryNavigation: { flexShrink: 0, marginBottom: 24 },
   group: {
     borderRadius: 6,
     transitionProperty: "background-color",

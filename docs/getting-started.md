@@ -21,7 +21,7 @@ or an authenticated reverse proxy. exe.dev continues to handle sign-in itself.
 
 ## 2. Connect Codex
 
-Open **Settings → Connect Codex**, copy the one-time device code, and follow the
+Open **Settings → Account & security → Connect Codex**, copy the one-time device code, and follow the
 OpenAI sign-in link. Enter the code to connect the installation. You can complete
 sign-in from a different computer; no localhost callback or SSH login flow is
 required.
@@ -56,6 +56,15 @@ When an action needs permission, a review card appears in the conversation.
 Approve the exact prepared action or decline it. See [Files and approvals](files-and-approvals.md)
 for supported inputs, downloads, and approval behavior.
 
+Use **Reply in thread** on a message to start a [focused thread](message-threads.md).
+Send a follow-up during an active turn to steer that conversation; work in other
+conversations waits its turn. When reading earlier messages, the return-to-bottom
+button takes you back to the latest reply.
+
+[![Roost conversation and focused reply thread with sample garden-planning messages.](screenshots/reply-threads.png)](screenshots/reply-threads.png)
+
+*Real Roost interface with fictional sample data. Select the image for full size.*
+
 ## 5. Make it useful over time
 
 - Open the agent's settings to edit its **Soul**: its purpose, voice, and lasting
@@ -65,7 +74,12 @@ for supported inputs, downloads, and approval behavior.
   **Agent settings → Automations**. See [Automations](automations.md).
 - Give another agent a specialist role, then ask an agent to delegate a focused
   task to it. See [Delegation](delegation.md).
-- Enable **Settings → Dashboards** if you want saved trackers outside chat.
+- Enable **Settings → Appearance → Dashboards** if you want saved trackers outside chat.
+- Choose **Coding agent** when creating a project coordinator, then follow
+  [coding agents](coding-agents.md) and [Jobs workspaces](coding-job-workspaces.md)
+  for previews, feedback, and review.
+- Open [Settings → Appearance](settings.md) to preview a color theme and choose
+  your response style.
 - Set up [notifications](notifications.md) on each device and
   [add Roost to your home screen](mobile.md) for phone access.
 

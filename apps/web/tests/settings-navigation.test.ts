@@ -10,6 +10,7 @@ test("unknown settings groups fall back to appearance", () => {
     assert.equal(readSettingsGroup(value), "appearance");
   }
   assert.equal(readSettingsGroup("notifications"), "notifications");
+  assert.equal(readSettingsGroup("payments"), "payments");
   assert.equal(readSettingsGroup("account"), "account");
 });
 
@@ -32,6 +33,9 @@ test("search finds existing controls, conditional options, and vocabulary across
     ["agent updates", "notifications"],
     ["approval", "notifications"],
     ["device permission", "notifications"],
+    ["stripe link", "payments"],
+    ["wallet", "payments"],
+    ["purchase approval", "payments"],
     ["passkeys", "account"],
     ["signed-in sessions", "account"],
     ["sign in", "account"],
@@ -51,7 +55,7 @@ test("search finds existing controls, conditional options, and vocabulary across
     findSettings("codex").map((entry) => entry.id),
     ["conversation", "account"],
   );
-  assert.equal(findSettings(" \n ").length, 5);
+  assert.equal(findSettings(" \n ").length, 6);
   assert.equal(findSettings("nothing-matches-this").length, 0);
   assert.equal(findSettings("passkeys trackers").length, 0);
 });

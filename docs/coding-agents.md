@@ -87,7 +87,10 @@ without Notion when the assignment provides enough context.
 Open **Jobs** under the owning agent to see assignments, progress, worker output,
 session information, source links, and completion summaries. This view remains
 available when dashboards are off. Active jobs refresh while the page is visible.
-Start new assignments and discuss results in the agent's conversation.
+Start new assignments in the agent's main conversation. Open an assignment to
+use **Worker feedback** or **Talk to agent** in its dedicated discussion.
+See [Coding job workspaces](coding-job-workspaces.md) for previews, saved feedback,
+continuation, and PR review.
 
 Roost records jobs durably and monitors Herdr without keeping a model turn open.
 Meaningful worker changes queue a turn for the coordinating agent, which can

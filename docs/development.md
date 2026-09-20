@@ -71,12 +71,12 @@ HOST=127.0.0.1 corepack pnpm start
 
 The Nitro Node adapter emits `apps/web/.output/server/index.mjs` and `apps/web/.output/public`.
 `pnpm start` runs one Node server that handles requests and serves the UI assets.
-Set `PORT` and `HOST` to configure the production listener. This is currently a
-local, single-user application without application-level authentication. Keep the
-listener on loopback.
+Set `PORT` and `HOST` to configure the production listener. Keep it on loopback
+for local use. For remote access, configure [native passkey login](authentication.md)
+with HTTPS, or use an SSH tunnel or an authenticated proxy. Roost is a single-user
+application; native login is opt-in.
 
-Source builds use a separately installed Codex CLI. Open **Settings → Connect
-Codex** after starting the app, or use the terminal login described in the
+Source builds use a separately installed Codex CLI. Open **Settings → Account & security → Connect Codex** after starting the app, or use the terminal login described in the
 [installation guide](install.md#connect-codex). Set `ROOST_CODEX_BINARY` to use a
 specific executable:
 

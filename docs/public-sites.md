@@ -58,6 +58,37 @@ and its Markdown documentation on GitHub, and omit canonical tags. Development
 uses the other site's local address. Set both public URLs before publishing to
 connect the deployed sites directly.
 
+## Datadog Product Analytics
+
+Both sites support [Datadog Product Analytics](https://docs.datadoghq.com/product_analytics/)
+through the Datadog Browser SDK. Create a browser application in Datadog and enable
+Product Analytics in that application's product settings. Set these build-time
+variables on each hosting service:
+
+```sh
+VITE_DATADOG_APPLICATION_ID=your-browser-application-id
+VITE_DATADOG_CLIENT_TOKEN=your-public-client-token
+VITE_DATADOG_SITE=datadoghq.com
+VITE_DATADOG_ENV=production
+```
+
+Use the site for your Datadog organization, such as `datadoghq.com`,
+`us5.datadoghq.com`, or `datadoghq.eu`. These values are included in the public
+JavaScript bundle; use a browser client token, never a Datadog API or application
+key. You can use one Datadog application for both sites or separate applications.
+The service names are `roost-marketing` and `roost-docs`.
+
+Configured production builds collect sessions, page views, and automatic click
+actions at a 100% session sample rate, with Session Replay sampled at 100%.
+Resource and long-task tracking are enabled. Form inputs use Datadog's `mask-user-input`
+privacy setting. The sites do not attach user identities or custom search text.
+Development servers and builds missing any of the first three variables leave
+analytics disabled. The private Roost app does not initialize this integration.
+
+Rebuild and redeploy after changing these values. Both Dockerfiles accept them
+as build arguments, so Railway service variables are available during the build.
+After deployment, visit each site and check its views and actions in Datadog.
+
 ## Preview locally
 
 Run these in separate terminals:
@@ -113,6 +144,11 @@ keep the app's HTTP and WebSocket access private as described in
   `apps/docs/src/render.tsx`, and link it from [the introduction](index.md).
   Relative Markdown links to existing guides become links to public HTML pages.
   Links to repository files remain GitHub links.
+- Reference screenshots with relative Markdown image paths, such as
+  `screenshots/reply-threads.png`. The docs build copies referenced images to
+  `/media/` and rewrites both HTML and agent-readable Markdown links. Missing
+  images fail the build. Wrap an image in a link to the same file to let readers
+  open the full-size version. Use descriptive alt text and label sample data.
 - Change the docs layout and typography in `apps/docs/src/style.css`.
 
 Run `corepack pnpm check:sites` to check site types, renderer regressions, and

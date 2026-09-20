@@ -61,7 +61,7 @@ Do not publish a plain reverse-proxy route to Roost before adding authentication
 
 ## 4. Connect and verify
 
-Open **Settings → Connect Codex**, then create your first agent. Check the server
+Open **Settings → Account & security → Connect Codex**, then create your first agent. Check the server
 from the SSH session:
 
 ```sh

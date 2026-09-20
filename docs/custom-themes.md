@@ -1,6 +1,6 @@
 # Custom color themes
 
-Settings → Color theme provides Default, Rosé Pine, Carbonfox, and Catppuccin.
+Settings → Appearance → Color theme provides Default, Rosé Pine, Carbonfox, and Catppuccin.
 Each supports System, Light, and Dark. System follows the device immediately,
 including changes while the app is open. Default preserves Roost’s original
 light/dark colors.

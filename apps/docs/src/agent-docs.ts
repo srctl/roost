@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Markdown from "react-markdown";
+import { documentImagePath } from "./images.ts";
 import type { Document } from "./render.tsx";
 
 const repositoryUrl = "https://github.com/srctl/roost";
@@ -27,7 +28,9 @@ const sections = [
     title: "Use Roost",
     slugs: [
       "agents-and-memory",
+      "message-threads",
       "coding-agents",
+      "coding-job-workspaces",
       "automations",
       "delegation",
       "files-and-approvals",
@@ -35,6 +38,8 @@ const sections = [
       "dashboards",
       "notifications",
       "mobile",
+      "settings",
+      "custom-themes",
     ],
   },
 ];
@@ -61,6 +66,8 @@ function markdownLink(
   origin?: string,
 ) {
   if (!href || /^(?:[a-z][\w+.-]*:|\/\/)/i.test(href)) return href;
+  const image = documentImagePath(href);
+  if (image) return docsUrl(image, origin);
   const target = new URL(href, `https://docs.invalid/docs/${document.slug}.md`);
   const slug = target.pathname.match(/^\/(?:docs\/)?([^/]+)\.md$/)?.[1];
   if (slug && documents.some((page) => page.slug === slug)) {

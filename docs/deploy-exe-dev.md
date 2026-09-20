@@ -57,7 +57,7 @@ grants. [exe.dev proxy settings](https://exe.dev/docs/proxy),
 
 Open the HTTPS URL from step 1 and sign into exe.dev. In Roost:
 
-1. Open **Settings → Connect Codex** and finish signing in.
+1. Open **Settings → Account & security → Connect Codex** and finish signing in.
 2. Create an agent and ask it to write a small file in its workspace.
 3. Reload and confirm the conversation and file are still there.
 

@@ -16,14 +16,20 @@ connect it to Codex.
 
 ## Work with your agents
 
+- [Shared Feed](feed.md) — curated stories and optional important email updates in one stream.
+
+- [Message threads](message-threads.md) — keep a focused follow-up alongside the main conversation.
+- [Coding job workspaces](coding-job-workspaces.md) — open previews, save feedback, continue workers, and review PRs.
 - [Coding agents](coding-agents.md) — manage development jobs, task sources, and execution profiles.
 - [Automations](automations.md) — recurring work, timezones, quiet updates, and run history.
 - [Delegation](delegation.md) — let agents hand a focused task to a specialist.
 - [Files and approvals](files-and-approvals.md) — upload inputs, download results,
   and review actions that need your permission.
+- [Payments with Link](payments.md) — connect a wallet and approve agent purchases on web and iPhone.
 - [Dashboards](dashboards.md) — keep saved trackers, notes, and charts outside chat.
 - [Shared computer](computer.md) — watch browser work and take control of the desktop.
 - [Push notifications](notifications.md) — receive results and approval requests on your devices.
+- [Settings and appearance](settings.md) — find controls, preview themes, and choose how replies look.
 - [Mobile access](mobile.md) — add Roost to your home screen.
 
 ## Build and operate
@@ -37,10 +43,12 @@ connect it to Codex.
 
 ## Deployment model
 
-Roost is a single-user app. The packaged server listens on loopback and has no
-application-level authentication. Use an SSH tunnel or a reverse proxy that
-authenticates both HTTP and WebSocket connections. Its public marketing and
-documentation sites can be hosted separately from this private app.
+Roost is a single-user app. The packaged server listens on loopback by default.
+For remote access, enable [native passkey login](authentication.md) at your HTTPS
+address, or use an SSH tunnel or a reverse proxy that authenticates both HTTP
+and WebSocket connections. Native login is opt-in; existing private-proxy
+installations can keep their current access controls. The public marketing and
+documentation sites are hosted separately from the app.
 
 Work runs on the server, so closing a browser does not stop it. Roost and its
 host must stay running for scheduled tasks and notifications. Agent memory and

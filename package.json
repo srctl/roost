@@ -51,7 +51,10 @@
     "test:mobile": "corepack pnpm --filter @roost/web test:mobile",
     "test:mobile:production": "corepack pnpm --filter @roost/web test:mobile:production",
     "dev:mobile-fixture": "corepack pnpm --filter @roost/web dev:mobile-fixture",
-    "ios:generate": "python3 apps/ios/generate-project.py",
+    "dev:desktop-fixture": "corepack pnpm --filter @roost/web exec node --import tsx tests/fixtures/desktop-server.ts",
+    "test:mobile:desktop": "corepack pnpm --filter @roost/web exec node --import tsx scripts/test-mobile-desktop-production.ts",
+    "ios:desktop": "corepack pnpm --filter @roost/web exec node --import tsx scripts/build-ios-desktop.ts",
+    "ios:generate": "corepack pnpm ios:desktop && python3 apps/ios/generate-project.py",
     "ios:build": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -sdk iphonesimulator -derivedDataPath apps/ios/build build",
     "ios:test": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -derivedDataPath apps/ios/build test"
   },

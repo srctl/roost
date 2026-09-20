@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var error: String?
     @State private var working = false
     @State private var confirm = false
+    @State private var reconnect = false
 
     var body: some View {
         NavigationStack {
@@ -22,7 +23,38 @@ struct SettingsView: View {
                         .foregroundStyle(palette.muted)
                 }
                 .listRowBackground(palette.surface)
+                if let api = app.api {
+                    Section {
+                        NavigationLink {
+                            CodexConnectionView(api: api)
+                        } label: {
+                            Label("Codex & security", systemImage: "person.crop.circle")
+                        }
+                        .accessibilityIdentifier("codexConnectionSettings")
+                        NavigationLink {
+                            NotificationSettingsView(api: api)
+                        } label: {
+                            Label("Notifications", systemImage: "bell")
+                        }
+                        .accessibilityIdentifier("notificationSettings")
+                        NavigationLink {
+                            PaymentsView(api: api)
+                        } label: {
+                            Label("Payments", systemImage: "creditcard")
+                        }
+                        .accessibilityIdentifier("paymentsSettings")
+                    }
+                    .listRowBackground(palette.surface)
+                }
                 Section("Appearance") {
+                    if let api = app.api {
+                        NavigationLink {
+                            ServerPreferencesView(api: api)
+                        } label: {
+                            Text("Display preferences")
+                        }
+                        .accessibilityIdentifier("displayPreferences")
+                    }
                     NavigationLink {
                         ThemePickerView()
                     } label: {
@@ -52,6 +84,8 @@ struct SettingsView: View {
                 }
                 .listRowBackground(palette.surface)
                 Section {
+                    Button("Reconnect with a new token") { reconnect = true }
+                        .disabled(working)
                     Button("Disconnect this iPhone", role: .destructive) { confirm = true }
                         .disabled(working)
                     Button("Remove saved connection only") { disconnect(revoke: false) }
@@ -68,13 +102,20 @@ struct SettingsView: View {
             .textCase(nil)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { Button("Done") { dismiss() } }
+            .toolbar { Button("Done") { dismiss() }.disabled(working) }
+            .interactiveDismissDisabled(working)
             .confirmationDialog(
                 "Disconnect this iPhone?", isPresented: $confirm, titleVisibility: .visible
             ) {
                 Button("Revoke token and disconnect", role: .destructive) {
                     disconnect(revoke: true)
                 }
+            }
+            .sheet(isPresented: $reconnect) {
+                ConnectView(app: app, serverAddress: app.connection?.server.absoluteString ?? "") {
+                    reconnect = false
+                }
+                .onChange(of: app.connection) { _, _ in reconnect = false }
             }
         }
         .preferredColorScheme(appearance == "system" ? nil : appearance == "dark" ? .dark : .light)

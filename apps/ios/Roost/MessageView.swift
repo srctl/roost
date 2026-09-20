@@ -9,10 +9,23 @@ struct MessageView: View {
     let canReply: Bool
     let reply: () -> Void
     let file: (Attachment) -> Void
+    var api: RoostAPI? = nil
+    @State private var imageStates: [String: String] = [:]
+    @AppStorage("showActivityDetails") private var showActivityDetails = false
 
     private var isUser: Bool { message.role == "user" }
     private var isConversationMessage: Bool {
         message.role == "user" || message.role == "assistant"
+    }
+    private var allowsSwipeReply: Bool {
+        guard canReply && message.role == "assistant" else { return false }
+        return !MarkdownBlocks.parse(message.text)
+            .contains {
+                switch $0 {
+                case .code, .table: return true
+                default: return false
+                }
+            }
     }
 
     var body: some View {
@@ -23,7 +36,10 @@ struct MessageView: View {
                 transcriptRow
             }
         }
-        .modifier(SwipeToReply(enabled: canReply && message.role == "assistant", reply: reply))
+        .modifier(SwipeToReply(enabled: allowsSwipeReply, reply: reply))
+        .accessibilityAction(named: Text("Copy text")) {
+            UIPasteboard.general.string = message.text
+        }
         .contextMenu {
             Button("Copy text") { UIPasteboard.general.string = message.text }
             if canReply && message.role == "assistant" {
@@ -92,35 +108,58 @@ struct MessageView: View {
 
     private var messageBody: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if isUser {
+            if isUser && !message.text.isEmpty {
                 Text(message.text)
                     .textSelection(.enabled)
-            } else {
+            } else if !message.text.isEmpty {
                 MarkdownText(text: message.text)
                     .textSelection(.enabled)
             }
             if let files = message.files {
                 ForEach(files) { attachment in
-                    Button {
-                        file(attachment)
-                    } label: {
-                        Label(attachment.name, systemImage: "doc")
+                    if attachment.isImage, let api {
+                        Button {
+                            file(attachment)
+                        } label: {
+                            ImageAttachmentView(attachment: attachment, agentId: agent.id, api: api)
+                            { state in
+                                imageStates[attachment.id] = state
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open image, " + attachment.name)
+                        .accessibilityIdentifier("imageAttachment-" + attachment.id)
+                        .accessibilityValue(imageStates[attachment.id] ?? "Loading image")
+                    } else {
+                        Button {
+                            file(attachment)
+                        } label: {
+                            Label(attachment.name, systemImage: "doc")
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        .font(.subheadline)
                     }
-                    .font(.subheadline)
                 }
             }
         }
     }
 
     private var activity: some View {
-        DisclosureGroup {
-            Text(message.text + (message.details.map { "\n" + $0 } ?? ""))
-                .font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
-        } label: {
-            Label(message.title ?? "Activity", systemImage: "terminal")
-                .font(.subheadline)
-                .foregroundStyle(palette.muted)
+        Group {
+            if showActivityDetails {
+                DisclosureGroup {
+                    Text(message.text + (message.details.map { "\n" + $0 } ?? ""))
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                } label: {
+                    Label(message.title ?? "Activity", systemImage: "terminal")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.muted)
+                }
+            } else {
+                Label(message.title ?? "Activity", systemImage: "terminal")
+                    .font(.subheadline).foregroundStyle(palette.muted)
+            }
         }
         .accessibilityIdentifier("toolActivity")
     }

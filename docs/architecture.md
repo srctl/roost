@@ -94,7 +94,7 @@ The conversation uses shadcn Base UI Scroll Area and Collapsible composition,
 styled with StyleX. Streaming follows the latest reply until you scroll up.
 Thinking status appears once above the composer during generation; summaries are
 shown only when Codex supplies them. Activity is shown as compact rows by default.
-Settings → Show activity details enables expandable inputs, outputs, and thinking
+Settings → Appearance → Show activity details enables expandable inputs, outputs, and thinking
 summaries. This display
 preference is saved in browser storage and applies across agents.
 

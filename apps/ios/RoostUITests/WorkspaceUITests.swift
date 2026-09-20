@@ -1,6 +1,66 @@
 import XCTest
 
 final class WorkspaceUITests: XCTestCase {
+    private enum Failure: Error { case expectation(String) }
+
+    @MainActor private func stopAfterRecordedFailure() throws {
+        guard (testRun?.totalFailureCount ?? 0) == 0 else {
+            throw Failure.expectation("A preceding XCTest UI action failed")
+        }
+    }
+
+    @MainActor private func require(_ condition: @autoclosure () -> Bool, _ message: String) throws
+    {
+        try stopAfterRecordedFailure()
+        guard condition() else { throw Failure.expectation(message) }
+    }
+
+    @MainActor private func exists(_ element: XCUIElement, timeout: TimeInterval = 10) throws {
+        try stopAfterRecordedFailure()
+        guard element.waitForExistence(timeout: timeout) else {
+            throw Failure.expectation("Missing element: " + element.description)
+        }
+        try stopAfterRecordedFailure()
+    }
+
+    @MainActor private func tap(_ element: XCUIElement, scrollable: Bool = false) throws {
+        try exists(element)
+        let field =
+            [.textField, .secureTextField, .textView].contains(element.elementType)
+            || element.identifier == "connectButton"
+        let predicate = NSPredicate(
+            format: field || scrollable
+                ? "exists == true AND enabled == true"
+                : "exists == true AND hittable == true AND enabled == true")
+        let ready = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        guard XCTWaiter.wait(for: [ready], timeout: 10) == .completed else {
+            throw Failure.expectation("Control is not ready: " + element.description)
+        }
+        if field || scrollable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        try stopAfterRecordedFailure()
+    }
+
+    @MainActor private func type(_ text: String, into element: XCUIElement) throws {
+        try exists(element)
+        element.typeText(text)
+        try stopAfterRecordedFailure()
+    }
+
+    @MainActor private func selectTab(_ name: String, in app: XCUIApplication) throws {
+        let tab = app.buttons["workspace-" + name]
+        try tap(tab)
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "selected == true"), object: tab)
+        guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
+            throw Failure.expectation("Workspace tab did not select: " + name)
+        }
+        try stopAfterRecordedFailure()
+    }
+
     @MainActor func testSharedNotesDashboardAndCoding() async throws {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -9,62 +69,71 @@ final class WorkspaceUITests: XCTestCase {
         reset.httpMethod = "POST"
         reset.setValue("reset", forHTTPHeaderField: "X-Roost-Test")
         let (_, response) = try await URLSession.shared.data(for: reset)
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
+        try require((response as? HTTPURLResponse)?.statusCode == 204, "Fixture reset failed")
         app.launchArguments = ["-ui-testing-reset"]
         app.launch()
         let server = app.textFields["serverAddress"]
-        XCTAssertTrue(server.waitForExistence(timeout: 10))
-        server.tap()
-        server.typeText("http://127.0.0.1:4399")
-        app.secureTextFields["deviceToken"].tap()
-        app.secureTextFields["deviceToken"]
-            .typeText("roost_mobile_" + String(repeating: "a", count: 43))
-        app.buttons["connectButton"].tap()
-        XCTAssertTrue(app.buttons["agent-Moss"].waitForExistence(timeout: 15))
-        app.buttons["agent-Moss"].tap()
-        XCTAssertTrue(app.buttons["workspace-dashboard"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["workspace-coding"].exists)
-        app.buttons["workspace-dashboard"].tap()
-        XCTAssertTrue(app.staticTexts["A little greener every week"].waitForExistence(timeout: 10))
+        try exists(server)
+        try tap(server)
+        try type("http://127.0.0.1:4399", into: server)
+        try tap(app.secureTextFields["deviceToken"])
+        try type(
+            "roost_mobile_" + String(repeating: "a", count: 43),
+            into: app.secureTextFields["deviceToken"])
+        try tap(app.buttons["connectButton"])
+        try exists(app.buttons["agent-Moss"], timeout: 15)
+        try tap(app.buttons["agent-Moss"])
+        try exists(app.navigationBars["Moss"])
+        try exists(app.buttons["workspace-dashboard"], timeout: 10)
+        try require(!app.buttons["workspace-coding"].exists, "A general agent must not show Coding")
+        try selectTab("dashboard", in: app)
+        try exists(app.staticTexts["A little greener every week"], timeout: 10)
         capture(app, "Native dashboard")
-        app.buttons["View values"].tap()
-        XCTAssertTrue(app.staticTexts["Series: Basil"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["workspace-notes"].tap()
+        try tap(app.buttons["View values"])
+        try exists(app.staticTexts["Series: Basil"].firstMatch, timeout: 5)
+        try selectTab("notes", in: app)
         let editor = app.textViews["noteTextEditor"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        try exists(editor, timeout: 10)
         capture(app, "Shared notes")
         // A tap in the empty canvas adds a paragraph and puts the caret there.
         editor.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88)).tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertFalse(
-            app.buttons["workspace-notes"].exists, "Navigation yields space to the keyboard")
-        editor.typeText("## Garden ideas\n")
-        app.buttons["Bold"].tap()
-        editor.typeText("Bring the rosemary ")
+        try stopAfterRecordedFailure()
+        try exists(app.keyboards.firstMatch, timeout: 5)
+        try require(
+            !app.buttons["workspace-notes"].exists, "Navigation yields space to the keyboard")
+        try type("## Garden ideas\n", into: editor)
+        try tap(app.buttons["Bold"])
+        try type("Bring the rosemary ", into: editor)
         try await Task.sleep(for: .milliseconds(1400))
-        XCTAssertTrue(app.keyboards.firstMatch.exists, "Autosave must keep the editor ready")
-        editor.typeText("inside on cold nights.")
-        app.buttons["Bold"].tap()
-        editor.typeText("\n[] Water the thyme")
+        try require(app.keyboards.firstMatch.exists, "Autosave must keep the editor ready")
+        try type("inside on cold nights.", into: editor)
+        try tap(app.buttons["Bold"])
+        try type("\n[] Water the thyme", into: editor)
         let beforeUndo = editor.value as? String
-        editor.typeText("!")
-        app.buttons["Undo"].tap()
-        XCTAssertEqual(editor.value as? String, beforeUndo)
-        app.buttons["Redo"].tap()
-        XCTAssertEqual(editor.value as? String, (beforeUndo ?? "") + "!")
-        app.buttons["Undo"].tap()
+        try type("!", into: editor)
+        try tap(app.buttons["Undo"])
+        try require(editor.value as? String == beforeUndo, "Undo must restore the note")
+        try tap(app.buttons["Redo"])
+        try require(
+            editor.value as? String == (beforeUndo ?? "") + "!", "Redo must restore the insertion")
+        try tap(app.buttons["Undo"])
         capture(app, "Native note editor")
-        app.buttons["Done editing"].tap()
-        XCTAssertTrue(app.buttons["workspace-notes"].waitForExistence(timeout: 5))
-        XCTAssertFalse((editor.value as? String ?? "").contains("## "))
-        XCTAssertFalse((editor.value as? String ?? "").contains("[] "))
+        try tap(app.buttons["Done editing"])
+        try exists(app.buttons["workspace-notes"], timeout: 5)
+        try require(
+            !(editor.value as? String ?? "").contains("## "),
+            "Heading shortcut must become a heading")
+        try require(
+            !(editor.value as? String ?? "").contains("[] "), "Todo shortcut must become a todo")
         // Read the actual shared store through the authenticated API.
-        let agents = try await get("agents") as! [[String: Any]]
-        let moss = agents.first { $0["name"] as? String == "Moss" }!["id"] as! String
+        let agentsResponse = try await get("agents")
+        let agents = try XCTUnwrap(agentsResponse as? [[String: Any]])
+        let moss = try XCTUnwrap(agents.first { $0["name"] as? String == "Moss" }?["id"] as? String)
         var saved = false
         for _ in 0..<20 {
-            let note = try await get("agents/\(moss)/note") as! [String: Any]
-            let blocks = note["blocks"] as! [[String: Any]]
+            let noteResponse = try await get("agents/\(moss)/note")
+            let note = try XCTUnwrap(noteResponse as? [String: Any])
+            let blocks = try XCTUnwrap(note["blocks"] as? [[String: Any]])
             let heading = blocks.contains {
                 ($0["type"] as? String) == "heading" && ($0["level"] as? Int) == 2
                     && (($0["content"] as? [[String: Any]])?.first?["text"] as? String)
@@ -86,45 +155,56 @@ final class WorkspaceUITests: XCTestCase {
             if saved { break }
             try await Task.sleep(for: .milliseconds(250))
         }
-        XCTAssertTrue(saved)
-        app.navigationBars["Moss’s notes"].buttons["Note options"]
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        app.buttons["History"].tap()
-        XCTAssertTrue(
-            app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Revision '")).firstMatch
-                .waitForExistence(timeout: 10))
+        try require(saved, "Shared note must persist heading, bold paragraph, and todo blocks")
+        let noteOptions = app.navigationBars["Moss’s notes"].buttons["Note options"]
+        try exists(noteOptions)
+        // SwiftUI Menu exposes an outer AX button around its real UIKit button.
+        // That wrapper reports non-hittable even while its visible center opens
+        // the menu. Verify its screen bounds, then verify the actual menu action.
+        let menuFrame = noteOptions.frame
+        try require(
+            menuFrame.width > 0 && menuFrame.height > 0
+                && app.frame.contains(CGPoint(x: menuFrame.midX, y: menuFrame.midY)),
+            "Note options must be visible before opening its menu")
+        noteOptions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        try stopAfterRecordedFailure()
+        try tap(app.buttons["History"])
+        try exists(
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Revision '")).firstMatch)
         capture(app, "Note history")
-        app.navigationBars["Note history"].buttons["Done"].tap()
-        app.navigationBars.buttons["Roost"].tap()
-        app.buttons["agent-Wisp"].tap()
-        app.buttons["workspace-coding"].tap()
-        XCTAssertTrue(app.buttons["job-A calmer garden dashboard"].waitForExistence(timeout: 10))
+        try tap(app.navigationBars["Note history"].buttons["Done"])
+        try tap(app.navigationBars.buttons["Roost"])
+        try tap(app.buttons["agent-Wisp"])
+        try exists(app.navigationBars["Wisp"])
+        try exists(app.textFields["messageComposer"])
+        try selectTab("coding", in: app)
+        try exists(app.buttons["job-A calmer garden dashboard"], timeout: 10)
         capture(app, "Coding jobs")
-        app.buttons["job-A calmer garden dashboard"].tap()
-        XCTAssertTrue(app.staticTexts["Latest changes"].waitForExistence(timeout: 10))
+        try tap(app.buttons["job-A calmer garden dashboard"])
+        try exists(app.staticTexts["Latest changes"], timeout: 10)
         capture(app, "Coding workspace")
-        app.buttons["open-worker"].tap()
+        try tap(app.buttons["open-worker"], scrollable: true)
         let composer = app.textFields["workerComposer"]
-        XCTAssertTrue(composer.waitForExistence(timeout: 10))
-        composer.tap()
-        composer.typeText("Please give the charts a little more space.")
-        app.buttons["Send to worker"].tap()
-        XCTAssertTrue(
-            app.staticTexts["Please give the charts a little more space."]
-                .waitForExistence(timeout: 10))
-        XCTAssertTrue(
+        try exists(composer, timeout: 10)
+        try tap(composer)
+        try type("Please give the charts a little more space.", into: composer)
+        try tap(app.buttons["Send to worker"])
+        try exists(app.staticTexts["Please give the charts a little more space."])
+        try require(
             app.keyboards.firstMatch.exists, "Sending must keep the worker composer ready")
         capture(app, "Worker conversation")
         app.terminate()
         app.launchArguments = []
         app.launch()
-        XCTAssertTrue(app.buttons["agent-Moss"].waitForExistence(timeout: 10))
-        app.buttons["agent-Moss"].tap()
-        app.buttons["workspace-notes"].tap()
-        XCTAssertTrue(app.textViews["noteTextEditor"].waitForExistence(timeout: 10))
-        XCTAssertTrue(
+        try exists(app.buttons["agent-Moss"], timeout: 10)
+        try tap(app.buttons["agent-Moss"])
+        try exists(app.navigationBars["Moss"])
+        try selectTab("notes", in: app)
+        try exists(app.textViews["noteTextEditor"], timeout: 10)
+        try require(
             (app.textViews["noteTextEditor"].value as? String ?? "")
-                .contains("Bring the rosemary inside on cold nights."))
+                .contains("Bring the rosemary inside on cold nights."),
+            "Saved note must survive relaunch")
     }
 
     private func get(_ path: String) async throws -> Any {
@@ -133,7 +213,9 @@ final class WorkspaceUITests: XCTestCase {
             "Bearer roost_mobile_" + String(repeating: "a", count: 43),
             forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw Failure.expectation("API read failed: " + path)
+        }
         return try JSONSerialization.jsonObject(with: data)
     }
     @MainActor private func capture(_ app: XCUIApplication, _ name: String) {

@@ -1,7 +1,7 @@
 # Dashboards
 
 Dashboards keep useful trackers outside an agent's conversation. They are **off
-by default**. Enable **Settings → Dashboards**, then open an agent and choose
+by default**. Enable **Settings → Appearance → Dashboards**, then open an agent and choose
 **Dashboard** in its header. Conversation and Dashboard tabs keep both views
 within the same agent. On desktop, the existing conversation sits beside the
 dashboard. Drag the divider to resize chat, or use **Hide chat** / **Show chat**.
@@ -38,6 +38,10 @@ only those widgets. Agents cannot enable dashboards themselves. Dashboard
 updates do not grant permission to access a new account or take an external action.
 Native blocks render as ordinary Roost UI; executable HTML and scripts are not
 supported. Each agent can keep up to 30 widgets, with up to 12 blocks per widget.
+
+[![Garden dashboard showing budget metrics, a grouped bar chart, a task list, and the conversation alongside.](screenshots/dashboard-datasets.png)](screenshots/dashboard-datasets.png)
+
+*A saved dataset powers the category chart; chat stays beside the tracker. Real Roost interface with fictional sample data. Select the image for full size.*
 
 ## Charts and saved data sources
 

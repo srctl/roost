@@ -11,7 +11,7 @@
     "test:auth": "corepack pnpm build && corepack pnpm test:auth:production",
     "test:auth:production": "node --import tsx scripts/test-auth-production.ts",
     "test:threads:browser": "node --import tsx tests/browser/threads.ts",
-    "test:mobile": "node --import tsx --test tests/mobile.test.ts tests/mobile-workspaces.test.ts",
+    "test:mobile": "node --import tsx --test tests/mobile*.test.ts tests/*-mobile.test.ts",
     "test:mobile:production": "node --import tsx scripts/test-mobile-production.ts",
     "dev:mobile-fixture": "node --import tsx tests/fixtures/mobile-server.ts"
   },
@@ -23,6 +23,7 @@
     "@fluentui/react-theme": "9.2.2",
     "@novnc/novnc": "1.5.0",
     "@simplewebauthn/server": "13.3.2",
+    "@stripe/link-sdk": "0.6.0",
     "@stylexjs/stylex": "0.19.0",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
@@ -34,6 +35,8 @@
     "@tiptap/starter-kit": "3.31.3",
     "croner": "10.0.1",
     "effect": "3.22.1",
+    "entities": "^8.1.0",
+    "fast-xml-parser": "^5.11.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
@@ -43,6 +46,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@rolldown/plugin-babel": "0.2.3",
+    "@roost/typescript-config": "workspace:*",
     "@stylexjs/unplugin": "0.19.0",
     "@types/babel__core": "7.20.5",
     "@types/node": "^22.0.0",
@@ -56,7 +60,6 @@
     "tsx": "4.23.13",
     "typescript": "7.0.2",
     "unplugin": "2.3.11",
-    "vite": "8.2.2",
-    "@roost/typescript-config": "workspace:*"
+    "vite": "8.2.2"
   }
 }

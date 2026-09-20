@@ -9,6 +9,7 @@
     "includes": [
       "**",
       "!!apps/web/src/routeTree.gen.ts",
+      "!!apps/ios/Roost/Resources/DesktopViewer.js",
       "!!apps/web/src/server/codex/protocol",
       "!!**/.claude",
       "!!**/.codex",

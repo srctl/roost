@@ -80,6 +80,11 @@ try {
     "/getting-started/",
     "/automations/",
     "/computer/",
+    "/message-threads/",
+    "/coding-job-workspaces/",
+    "/dashboards/",
+    "/settings/",
+    "/authentication/",
   ]) {
     assert(html.includes(`href="${docs}${path}"`), `Docs link: ${path}`);
   }

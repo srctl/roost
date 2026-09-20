@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import webpush from "web-push";
 import type { Message } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
+import { type APNsOptions, deliverNativeAttention } from "./apns.server";
 import { readNotificationPreferences } from "./preferences.server";
 
 type Subscription = {
@@ -210,7 +211,11 @@ type Send = typeof webpush.sendNotification;
 
 export async function deliverAttention(
   attention: Attention,
-  options: { directory?: string; send?: Send } = {},
+  options: {
+    directory?: string;
+    send?: Send;
+    apns?: Omit<APNsOptions, "directory">;
+  } = {},
 ) {
   const directory =
     options.directory ?? resolve(process.env.ROOST_DATA_DIR ?? ".roost");
@@ -228,7 +233,6 @@ export async function deliverAttention(
         .prepare("SELECT subscription FROM push_subscriptions")
         .all();
       const subject = contact();
-      if (!subscriptions.length || !subject) return null;
       const agent = db
         .prepare("SELECT name FROM agents WHERE id=?")
         .get(attention.agentId);
@@ -266,9 +270,20 @@ export async function deliverAttention(
           };
         }
       }
+      let vapidDetails:
+        | { subject: string; publicKey: string; privateKey: string }
+        | undefined;
+      if (subject && subscriptions.length) {
+        try {
+          vapidDetails = { subject, ...vapidKeys(root) };
+        } catch {
+          /* A web key problem must not suppress native notifications. */
+        }
+      }
       return {
-        subscriptions,
-        vapidDetails: { subject, ...vapidKeys(root) },
+        subscriptions: subject ? subscriptions : [],
+        vapidDetails,
+        attention: content,
         payload: attentionPayload(
           content,
           agent ? String(agent.name) : "Roost",
@@ -277,11 +292,16 @@ export async function deliverAttention(
     }, directory),
   );
   if (!state) return { delivered: 0, expired: 0, failed: 0 };
+  const native = deliverNativeAttention(state.attention, state.payload, {
+    ...options.apns,
+    directory,
+  }).catch(() => ({ delivered: 0, expired: 0, failed: 1 }));
   const payload = JSON.stringify(state.payload);
   const outcomes = await Promise.all(
     state.subscriptions.map(async (row) => {
       const serialized = String(row.subscription);
       try {
+        if (!state.vapidDetails) return "failed" as const;
         const subscription = validateSubscription(JSON.parse(serialized));
         await (options.send ?? webpush.sendNotification)(
           subscription,
@@ -310,10 +330,17 @@ export async function deliverAttention(
       }
     }),
   );
+  const nativeOutcomes = await native;
   return {
-    delivered: outcomes.filter((value) => value === "delivered").length,
-    expired: outcomes.filter((value) => value === "expired").length,
-    failed: outcomes.filter((value) => value === "failed").length,
+    delivered:
+      outcomes.filter((value) => value === "delivered").length +
+      nativeOutcomes.delivered,
+    expired:
+      outcomes.filter((value) => value === "expired").length +
+      nativeOutcomes.expired,
+    failed:
+      outcomes.filter((value) => value === "failed").length +
+      nativeOutcomes.failed,
   };
 }
 

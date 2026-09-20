@@ -7,8 +7,16 @@ struct ConnectView: View {
     @State private var server = ""
     @State private var token = ""
     @State private var connecting = false
+    @State private var connectionTask: Task<Void, Never>?
     @State private var error: String?
     @State private var help = false
+    private let onClose: (() -> Void)?
+
+    init(app: AppModel, serverAddress: String = "", onClose: (() -> Void)? = nil) {
+        self.app = app
+        self.onClose = onClose
+        _server = State(initialValue: serverAddress)
+    }
 
     var body: some View {
         NavigationStack {
@@ -48,15 +56,23 @@ struct ConnectView: View {
                     }
                     .padding(20)
                     .background(palette.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .disabled(connecting)
                     if let error = error ?? app.error { ErrorNotice(text: error) }
                     Button {
                         connecting = true
-                        Task {
-                            defer { connecting = false }
+                        error = nil
+                        connectionTask = Task {
+                            defer {
+                                connecting = false
+                                connectionTask = nil
+                            }
                             do {
                                 try await app.connect(server: server, token: token)
                                 token = ""
-                            } catch { self.error = error.localizedDescription }
+                                onClose?()
+                            } catch {
+                                if !Task.isCancelled { self.error = error.localizedDescription }
+                            }
                         }
                     } label: {
                         HStack {
@@ -76,6 +92,17 @@ struct ConnectView: View {
                 .frame(maxWidth: 560)
             }
             .themedScreen()
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Cancel") {
+                            connectionTask?.cancel()
+                            onClose()
+                        }
+                    }
+                }
+            }
+            .onDisappear { connectionTask?.cancel() }
             .sheet(isPresented: $help) {
                 NavigationStack {
                     ScrollView {

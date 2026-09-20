@@ -28,6 +28,12 @@ The Roost app is single-user, needs private access, and requires a running host 
 - [Choose a platform](${markdownBase}/deployment.md): Recommended VM route, platform requirements, and acceptance checks.
 - [Deploy on exe.dev](${markdownBase}/deploy-exe-dev.md): Persistent Linux VM and private access.
 - [Getting started](${markdownBase}/getting-started.md): Connect Codex and create an agent.
+- [Reply threads](${markdownBase}/message-threads.md): Focused follow-ups with shared agent context.
+- [Coding jobs](${markdownBase}/coding-job-workspaces.md): Previews, saved feedback, continuation, and PR review.
+- [Dashboards](${markdownBase}/dashboards.md): Saved trackers, datasets, and charts.
+- [Settings and appearance](${markdownBase}/settings.md): Themes, response styles, and account controls.
+- [Notifications](${markdownBase}/notifications.md): Device setup and meaningful updates.
+- [Passkey login](${markdownBase}/authentication.md): Optional native access control.
 - [All guides](${markdownBase}/index.md): Documentation contents.
 ${docs.includes("github.com/") ? "" : `\n## Full documentation\n\n- [Documentation index](${markdownBase}/llms.txt): Links to every guide.\n- [Full text](${markdownBase}/llms-full.txt): All guides in one response.\n`}`;
   const escapeAttribute = (value: string) =>
@@ -82,6 +88,26 @@ ${docs.includes("github.com/") ? "" : `\n## Full documentation\n\n- [Documentati
             .replaceAll(
               "__COMPUTER_URL__",
               escapeAttribute(docsPage("computer")),
+            )
+            .replaceAll(
+              "__THREADS_URL__",
+              escapeAttribute(docsPage("message-threads")),
+            )
+            .replaceAll(
+              "__JOBS_URL__",
+              escapeAttribute(docsPage("coding-job-workspaces")),
+            )
+            .replaceAll(
+              "__DASHBOARDS_URL__",
+              escapeAttribute(docsPage("dashboards")),
+            )
+            .replaceAll(
+              "__SETTINGS_URL__",
+              escapeAttribute(docsPage("settings")),
+            )
+            .replaceAll(
+              "__AUTH_URL__",
+              escapeAttribute(docsPage("authentication")),
             )
             .replaceAll(
               "__CANONICAL__",
