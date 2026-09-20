@@ -94,6 +94,14 @@ class AppServer {
           throw new Error();
         message = value as Record<string, unknown>;
       } catch {
+        console.warn(
+          "[roost:codex]",
+          JSON.stringify({
+            event: "invalid_protocol_message",
+            bytes: Buffer.byteLength(line),
+            shape: line.trimStart().startsWith("{") ? "json_object" : "other",
+          }),
+        );
         this.fail("Codex returned an invalid protocol message.");
 
         return;
@@ -187,10 +195,23 @@ class AppServer {
     }).pipe(
       Effect.timeoutFail({
         duration: "15 seconds",
-        onTimeout: () =>
-          new CodexError({
+        onTimeout: () => {
+          // Log request identity, never parameters or provider output: either
+          // can contain credentials, private messages or binary attachments.
+          console.warn(
+            "[roost:codex]",
+            JSON.stringify({
+              event: "request_timeout",
+              method: /^[a-zA-Z][a-zA-Z0-9/]{0,79}$/.test(method)
+                ? method
+                : "unknown",
+              timeoutMs: 15_000,
+            }),
+          );
+          return new CodexError({
             message: "Codex took too long to respond. Please try again.",
-          }),
+          });
+        },
       }),
     );
   }
