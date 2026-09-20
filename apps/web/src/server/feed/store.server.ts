@@ -339,7 +339,25 @@ export function putFeedItem(
   if (existing) {
     const previous = feedItemFromRow(existing);
     // A later source poll must not replace the agent's curated story with an excerpt.
-    if (previous.kind === "story" && item.kind === "article") return previous;
+    if (previous.kind === "story" && item.kind === "article") {
+      // Refresh the source assessment without replacing the editor's prose or user state.
+      const rescored = {
+        ...previous,
+        score: item.score,
+        scoring: item.scoring,
+        personalScores: item.personalScores,
+      };
+      db.prepare(
+        "UPDATE feed_items SET content=?,fingerprint=?,score=?,visible=? WHERE id=?",
+      ).run(
+        JSON.stringify(rescored),
+        fingerprint,
+        item.score ?? 0,
+        Number(options.visible ?? true),
+        previous.id,
+      );
+      return rescored;
+    }
     const merged = {
       ...item,
       id: previous.id,
@@ -531,7 +549,10 @@ export const publishFeedItem = (
         why: data.why,
         importance: data.importance,
         score: candidate?.score ?? (data.importance === "important" ? 1 : 0.7),
-        scoring: "agent",
+        scoring: candidate?.scoring ?? "agent",
+        ...(candidate?.personalScores
+          ? { personalScores: candidate.personalScores }
+          : {}),
         citations: data.citations,
       };
       const result = putFeedItem(db, item, dedupeKey, {

@@ -87,6 +87,13 @@ export type FeedItem = {
   importance: "normal" | "important";
   score: number | null;
   scoring: "jev" | "basic" | "agent";
+  /** Independent Jev estimates on a 0–1 scale; absent for unscored/legacy items. */
+  personalScores?: {
+    interest: number;
+    usefulness: number;
+    confidence: number;
+    model: string;
+  };
   citations: readonly (typeof FeedCitation.Type)[];
 };
 export const FeedQuery = Schema.Struct({

@@ -31,6 +31,24 @@ final class FeedTests: XCTestCase {
         XCTAssertEqual(try item(kind: "story").attribution, "Roost story · CHS")
         XCTAssertEqual(try item(kind: "update").attribution, "Personal update · CHS")
         XCTAssertEqual(article.citations.first?.url, "https://example.com/park")
+        XCTAssertNil(article.personalScores, "Older servers omit personal scores.")
+    }
+
+    func testPersonalScoresDecodeIndependentlyFromLegacyCombinedScore() throws {
+        let data = try JSONEncoder().encode(item())
+        var value = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        value["personalScores"] = [
+            "interest": 0.9, "usefulness": 0.4, "confidence": 0.65, "model": "jev-1.13.0",
+        ]
+        let article = try JSONDecoder()
+            .decode(
+                FeedItem.self, from: JSONSerialization.data(withJSONObject: value))
+        let scores = try XCTUnwrap(article.personalScores)
+        XCTAssertEqual(scores.interest, 0.9)
+        XCTAssertEqual(scores.usefulness, 0.4)
+        XCTAssertEqual(scores.confidence, 0.65)
+        XCTAssertEqual(scores.model, "jev-1.13.0")
+        XCTAssertEqual(article.score, 0.8)
     }
 
     func testOnlyAllAndSavedAreExposedAndReadStateDoesNotFilterEither() throws {

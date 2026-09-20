@@ -261,12 +261,32 @@ export function FeedReader({
                 <Icon name="external" size={13} />
               </a>
             )}
-            {item.why && (
+            {(item.why || item.personalScores) && (
               <aside {...stylex.props(styles.why)}>
                 <span {...stylex.props(styles.whyLabel)}>
                   Why this is in your feed
                 </span>
-                {item.why}
+                {item.personalScores && (
+                  <>
+                    <div {...stylex.props(styles.personalScores)}>
+                      <span>
+                        Usefulness{" "}
+                        {Math.round(item.personalScores.usefulness * 100)}/100
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        Interest{" "}
+                        {Math.round(item.personalScores.interest * 100)}/100
+                      </span>
+                    </div>
+                    <div {...stylex.props(styles.scoreAttribution)}>
+                      Jev estimate
+                      {item.personalScores.confidence < 0.7 &&
+                        " · limited confidence"}
+                    </div>
+                  </>
+                )}
+                {item.why && <div>{item.why}</div>}
               </aside>
             )}
             {item.citations.length > 0 && (
