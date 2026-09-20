@@ -115,7 +115,18 @@ export function createMobileHandler(
       if (path === "files" && ["GET", "POST"].includes(request.method)) {
         const headers = new Headers(request.headers);
         headers.set("sec-fetch-site", "same-origin");
-        const internal = new Request(request, { headers });
+        // Nitro's Request-compatible wrapper cannot be cloned by Node's native
+        // Request constructor. Preserve the upload stream explicitly instead.
+        const init: RequestInit & { duplex?: "half" } = {
+          method: request.method,
+          headers,
+          signal: request.signal,
+        };
+        if (request.method === "POST") {
+          init.body = request.body;
+          init.duplex = "half";
+        }
+        const internal = new Request(request.url, init);
         return request.method === "GET"
           ? downloadFileRequest(internal)
           : uploadFileRequest(internal);

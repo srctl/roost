@@ -23,7 +23,7 @@ auth.close();
 const tokens = new MobileTokens(directory);
 const device = tokens.create("Production smoke fixture");
 tokens.close();
-await Effect.runPromise(
+const fixtureAgent = await Effect.runPromise(
   saveAgent(
     {
       id: randomUUID(),
@@ -63,6 +63,49 @@ try {
   const agents = await fetch(`${endpoint}/agents`, { headers });
   assert.equal(agents.status, 200);
   assert.equal((await agents.json())[0].name, "Fixture");
+  const imageBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6S0AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const form = new FormData();
+  form.set("agentId", fixtureAgent.id);
+  form.set(
+    "file",
+    new File([imageBytes], "image-probe.png", { type: "image/png" }),
+  );
+  const upload = await fetch(`${endpoint}/files`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  assert.equal(upload.status, 200, "production mobile multipart upload");
+  const file = await upload.json();
+  const imageURL = `${endpoint}/files?${new URLSearchParams({ agentId: fixtureAgent.id, id: file.id })}`;
+  assert.equal((await fetch(imageURL)).status, 401);
+  const image = await fetch(imageURL, { headers });
+  assert.equal(image.status, 200, "production mobile image download");
+  assert.equal(image.headers.get("content-type"), "image/png");
+  assert.equal(image.headers.get("content-length"), String(imageBytes.length));
+  assert.match(image.headers.get("cache-control")!, /no-store/);
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), imageBytes);
+  assert.equal(
+    (
+      await fetch(
+        `${endpoint}/files?${new URLSearchParams({ agentId: randomUUID(), id: file.id })}`,
+        { headers },
+      )
+    ).status,
+    404,
+    "another agent cannot download the uploaded image",
+  );
+  assert.equal(
+    (
+      await fetch(imageURL, {
+        headers: { ...headers, Origin: "https://untrusted.example" },
+      })
+    ).status,
+    403,
+  );
   assert.equal((await fetch(`${endpoint}/payments`)).status, 401);
   const payments = await fetch(`${endpoint}/payments`, { headers });
   assert.equal(payments.status, 200);
@@ -125,8 +168,9 @@ try {
     200,
   );
   assert.equal((await fetch(`${endpoint}/agents`, { headers })).status, 401);
+  assert.equal((await fetch(imageURL, { headers })).status, 401);
   console.log(
-    "Production mobile smoke passed: token authentication, shared settings, native push status, payments, browser-route isolation, origin rejection, and revocation.",
+    "Production mobile smoke passed: token authentication, image upload/download and ownership, shared settings, native push status, payments, browser-route isolation, origin rejection, and revocation.",
   );
 } finally {
   const stopped = new Promise<void>((resolve) =>
