@@ -447,12 +447,109 @@ test("publication requires current active ownership and sources, and retry keys 
     );
   }));
 
+test("publication-date pagination handles delayed ingestion, date ties and inserts between pages without repeats", async () =>
+  fixture(async () => {
+    const initial = await run(getFeedSettings());
+    const settings = await configure({
+      sources: initial.sources.map((source, index) => ({
+        ...source,
+        enabled: index === 0,
+      })),
+    });
+    const existing = Array.from({ length: 45 }, (_, index) => ({
+      ...article(`chronology-${index}`),
+      publishedAt: 1000 + (index % 7) * 100,
+      position: index + 1,
+    }));
+    const descending = (
+      a: { publishedAt: number; position: number },
+      b: { publishedAt: number; position: number },
+    ) => b.publishedAt - a.publishedAt || b.position - a.position;
+    await run(
+      withAgentStore((db) => {
+        for (const item of existing)
+          putFeedItem(db, item, `url:${item.url}`, {
+            sourceId: settings.sources[0]!.id,
+          });
+      }),
+    );
+    const ordered = [...existing].sort(descending);
+    const first = await run(readFeed());
+    assert.deepEqual(
+      first.items.map((item) => item.id),
+      ordered.slice(0, 30).map((item) => item.id),
+    );
+    assert.equal(first.nextCursor, ordered[29]!.position);
+    const cursor = ordered[29]!;
+    // Newer and same-date later arrivals belong before the already-returned cursor.
+    // An older arrival belongs on a subsequent page even though its row ID is newer.
+    const additions = [
+      { ...article("arrived-newer"), publishedAt: 10_000, position: 46 },
+      {
+        ...article("arrived-tied"),
+        publishedAt: cursor.publishedAt,
+        position: 47,
+      },
+      {
+        ...article("arrived-older"),
+        publishedAt: cursor.publishedAt - 25,
+        position: 48,
+      },
+      {
+        ...article("disabled-source"),
+        publishedAt: cursor.publishedAt - 30,
+        position: 49,
+      },
+      {
+        ...article("saved-hidden"),
+        publishedAt: cursor.publishedAt - 40,
+        position: 50,
+      },
+    ];
+    await run(
+      withAgentStore((db) => {
+        for (const [index, item] of additions.entries())
+          putFeedItem(db, item, `url:${item.url}`, {
+            sourceId: settings.sources[index === 3 ? 1 : 0]!.id,
+            visible: index !== 4,
+          });
+      }),
+    );
+    await run(actOnFeedItem({ id: additions[4]!.id, action: "save" }));
+    const second = await run(readFeed({ before: first.nextCursor! }));
+    const remaining = [...ordered.slice(30), additions[2]!, additions[4]!].sort(
+      descending,
+    );
+    assert.deepEqual(
+      second.items.map((item) => item.id),
+      remaining.map((item) => item.id),
+    );
+    assert.equal(second.nextCursor, null);
+    assert.equal(
+      new Set([...first.items, ...second.items].map((item) => item.id)).size,
+      first.items.length + second.items.length,
+    );
+    assert.equal((await run(readFeed())).items[0]?.id, additions[0]!.id);
+    assert.deepEqual(
+      (await run(readFeed({ filter: "saved" }))).items.map((item) => item.id),
+      [additions[4]!.id],
+    );
+    const missingCursor = await run(
+      readFeed({ before: Number.MAX_SAFE_INTEGER }),
+    );
+    assert.deepEqual(missingCursor.items, []);
+    assert.equal(missingCursor.nextCursor, null);
+  }));
+
 test("candidate expansion preserves original attribution, item state and dedupe fingerprint", async () =>
   fixture(async () => {
     const a = await agent();
     const runA = await runningRun(a.id);
     const settings = await configure({ agentId: a.id });
-    const original = article();
+    const original = {
+      ...article(),
+      imageUrl: "https://images.example.com/source-hero.jpg",
+    };
     await run(
       withAgentStore((db) =>
         putFeedItem(db, original, `url:${original.url}`, {
@@ -480,6 +577,42 @@ test("candidate expansion preserves original attribution, item state and dedupe 
     assert.equal(expanded.kind, "story");
     assert.equal(expanded.url, original.url);
     assert.equal(expanded.publishedAt, original.publishedAt);
+    assert.equal(expanded.imageUrl, original.imageUrl);
+    const preserved = await run(
+      publishFeedItem(
+        a.id,
+        runA,
+        publication({ candidateId: original.id, imageUrl: null }),
+      ),
+    );
+    assert.equal(preserved.imageUrl, original.imageUrl);
+    const replacementImage =
+      "https://images.example.com/verified-replacement.jpg";
+    const replaced = await run(
+      publishFeedItem(
+        a.id,
+        runA,
+        publication({ candidateId: original.id, imageUrl: replacementImage }),
+      ),
+    );
+    assert.equal(replaced.imageUrl, replacementImage);
+    await assert.rejects(
+      run(
+        publishFeedItem(
+          a.id,
+          runA,
+          publication({
+            candidateId: original.id,
+            imageUrl: "http://127.0.0.1/private",
+          }),
+        ),
+      ),
+      /public HTTP or HTTPS/,
+    );
+    const unchanged = await run(
+      publishFeedItem(a.id, runA, publication({ candidateId: original.id })),
+    );
+    assert.equal(unchanged.imageUrl, replacementImage);
     await run(
       withAgentStore((db) =>
         assert.equal(

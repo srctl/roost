@@ -1,6 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { feedReportedTime } from "../features/feed/grouping";
 import type { FeedItem } from "../features/feed/schema";
 import { useOpenAfterMount } from "../features/motion";
 import { feedStyles as styles } from "../styles/feed.stylex";
@@ -13,18 +14,8 @@ export type FeedAction =
   | "unsave"
   | "dismiss"
   | "restore"
-  | "read"
-  | "unread"
   | "more"
   | "less";
-
-export function feedTime(timestamp: number) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "America/Los_Angeles",
-  }).format(new Date(timestamp));
-}
 
 function sourceLabel(item: FeedItem) {
   if (item.kind === "update") return "Personal update";
@@ -32,21 +23,16 @@ function sourceLabel(item: FeedItem) {
   return "Article";
 }
 
-function FeedMeta({ item }: { item: FeedItem }) {
+function FeedMeta({ item, timeZone }: { item: FeedItem; timeZone: string }) {
   return (
     <div {...stylex.props(styles.meta)}>
-      {item.readAt === null && (
-        <span {...stylex.props(styles.unreadDot)}>
-          <span {...stylex.props(styles.srOnly)}>Unread</span>
-        </span>
-      )}
       {item.kind === "update" && <Icon name="mail" size={13} />}
       <span {...stylex.props(styles.source)}>{item.sourceName}</span>
       <span aria-hidden="true">·</span>
       <span>{sourceLabel(item)}</span>
       <span aria-hidden="true">·</span>
       <time dateTime={new Date(item.publishedAt).toISOString()}>
-        {feedTime(item.publishedAt)}
+        {feedReportedTime(item.publishedAt, timeZone)}
       </time>
       {item.importance === "important" && (
         <span {...stylex.props(styles.important)}>Important</span>
@@ -60,11 +46,15 @@ function FeedActions({
   busy,
   onAction,
   extended = false,
+  onDiscuss,
+  discussing = false,
 }: {
   item: FeedItem;
   busy: boolean;
   onAction: (item: FeedItem, action: FeedAction) => void;
   extended?: boolean;
+  onDiscuss?: (item: FeedItem) => void;
+  discussing?: boolean;
 }) {
   return (
     <div {...stylex.props(styles.actions)}>
@@ -78,13 +68,25 @@ function FeedActions({
         <Icon name="bookmark" size={14} />
         {item.saved ? "Saved" : "Save"}
       </Button>
-      <Button
-        disabled={busy}
-        onClick={() => onAction(item, "more")}
-        xstyle={styles.action}
-      >
-        More like this
-      </Button>
+      {onDiscuss && (
+        <Button
+          disabled={busy || discussing}
+          onClick={() => onDiscuss(item)}
+          xstyle={styles.action}
+        >
+          <Icon name="reply" size={15} />
+          {discussing ? "Opening…" : "Discuss"}
+        </Button>
+      )}
+      {extended && (
+        <Button
+          disabled={busy}
+          onClick={() => onAction(item, "more")}
+          xstyle={styles.action}
+        >
+          More like this
+        </Button>
+      )}
       {extended && (
         <Button
           disabled={busy}
@@ -95,17 +97,6 @@ function FeedActions({
         </Button>
       )}
       <span {...stylex.props(styles.actionSpacer)} />
-      {extended && (
-        <Button
-          disabled={busy}
-          onClick={() =>
-            onAction(item, item.readAt === null ? "read" : "unread")
-          }
-          xstyle={styles.action}
-        >
-          {item.readAt === null ? "Mark read" : "Mark unread"}
-        </Button>
-      )}
       <Button
         aria-label={`Dismiss ${item.title}`}
         title="Dismiss"
@@ -121,16 +112,20 @@ function FeedActions({
 
 export function FeedEntry({
   item,
-  lead,
   busy,
   onOpen,
   onAction,
+  onDiscuss,
+  discussing,
+  timeZone,
 }: {
   item: FeedItem;
-  lead: boolean;
   busy: boolean;
   onOpen: (item: FeedItem) => void;
   onAction: (item: FeedItem, action: FeedAction) => void;
+  onDiscuss?: (item: FeedItem) => void;
+  discussing: boolean;
+  timeZone: string;
 }) {
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const hasImage =
@@ -139,57 +134,27 @@ export function FeedEntry({
     <article
       aria-labelledby={`feed-title-${item.id}`}
       data-feed-item={item.id}
-      {...stylex.props(
-        styles.article,
-        lead && styles.lead,
-        item.kind === "update" && styles.update,
-      )}
+      {...stylex.props(styles.article, item.kind === "update" && styles.update)}
     >
-      <div
-        {...stylex.props(
-          styles.articleLayout,
-          !hasImage && styles.withoutImage,
-          lead && styles.leadLayout,
-        )}
-      >
-        {lead && hasImage && (
-          <button
-            type="button"
-            aria-label={`Read ${item.title}`}
-            onClick={() => onOpen(item)}
-            {...stylex.props(styles.imageButton)}
+      <div {...stylex.props(styles.content)}>
+        <FeedMeta item={item} timeZone={timeZone} />
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          {...stylex.props(styles.openArticle)}
+        >
+          <h3
+            id={`feed-title-${item.id}`}
+            {...stylex.props(
+              styles.headline,
+              item.kind === "update" && styles.updateHeadline,
+            )}
           >
-            <img
-              src={item.imageUrl!}
-              alt=""
-              referrerPolicy="no-referrer"
-              onError={() => setFailedImage(item.imageUrl)}
-              {...stylex.props(styles.image, styles.leadImage)}
-            />
-          </button>
-        )}
-        <div {...stylex.props(styles.content)}>
-          <FeedMeta item={item} />
-          <button
-            type="button"
-            onClick={() => onOpen(item)}
-            {...stylex.props(styles.openArticle)}
-          >
-            <h2
-              id={`feed-title-${item.id}`}
-              {...stylex.props(
-                styles.headline,
-                lead && styles.leadHeadline,
-                item.kind === "update" && styles.updateHeadline,
-              )}
-            >
-              {item.title}
-            </h2>
-            <p {...stylex.props(styles.summary)}>{item.summary}</p>
-          </button>
-          <FeedActions item={item} busy={busy} onAction={onAction} />
-        </div>
-        {!lead && hasImage && (
+            {item.title}
+          </h3>
+        </button>
+        <p {...stylex.props(styles.summary)}>{item.summary}</p>
+        {hasImage && (
           <button
             type="button"
             aria-label={`Read ${item.title}`}
@@ -206,6 +171,13 @@ export function FeedEntry({
             />
           </button>
         )}
+        <FeedActions
+          item={item}
+          busy={busy}
+          onAction={onAction}
+          onDiscuss={onDiscuss}
+          discussing={discussing}
+        />
       </div>
     </article>
   );
@@ -216,6 +188,7 @@ export function FeedReader({
   busy,
   discussing,
   canDiscuss,
+  timeZone,
   error,
   announcement,
   onClose,
@@ -226,6 +199,7 @@ export function FeedReader({
   busy: boolean;
   discussing: boolean;
   canDiscuss: boolean;
+  timeZone: string;
   error: string;
   announcement: string;
   onClose: () => void;
@@ -255,7 +229,7 @@ export function FeedReader({
             />
           </header>
           <div {...stylex.props(styles.dialogScroll, styles.readerScroll)}>
-            <FeedMeta item={item} />
+            <FeedMeta item={item} timeZone={timeZone} />
             <Dialog.Title {...stylex.props(styles.readerHeadline)}>
               {item.title}
             </Dialog.Title>

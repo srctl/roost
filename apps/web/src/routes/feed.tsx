@@ -15,6 +15,7 @@ import {
   getFeed,
   refreshFeed,
 } from "../features/feed/functions";
+import { groupFeedItems } from "../features/feed/grouping";
 import type { FeedItem, FeedPage, FeedSettings } from "../features/feed/schema";
 import { feedStyles as styles } from "../styles/feed.stylex";
 import { Route as RootRoute } from "./__root";
@@ -22,10 +23,13 @@ import { Route as RootRoute } from "./__root";
 export const Route = createFileRoute("/feed")({
   head: () => ({ meta: [{ title: "Feed · Roost" }] }),
   loader: () =>
-    getFeed({ data: {} }).catch(() => ({
-      ok: false as const,
-      error: "Could not load your feed. Please try again.",
-    })),
+    getFeed({ data: {} })
+      .then((result) => ({ ...result, renderedAt: Date.now() }))
+      .catch(() => ({
+        ok: false as const,
+        error: "Could not load your feed. Please try again.",
+        renderedAt: Date.now(),
+      })),
   headers: () => ({ "Cache-Control": "private, no-store" }),
   pendingComponent: () => (
     <p role="status" {...stylex.props(styles.loading)}>
@@ -35,21 +39,17 @@ export const Route = createFileRoute("/feed")({
   component: FeedPageView,
 });
 
-type Filter = "all" | "unread" | "saved";
+type Filter = "all" | "saved";
 
 function matchesFilter(item: FeedItem, filter: Filter) {
-  return (
-    !item.dismissed &&
-    (filter !== "saved" || item.saved) &&
-    (filter !== "unread" || item.readAt === null)
-  );
+  return !item.dismissed && (filter !== "saved" || item.saved);
 }
 
-function refreshLabel(page: FeedPage) {
+function refreshLabel(page: FeedPage, timeZone: string) {
   if (page.status.refreshing) return "Finding stories…";
   if (!page.settings.enabled) return "Automatic updates paused";
   if (!page.status.lastRefreshedAt) return "Ready for your first stories";
-  return `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" }).format(page.status.lastRefreshedAt)}`;
+  return `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone }).format(page.status.lastRefreshedAt)}`;
 }
 
 function FeedPageView() {
@@ -61,6 +61,21 @@ function FeedPageView() {
   );
   const [error, setError] = useState(initial.ok ? "" : initial.error);
   const [filter, setFilter] = useState<Filter>("all");
+  const [timeZone, setTimeZone] = useState("UTC");
+  const [now, setNow] = useState(initial.renderedAt);
+  useEffect(() => {
+    const update = () => {
+      setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setNow(Date.now());
+    };
+    update();
+    const timer = window.setInterval(update, 60_000);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [preferences, setPreferences] = useState(false);
@@ -207,10 +222,8 @@ function FeedPageView() {
     working.current.add(item.id);
     setBusyItem(item.id);
     setError("");
-    if (action !== "read") {
-      setAnnouncement("");
-      if (action !== "restore") setDismissed(null);
-    }
+    setAnnouncement("");
+    if (action !== "restore") setDismissed(null);
     try {
       const result = await changeFeedItem({ data: { id: item.id, action } });
       if (!result.ok) throw new Error(result.error);
@@ -251,7 +264,7 @@ function FeedPageView() {
       else if (action === "restore") {
         setDismissed(null);
         setAnnouncement("Restored to your feed.");
-      } else if (action === "unread") setAnnouncement("Marked unread.");
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -268,10 +281,10 @@ function FeedPageView() {
     setSelected(item);
     setAnnouncement("");
     setError("");
-    if (item.readAt === null) void act(item, "read");
   }
 
   async function discuss(item: FeedItem) {
+    if (discussing) return;
     setDiscussing(true);
     setError("");
     try {
@@ -310,7 +323,7 @@ function FeedPageView() {
   }
 
   const items = page?.items ?? [];
-  const leadId = items.find((item) => item.kind !== "update")?.id;
+  const groups = groupFeedItems(items, { now, timeZone });
   const busyRefresh = refreshing || !!page?.status.refreshing;
 
   return (
@@ -350,7 +363,7 @@ function FeedPageView() {
       </header>
       <div {...stylex.props(styles.toolbar)}>
         <fieldset aria-label="Filter feed" {...stylex.props(styles.filters)}>
-          {(["all", "unread", "saved"] as const).map((value) => (
+          {(["all", "saved"] as const).map((value) => (
             <Button
               key={value}
               aria-pressed={filter === value}
@@ -361,17 +374,27 @@ function FeedPageView() {
                 filter === value && styles.selectedFilter,
               ]}
             >
-              {value === "all"
-                ? "For you"
-                : value === "unread"
-                  ? "Unread"
-                  : "Saved"}
+              {value === "all" ? "For you" : "Saved"}
             </Button>
           ))}
         </fieldset>
-        <p role="status" {...stylex.props(styles.status)}>
-          {loading ? "Loading stories…" : page ? refreshLabel(page) : ""}
-        </p>
+        <div role="status" {...stylex.props(styles.status)}>
+          {page && !page.settings.enabled && !loading ? (
+            <Button
+              aria-label="Updates paused. Open feed preferences"
+              onClick={() => setPreferences(true)}
+              xstyle={styles.statusAction}
+            >
+              Updates paused
+            </Button>
+          ) : loading ? (
+            "Loading stories…"
+          ) : page ? (
+            refreshLabel(page, timeZone)
+          ) : (
+            ""
+          )}
+        </div>
       </div>
       {error && (
         <div role="alert" {...stylex.props(styles.notice)}>
@@ -393,24 +416,34 @@ function FeedPageView() {
           )}
         </div>
       )}
-      {page && !page.settings.enabled && items.length > 0 && (
-        <div {...stylex.props(styles.notice)}>
-          Your feed is paused.
-          <Button onClick={() => setPreferences(true)}>
-            Resume in preferences
-          </Button>
-        </div>
-      )}
       <div aria-busy={loading} {...stylex.props(styles.stream)}>
-        {items.map((item) => (
-          <FeedEntry
-            key={item.id}
-            item={item}
-            lead={item.id === leadId}
-            busy={busyItem === item.id}
-            onOpen={openItem}
-            onAction={(entry, action) => void act(entry, action)}
-          />
+        {groups.map((group) => (
+          <section
+            key={group.id}
+            aria-labelledby={`feed-section-${group.id}`}
+            {...stylex.props(styles.timeSection)}
+          >
+            <h2
+              id={`feed-section-${group.id}`}
+              {...stylex.props(styles.timeHeading)}
+            >
+              {group.label}
+            </h2>
+            {group.items.map((item) => (
+              <FeedEntry
+                key={item.id}
+                item={item}
+                busy={busyItem === item.id}
+                timeZone={timeZone}
+                onOpen={openItem}
+                onAction={(entry, action) => void act(entry, action)}
+                onDiscuss={
+                  agents.length > 0 ? (entry) => void discuss(entry) : undefined
+                }
+                discussing={discussing}
+              />
+            ))}
+          </section>
         ))}
       </div>
       {page && !items.length && !loading && (
@@ -421,24 +454,20 @@ function FeedPageView() {
           <h2 {...stylex.props(styles.emptyTitle)}>
             {filter === "saved"
               ? "Keep the stories you want to return to."
-              : filter === "unread"
-                ? "You're all caught up."
-                : busyRefresh
-                  ? "Your first stories are on their way."
-                  : page.settings.enabled
-                    ? "No stories yet."
-                    : "Your feed starts here."}
+              : busyRefresh
+                ? "Your first stories are on their way."
+                : page.settings.enabled
+                  ? "No stories yet."
+                  : "Your feed starts here."}
           </h2>
           <p {...stylex.props(styles.emptyText)}>
             {filter === "saved"
               ? "Save an article, story, or personal update and it will be waiting here."
-              : filter === "unread"
-                ? "New stories and important updates will appear here as they arrive."
-                : busyRefresh
-                  ? "Roost is checking your sources and choosing stories for your feed. You can keep exploring while it works."
-                  : page.settings.enabled
-                    ? "Your feed has no stories yet. Check your sources or refresh to look for something worth reading."
-                    : "Follow local publications, explore your interests, and bring important personal updates into one shared feed."}
+              : busyRefresh
+                ? "Roost is checking your sources and choosing stories for your feed. You can keep exploring while it works."
+                : page.settings.enabled
+                  ? "Your feed has no stories yet. Check your sources or refresh to look for something worth reading."
+                  : "Follow local publications, explore your interests, and bring important personal updates into one shared feed."}
           </p>
           {filter === "all" ? (
             <Button
@@ -495,6 +524,7 @@ function FeedPageView() {
           busy={busyItem === selected.id}
           discussing={discussing}
           canDiscuss={agents.length > 0}
+          timeZone={timeZone}
           error={error}
           announcement={announcement}
           onClose={() => {

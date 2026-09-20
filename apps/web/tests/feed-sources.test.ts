@@ -66,6 +66,37 @@ test("unsafe article links are dropped; unsafe images do not survive parsing", (
   assert.equal(items[0].imageUrl, null);
 });
 
+test("publisher hero images survive RSS media, Atom enclosures and structured XHTML content", () => {
+  const samples = [
+    {
+      xml: '<rss xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title>Media story</title><link>https://news.example.com/story</link><media:group><media:content medium="image" url="https://images.example.com/hero.jpg"/></media:group></item></channel></rss>',
+      image: "https://images.example.com/hero.jpg",
+    },
+    {
+      xml: '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Enclosed image</title><link href="https://news.example.com/story"/><link rel="enclosure" type="audio/mpeg" href="/podcast.mp3"/><link rel="enclosure" type="image/jpeg" href="/photos/hero.jpg"/></entry></feed>',
+      image: "https://news.example.com/photos/hero.jpg",
+    },
+    {
+      xml: '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>XHTML image</title><link href="https://news.example.com/story"/><content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Story text</p><img src="/photos/neighborhood.jpg"/></div></content></entry></feed>',
+      image: "https://news.example.com/photos/neighborhood.jpg",
+    },
+    {
+      xml: '<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><item><title>Summary image</title><link>https://news.example.com/story</link><content:encoded>Text without an image.</content:encoded><description><![CDATA[<img src="http://127.0.0.1/private"><img src="/photos/summary.jpg">]]></description></item></channel></rss>',
+      image: "https://news.example.com/photos/summary.jpg",
+    },
+  ];
+  for (const sample of samples)
+    assert.equal(
+      parseFeedXml(sample.xml, source, { now })[0]?.imageUrl,
+      sample.image,
+    );
+  const noImage =
+    '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>No suitable image</title><link href="https://news.example.com/story"/><link rel="enclosure" type="audio/mpeg" href="/podcast.mp3"/><content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><img src="http://169.254.169.254/private"/><p>Text remains readable</p></div></content></entry></feed>';
+  const item = parseFeedXml(noImage, source, { now })[0]!;
+  assert.equal(item.imageUrl, null);
+  assert.equal(item.body, "Text remains readable");
+});
+
 test("rejects malformed XML, HTML responses, DTDs and entity-expansion documents", () => {
   for (const xml of [
     "<rss><channel></rss>",

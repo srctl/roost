@@ -16,6 +16,7 @@ export function migrateFeed(db: DatabaseSync) {
       dismissed INTEGER NOT NULL DEFAULT 0, feedback INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS feed_items_visible ON feed_items(visible, dismissed, position DESC);
+    CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(publishedAt DESC, position DESC);
     CREATE TABLE IF NOT EXISTS feed_source_state (
       sourceId TEXT PRIMARY KEY, url TEXT NOT NULL, etag TEXT, lastModified TEXT,
       lastFetchedAt INTEGER, error TEXT

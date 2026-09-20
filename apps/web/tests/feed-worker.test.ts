@@ -520,6 +520,12 @@ test("selected editor queues one curation run with current settings, bounded ema
           /Never send, delete, archive, mark read/,
         );
         assert.match(String(row.prompt), /Do not notify/);
+        assert.match(
+          String(row.prompt),
+          /preserve the original citation and its existing imageUrl/,
+        );
+        assert.match(String(row.prompt), /Never invent image URLs/);
+        assert.match(String(row.prompt), /leave imageUrl unset/);
         return String(row.id);
       }),
     );

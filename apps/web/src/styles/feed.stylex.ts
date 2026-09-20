@@ -9,7 +9,7 @@ const arrive = stylex.keyframes({
 
 export const feedStyles = stylex.create({
   page: {
-    maxWidth: 1040,
+    maxWidth: 780,
     marginInline: "auto",
     paddingTop: { default: 12, "@media (max-width: 700px)": 0 },
     paddingBottom: "env(safe-area-inset-bottom)",
@@ -64,7 +64,21 @@ export const feedStyles = stylex.create({
     fontWeight: 500,
   },
   status: { fontSize: 11, color: colors.muted, margin: 0 },
+  statusAction: {
+    fontSize: 11,
+    color: colors.muted,
+    paddingInline: 8,
+    minHeight: 32,
+  },
   stream: { display: "flex", flexDirection: "column" },
+  timeSection: { marginTop: 28 },
+  timeHeading: {
+    fontSize: 12,
+    fontWeight: 550,
+    color: colors.muted,
+    margin: 0,
+    paddingBottom: 6,
+  },
   article: {
     paddingBlock: 28,
     borderBottomWidth: 1,
@@ -74,19 +88,7 @@ export const feedStyles = stylex.create({
     animationDuration: motion.slow,
     animationTimingFunction: motion.easeOut,
   },
-  articleLayout: {
-    display: "grid",
-    gridTemplateColumns: {
-      default: "minmax(0, 1fr) 160px",
-      "@media (max-width: 700px)": "minmax(0, 1fr) 96px",
-    },
-    gap: { default: 28, "@media (max-width: 700px)": 16 },
-    alignItems: "start",
-  },
-  withoutImage: { gridTemplateColumns: "minmax(0, 1fr)" },
-  leadLayout: { gridTemplateColumns: "minmax(0, 1fr)", gap: 20 },
-  lead: { paddingTop: 28, paddingBottom: 30 },
-  content: { minWidth: 0, maxWidth: 720 },
+  content: { minWidth: 0 },
   openArticle: {
     display: "block",
     width: "100%",
@@ -100,9 +102,9 @@ export const feedStyles = stylex.create({
     borderRadius: 2,
   },
   headline: {
-    fontFamily: "Georgia, 'Times New Roman', serif",
-    fontSize: { default: 24, "@media (max-width: 700px)": 21 },
-    fontWeight: 500,
+    fontFamily: "inherit",
+    fontSize: { default: 21, "@media (max-width: 700px)": 20 },
+    fontWeight: 550,
     lineHeight: 1.22,
     letterSpacing: "-0.45px",
     marginTop: 10,
@@ -115,12 +117,6 @@ export const feedStyles = stylex.create({
     transitionProperty: "color",
     transitionDuration: motion.fast,
   },
-  leadHeadline: {
-    fontSize: { default: 36, "@media (max-width: 700px)": 28 },
-    lineHeight: 1.14,
-    letterSpacing: "-0.9px",
-    maxWidth: 790,
-  },
   updateHeadline: {
     fontFamily: "inherit",
     fontSize: { default: 18, "@media (max-width: 700px)": 17 },
@@ -129,19 +125,19 @@ export const feedStyles = stylex.create({
     lineHeight: 1.35,
   },
   summary: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 1.65,
     margin: 0,
-    color: colors.muted,
-    display: "-webkit-box",
-    WebkitLineClamp: 3,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
+    color: colors.foreground,
+    whiteSpace: "pre-line",
+    overflowWrap: "anywhere",
     textWrap: "pretty",
   },
   imageButton: {
     display: "block",
     width: "100%",
+    maxWidth: 440,
+    marginTop: 18,
     padding: 0,
     borderWidth: 0,
     overflow: "hidden",
@@ -153,18 +149,11 @@ export const feedStyles = stylex.create({
   image: {
     display: "block",
     width: "100%",
-    aspectRatio: "4 / 3",
+    aspectRatio: "16 / 9",
     objectFit: "cover",
     transitionProperty: "transform",
     transitionDuration: motion.slow,
     transform: { default: "scale(1)", ":is(button:hover > *)": "scale(1.025)" },
-  },
-  leadImage: {
-    aspectRatio: {
-      default: "2.35 / 1",
-      "@media (max-width: 700px)": "1.6 / 1",
-    },
-    maxHeight: 360,
   },
   meta: {
     display: "flex",
@@ -181,13 +170,6 @@ export const feedStyles = stylex.create({
     height: 4,
     borderRadius: "50%",
     backgroundColor: colors.faint,
-  },
-  unreadDot: {
-    width: 5,
-    height: 5,
-    borderRadius: "50%",
-    backgroundColor: colors.accent,
-    flexShrink: 0,
   },
   important: { color: colors.accent, fontWeight: 550 },
   update: { paddingBlock: 22 },

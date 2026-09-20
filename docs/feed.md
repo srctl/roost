@@ -6,7 +6,7 @@ Feed is a separate, shared surface on the web and in the iPhone app. It combines
 
 Open **Feed → Sources & preferences**, turn the feed on, and describe your interests and priorities. Capitol Hill Seattle Blog and The Seattle Times local RSS feeds are included as editable presets. Add other public RSS or Atom URLs, choose an optional editor agent, and set the refresh interval. Sources work without an editor; an editor adds sourced context and original synthesis. Email updates require selecting an agent with email access and enabling email updates explicitly.
 
-Use **Unread** and **Saved** to filter the stream. Reading, saving, dismissing, restoring, and more/less feedback persist across web and mobile. Source articles retain an attributed excerpt and original link. Generated stories are labeled and include citations. Feed refresh errors appear in the feed rather than silently claiming a successful check.
+Use **Saved** to return to stories you have kept. Stories are ordered by their original publication time and grouped into local morning, afternoon, evening, yesterday, and older dates. Saving, dismissing, restoring, and more/less feedback persist across web and mobile. Source articles retain an attributed excerpt and original link. Agent-written stories include useful standalone summaries, citations, and a relevant source image where one is available. Images appear beneath each story summary and in the reader; missing images leave a text-only story. Feed refresh errors appear in the feed rather than silently claiming a successful check.
 
 ## Jevi / Jev
 

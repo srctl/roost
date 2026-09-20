@@ -25,6 +25,7 @@ import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
 import { assertAvailable } from "../maintenance.server";
 import { writeTransaction } from "../transaction.server";
+import { safeFeedUrl } from "./sources.server";
 
 export const feedHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -228,18 +229,41 @@ export const readFeed = (
 ): Effect.Effect<FeedPage, AgentStoreError> =>
   withAgentStore((db, root) => {
     assertAvailable(db);
-    const { filter = "all", before = Number.MAX_SAFE_INTEGER } =
+    const { filter = "all", before } =
       Schema.decodeUnknownSync(FeedQuery)(query);
     const settings = readFeedSettings(db, root);
     const sourceIds = settings.sources
       .filter((source) => source.enabled)
       .map((source) => source.id);
-    const rows = db
-      .prepare(`SELECT * FROM feed_items WHERE position<? AND dismissed=0 AND (visible=1 OR saved=1)
+    // The numeric cursor remains a row identity for web and native clients.
+    // Seek using that row's publication date so delayed ingestion cannot reorder pages.
+    const cursor =
+      before === undefined
+        ? undefined
+        : db
+            .prepare("SELECT publishedAt FROM feed_items WHERE position=?")
+            .get(before);
+    const rows =
+      before !== undefined && !cursor
+        ? []
+        : db
+            .prepare(`SELECT * FROM feed_items WHERE dismissed=0 AND (visible=1 OR saved=1)
     AND (?<>'saved' OR saved=1) AND (?<>'unread' OR readAt IS NULL)
     AND (saved=1 OR sourceId IS NULL OR sourceId IN (SELECT value FROM json_each(?)))
-    ORDER BY position DESC LIMIT 31`)
-      .all(before, filter, filter, JSON.stringify(sourceIds));
+    ${cursor ? "AND (publishedAt<? OR (publishedAt=? AND position<?))" : ""}
+    ORDER BY publishedAt DESC,position DESC LIMIT 31`)
+            .all(
+              filter,
+              filter,
+              JSON.stringify(sourceIds),
+              ...(cursor
+                ? [
+                    Number(cursor.publishedAt),
+                    Number(cursor.publishedAt),
+                    before!,
+                  ]
+                : []),
+            );
     return {
       items: rows.slice(0, 30).map(feedItemFromRow),
       nextCursor: rows.length > 30 ? Number(rows[29]!.position) : null,
@@ -397,6 +421,12 @@ export const publishFeedItem = (
       assertAvailable(db);
       requireAgent(db, agentId);
       const data = Schema.decodeUnknownSync(FeedPublication)(input);
+      const imageUrl = data.imageUrl ? safeFeedUrl(data.imageUrl) : null;
+      if (data.imageUrl && !imageUrl)
+        throw new AgentStoreError({
+          message:
+            "Story images must use a public HTTP or HTTPS URL without credentials or a custom port.",
+        });
       const settings = readFeedSettings(db, root);
       if (!settings.enabled)
         throw new AgentStoreError({ message: "The shared feed is disabled." });
@@ -488,7 +518,7 @@ export const publishFeedItem = (
         summary: data.summary,
         body: data.body,
         url: data.url ?? candidate?.url ?? null,
-        imageUrl: data.imageUrl ?? candidate?.imageUrl ?? null,
+        imageUrl: imageUrl ?? candidate?.imageUrl ?? null,
         sourceName: data.sourceName,
         sourceUrl: data.sourceUrl ?? candidate?.sourceUrl ?? null,
         authorAgentId: agentId,

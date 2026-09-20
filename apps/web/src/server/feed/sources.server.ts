@@ -313,6 +313,32 @@ function contentText(value: unknown): string {
     .join(" ");
 }
 
+function imageFromStructuredContent(
+  value: unknown,
+  base: string,
+): string | null {
+  for (const node of list(value)) {
+    for (const [name, child] of Object.entries(record(node))) {
+      const localName = name.split(":").at(-1);
+      if (
+        ["script", "style", "iframe", "object", "svg"].includes(localName ?? "")
+      )
+        continue;
+      if (localName === "img") {
+        for (const image of list(child)) {
+          const url = safeFeedUrl(scalar(record(image)["@_src"]), base);
+          if (url) return url;
+        }
+      }
+      if (!name.startsWith("@_")) {
+        const nested = imageFromStructuredContent(child, base);
+        if (nested) return nested;
+      }
+    }
+  }
+  return null;
+}
+
 function imageFromEntry(
   item: XmlNode,
   html: string,
@@ -336,12 +362,30 @@ function imageFromEntry(
     const url = safeFeedUrl(candidate, base);
     if (url) return url;
   }
-  const match = html.match(
-    /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
-  );
-  return match
-    ? safeFeedUrl(decodeHTML(match[1] ?? match[2] ?? match[3] ?? ""), base)
-    : null;
+  for (const link of list(item.link ?? item["atom:link"])) {
+    const value = record(link);
+    if (
+      value["@_rel"] !== "enclosure" ||
+      !scalar(value["@_type"]).startsWith("image/")
+    )
+      continue;
+    const url = safeFeedUrl(scalar(value["@_href"]), base);
+    if (url) return url;
+  }
+  const content = item.content ?? item["atom:content"];
+  const summary = item.description ?? item.summary ?? item["atom:summary"];
+  const structuredImage = imageFromStructuredContent([content, summary], base);
+  if (structuredImage) return structuredImage;
+  for (const match of `${html}\n${contentText(summary)}`.matchAll(
+    /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+  )) {
+    const url = safeFeedUrl(
+      decodeHTML(match[1] ?? match[2] ?? match[3] ?? ""),
+      base,
+    );
+    if (url) return url;
+  }
+  return null;
 }
 
 export function parseFeedXml(
