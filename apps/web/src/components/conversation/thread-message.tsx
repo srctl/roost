@@ -6,16 +6,19 @@ import { colors } from "../../styles/tokens.stylex";
 import { Avatar } from "../ui/primitives";
 import { FileLinks } from "./file-links";
 import { MessageContent } from "./message-content";
+import { MessageReactions, type ReactToMessage } from "./message-reactions";
 
 export function ThreadMessage({
   agent,
   message,
   previous,
+  onReact,
   entering = false,
 }: {
   agent: Agent;
   message: Message;
   previous?: Message;
+  onReact?: ReactToMessage;
   entering?: boolean;
 }) {
   const user = message.role === "user";
@@ -86,6 +89,11 @@ export function ThreadMessage({
           </div>
         ) : null}
         <FileLinks files={message.files} />
+        <MessageReactions
+          message={message}
+          agentName={agent.name}
+          onReact={onReact}
+        />
       </div>
     </article>
   );

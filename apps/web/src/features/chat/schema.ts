@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { MAX_ATTACHMENTS } from "./files";
+import { isReactionEmoji } from "./reactions";
 
 const FileAttachment = Schema.Struct({
   id: Schema.UUID,
@@ -22,6 +23,25 @@ export const SendMessage = Schema.Struct({
 
 export type SendMessage = typeof SendMessage.Type;
 
+export const MessageReaction = Schema.Struct({
+  emoji: Schema.String,
+  actor: Schema.Literal("user", "assistant"),
+});
+
+export type MessageReaction = typeof MessageReaction.Type;
+
+export const SetReaction = Schema.Struct({
+  agentId: Schema.UUID,
+  conversationId: Schema.optional(Schema.UUID),
+  messageId: Schema.NonEmptyString.pipe(Schema.maxLength(1000)),
+  emoji: Schema.String.pipe(
+    Schema.filter(isReactionEmoji, { message: () => "Choose a single emoji." }),
+  ),
+  active: Schema.Boolean,
+});
+
+export type SetReaction = typeof SetReaction.Type;
+
 export const Message = Schema.Struct({
   nativeThreadId: Schema.optional(Schema.String),
   /** Persisted timeline time; absent for legacy and optimistic messages. */
@@ -30,6 +50,7 @@ export const Message = Schema.Struct({
   role: Schema.Literal("user", "assistant", "notice", "activity"),
   text: Schema.String,
   files: Schema.optional(Schema.Array(FileAttachment)),
+  reactions: Schema.optional(Schema.Array(MessageReaction)),
   title: Schema.optional(Schema.String),
   status: Schema.optional(Schema.String),
   details: Schema.optional(Schema.String),

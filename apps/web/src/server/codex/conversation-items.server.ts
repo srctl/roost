@@ -29,12 +29,90 @@ const TextParts = Schema.Array(
   Schema.Struct({ type: Schema.String, text: Schema.optional(Schema.String) }),
 );
 
-const print = (value: unknown) =>
-  value == null
-    ? ""
-    : typeof value === "string"
-      ? value
-      : JSON.stringify(value, null, 2);
+const DISPLAY_CHARACTERS = 24_000;
+const DISPLAY_DEPTH = 8;
+const DISPLAY_ENTRIES = 200;
+const JSON_STRING_CHARACTERS = 128_000;
+const omitted = "[Display output truncated.]";
+const mediaUri = /data:(?:image|audio|video)\/[^,\s"'<>]+,[^\s"'<>]*/gi;
+
+function truncate(text: string, limit: number) {
+  return text.length <= limit
+    ? text
+    : `${text.slice(0, Math.max(0, limit - omitted.length))}${omitted}`;
+}
+
+// These are display copies only. The original tool response, including images
+// used by the model, stays untouched. Never duplicate its binary payload into
+// every Roost run snapshot as JSON text. Bound traversal before stringifying.
+function print(value: unknown): string {
+  if (value == null) return "";
+  let characters = DISPLAY_CHARACTERS;
+  let entries = DISPLAY_ENTRIES;
+  const visit = (input: unknown, depth: number): unknown => {
+    if (entries-- <= 0 || characters <= 0) return omitted;
+    if (typeof input === "string") {
+      if (/^\s*[[{]/.test(input)) {
+        if (input.length > JSON_STRING_CHARACTERS)
+          return "[JSON display omitted: exceeds 128,000 characters.]";
+        try {
+          if (depth >= DISPLAY_DEPTH) return "[Display nesting omitted.]";
+          return visit(JSON.parse(input), depth + 1);
+        } catch {
+          // Ordinary text beginning with a bracket is still displayable text.
+        }
+      }
+      const text = truncate(
+        input.replace(mediaUri, "[Inline media omitted from display.]"),
+        characters,
+      );
+      characters -= text.length;
+      return text;
+    }
+    if (input == null || typeof input !== "object") return input;
+    if (depth >= DISPLAY_DEPTH) return "[Display nesting omitted.]";
+    if (Array.isArray(input)) {
+      const result: unknown[] = [];
+      for (const child of input) {
+        if (entries <= 0 || characters <= 0) {
+          result.push(omitted);
+          break;
+        }
+        result.push(visit(child, depth + 1));
+      }
+      return result;
+    }
+    const object = input as Record<string, unknown>;
+    const binaryContent =
+      object.type === "image" ||
+      object.type === "audio" ||
+      (object.type === "base64" &&
+        typeof object.media_type === "string" &&
+        /^(image|audio|video)\//.test(object.media_type));
+    const result: Record<string, unknown> = Object.create(null);
+    for (const key in object) {
+      if (!Object.hasOwn(object, key)) continue;
+      if (entries <= 0 || characters <= 0) {
+        result["Display omitted"] = omitted;
+        break;
+      }
+      const name = truncate(key, Math.min(256, characters));
+      characters -= name.length;
+      result[name] =
+        key === "data" && binaryContent && typeof object[key] === "string"
+          ? "[Binary media omitted from display.]"
+          : visit(object[key], depth + 1);
+    }
+    return result;
+  };
+  const display = visit(value, 0);
+  return truncate(
+    typeof display === "string"
+      ? display
+      : (JSON.stringify(display, null, 2) ?? ""),
+    DISPLAY_CHARACTERS,
+  );
+}
 
 export function messageFromItem(
   item: typeof Item.Type,
@@ -72,8 +150,8 @@ export function messageFromItem(
     return {
       ...base,
       title: "Command",
-      details: item.command,
-      text: item.aggregatedOutput ?? "",
+      details: item.command === undefined ? undefined : print(item.command),
+      text: print(item.aggregatedOutput),
       status:
         item.exitCode != null && item.exitCode !== 0 ? "failed" : base.status,
     };

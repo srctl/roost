@@ -23,6 +23,7 @@ import { handleAgentTool } from "./agent-tools.server";
 import { CodexError, openAppServer, openHostServer } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
 import type { LoginAccountParams } from "./protocol/v2/LoginAccountParams";
+import type { ReplyActivity } from "./reply-timeout.server";
 
 const hostHome = () =>
   resolve(process.env.CODEX_HOME ?? join(homedir(), ".codex"));
@@ -176,6 +177,7 @@ const makeAgentServer = (
     let allowMutations: boolean | "reflection" = false;
     let runId: string | undefined;
     let toolSignal: AbortSignal | undefined;
+    let replyActivity: ReplyActivity | undefined;
     let turnId: string | undefined;
     const changes = new Map<string, unknown>();
     yield* Effect.acquireRelease(
@@ -213,7 +215,14 @@ const makeAgentServer = (
       (unsubscribe) => Effect.sync(unsubscribe),
     );
     client.onRequest = async (method, params, requestId) => {
-      const bound = { runId, threadId, turnId, toolSignal, allowMutations };
+      const bound = {
+        runId,
+        threadId,
+        turnId,
+        toolSignal,
+        allowMutations,
+        replyActivity,
+      };
       if (method === "account/chatgptAuthTokens/refresh") {
         const auth = await Effect.runPromise(hostCredentials);
 
@@ -243,14 +252,19 @@ const makeAgentServer = (
         if (!context || !bound.toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
         const itemId = (params as { itemId?: string }).itemId;
-        return handleNativeApproval(
-          context,
-          method,
-          params,
-          bound.turnId,
-          itemId ? changes.get(itemId) : undefined,
-          bound.toolSignal,
-        );
+        const resume = bound.replyActivity?.pauseForApproval();
+        try {
+          return await handleNativeApproval(
+            context,
+            method,
+            params,
+            bound.turnId,
+            itemId ? changes.get(itemId) : undefined,
+            bound.toolSignal,
+          );
+        } finally {
+          resume?.();
+        }
       }
       if (method !== "item/tool/call") {
         throw new Error();
@@ -299,15 +313,22 @@ const makeAgentServer = (
       if (call.tool === "roost_request_approval") {
         if (!context || !bound.toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
-        const response = await waitForApproval(
-          context,
-          Schema.decodeUnknownSync(RequestApproval)(call.arguments),
-          bound.toolSignal,
-        );
-        return {
-          success: true,
-          contentItems: [{ type: "inputText", text: JSON.stringify(response) }],
-        };
+        const resume = bound.replyActivity?.pauseForApproval();
+        try {
+          const response = await waitForApproval(
+            context,
+            Schema.decodeUnknownSync(RequestApproval)(call.arguments),
+            bound.toolSignal,
+          );
+          return {
+            success: true,
+            contentItems: [
+              { type: "inputText", text: JSON.stringify(response) },
+            ],
+          };
+        } finally {
+          resume?.();
+        }
       }
 
       if (call.tool === "roost_publish_artifact") {
@@ -342,8 +363,10 @@ const makeAgentServer = (
         mutations: boolean | "reflection" = true,
         activeRunId?: string,
         signal?: AbortSignal,
+        activity?: ReplyActivity,
       ) => {
         toolSignal = signal;
+        replyActivity = activity;
         turnId = undefined;
         changes.clear();
         runId = activeRunId;
