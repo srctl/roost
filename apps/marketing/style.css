@@ -729,6 +729,7 @@ a:focus-visible {
   padding-block: 110px 75px;
 }
 .intro h2,
+.tour-copy h2,
 .ownership h2,
 .closing h2 {
   font-size: 48px;
@@ -757,6 +758,56 @@ a:focus-visible {
   align-items: center;
   gap: 26px;
   margin-top: 10px;
+}
+.inline-link {
+  text-decoration: underline;
+  text-decoration-color: #b5c0ab;
+  text-underline-offset: 3px;
+}
+.product-tour {
+  padding-bottom: 65px;
+}
+.tour-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.8fr);
+  align-items: center;
+  gap: 52px;
+  padding-block: 52px;
+  border-top: 1px solid var(--border);
+}
+.tour-copy .eyebrow {
+  margin-bottom: 18px;
+}
+.tour-copy h2 {
+  font-size: 39px;
+  margin-bottom: 22px;
+}
+.tour-copy > p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.85;
+  margin-bottom: 14px;
+}
+.tour-figure {
+  min-width: 0;
+  margin: 0;
+}
+.tour-figure > :where(a) {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.tour-figure img {
+  width: 100%;
+  height: auto;
+  image-rendering: auto;
+}
+.tour-figure figcaption {
+  margin-top: 12px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
 }
 .features {
   padding-bottom: 95px;
@@ -788,6 +839,11 @@ a:focus-visible {
   font-size: 14px;
   line-height: 1.85;
   color: var(--muted);
+}
+.feature-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
 }
 .character-line {
   display: flex;
@@ -1129,6 +1185,17 @@ a:focus-visible {
   }
   .intro-description {
     padding-top: 32px;
+  }
+  .tour-row {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding-block: 40px;
+  }
+  .tour-copy {
+    max-width: 520px;
+  }
+  .product-tour {
+    padding-bottom: 32px;
   }
   .feature-row {
     grid-template-columns: 1fr 1.7fr;

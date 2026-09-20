@@ -1,12 +1,52 @@
 # Shared Feed
 
-Feed is a separate, shared surface on the web and in the iPhone app. It combines articles from followed publications, stories written by a selected Roost agent, and optional important updates from that agent's connected email sources. Opening a story does not create a conversation; **Discuss** starts a reply thread with its source context.
+Feed brings the publications you follow, stories from a selected Roost agent,
+and optional important email updates into one personalized stream. It is shared
+between the web and native iPhone app, with stories grouped by when they were
+published.
+
+[![Shared Feed with a dated story, source photo, personal update, and Save and Discuss controls.](screenshots/shared-feed.png)](screenshots/shared-feed.png)
+
+*Real Roost interface with fictional sample data. Select the image for full size.
+Photo: [Joe Mabel](https://commons.wikimedia.org/wiki/File:Seattle_-_Volunteer_Park_Seventh_Day_Adventist_Church_02.jpg),
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), shown with a landscape crop.*
 
 ## Setup
 
-Open **Feed → Sources & preferences**, turn the feed on, and describe your interests and priorities. Capitol Hill Seattle Blog and The Seattle Times local RSS feeds are included as editable presets. Add other public RSS or Atom URLs, choose an optional editor agent, and set the refresh interval. Sources work without an editor; an editor adds sourced context and original synthesis. Email updates require selecting an agent with email access and enabling email updates explicitly.
+1. Open **Feed → Sources** and enable **Keep my feed up to date**.
+2. Describe **Your interests** and **What matters right now**. Include places,
+   topics, or projects you want the feed to follow.
+3. Add public RSS or Atom feeds and choose how often to check them. Capitol Hill
+   Seattle Blog and The Seattle Times local feeds are editable presets.
+4. Optionally choose a contributing agent to add sourced context and original
+   stories. Enable email updates separately if that agent has a connected email source.
 
-Use **Saved** to return to stories you have kept. Stories are ordered by their original publication time and grouped into local morning, afternoon, evening, yesterday, and older dates. Saving, dismissing, restoring, and more/less feedback persist across web and mobile. Source articles retain an attributed excerpt and original link. Agent-written stories include useful standalone summaries, citations, and a relevant source image where one is available. Images appear beneath each story summary and in the reader; missing images leave a text-only story. Feed refresh errors appear in the feed rather than silently claiming a successful check.
+Public sources work without a contributing agent or a Jev key. The feed starts
+disabled; saving enabled preferences starts a refresh. Use **Refresh** to check
+again between scheduled updates. Roost and its host must be running to refresh.
+
+## Read, save, and shape your feed
+
+Stories appear newest first, grouped into **This morning**, **This afternoon**,
+**This evening**, **Yesterday**, and earlier calendar dates in your local time.
+Source articles keep their publisher's timestamp when available, attribution,
+excerpt, and original link. Agent-written stories include standalone summaries
+and citations. A relevant source image appears beneath the summary and in the
+reader when one is available.
+
+Choose **Save** to keep a story and **Saved** to find it later. **More like this**
+and **Less like this** provide feedback for future curation; **Dismiss** removes
+a story from the stream, with an undo action. These changes are shared across
+web and iPhone. Opening a story does not create a conversation or mark it read.
+Refresh failures appear in the feed so you can distinguish saved content from a
+successful new check.
+
+## Discuss a story
+
+Choose **Discuss** to open a reply thread with the story and its sources. This
+also sends an initial question asking the agent to explain the story and why it
+matters to you. Continue the discussion in that thread, while the Feed remains
+your place to read and save stories.
 
 ## Jevi / Jev
 

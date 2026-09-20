@@ -7,6 +7,7 @@ COPY packages/typescript-config ./packages/typescript-config
 COPY packages/site-analytics ./packages/site-analytics
 RUN corepack pnpm --filter @roost/marketing... install --frozen-lockfile
 COPY apps/marketing ./apps/marketing
+COPY docs/screenshots ./docs/screenshots
 ARG VITE_DATADOG_APPLICATION_ID
 ARG VITE_DATADOG_CLIENT_TOKEN
 ARG VITE_DATADOG_SITE

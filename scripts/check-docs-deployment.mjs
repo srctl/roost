@@ -48,6 +48,16 @@ try {
   );
   assert.match(article, /Getting started/i);
   assert.notEqual(article, html, "Article must not be the home page");
+  for (const guide of ["feed", "dashboards", "juxi", "mobile", "payments"]) {
+    assert(html.includes(`href="/${guide}/"`), `Navigation link: ${guide}`);
+    const guideHtml = await request(`/${guide}/`, 200, /text\/html/, mutable);
+    assert.notEqual(guideHtml, html, `${guide}: must have its own article`);
+    for (const image of guideHtml.matchAll(
+      /<img[^>]+src="(\/media\/[^"\s]+\.png)"/g,
+    )) {
+      await request(image[1], 200, /image\/png/, mutable);
+    }
+  }
   const jobs = await request(
     "/coding-job-workspaces/",
     200,

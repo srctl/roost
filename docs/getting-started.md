@@ -74,14 +74,18 @@ button takes you back to the latest reply.
   **Agent settings → Automations**. See [Automations](automations.md).
 - Give another agent a specialist role, then ask an agent to delegate a focused
   task to it. See [Delegation](delegation.md).
-- Enable **Settings → Appearance → Dashboards** if you want saved trackers outside chat.
+- Open [Feed → Sources](feed.md) to follow publications and choose
+  your interests. An optional contributing agent adds sourced stories and, with
+  your opt-in, important email updates.
+- Enable **Settings → Appearance → Dashboards** for [interactive trackers](dashboards.md).
+  Add a to-do list, calorie log, or weather card, then ask the agent to show it in chat.
 - Choose **Coding agent** when creating a project coordinator, then follow
   [coding agents](coding-agents.md) and [Jobs workspaces](coding-job-workspaces.md)
   for previews, feedback, and review.
 - Open [Settings → Appearance](settings.md) to preview a color theme and choose
   your response style.
 - Set up [notifications](notifications.md) on each device and
-  [add Roost to your home screen](mobile.md) for phone access.
+  [connect the native iPhone app or add Roost to your home screen](mobile.md).
 
 Browser control needs a separately configured Linux X11 desktop. Follow
 [Shared computer](computer.md) when you want agents to work in a signed-in

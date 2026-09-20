@@ -1,7 +1,7 @@
 # Settings and appearance
 
-Open **Settings** from navigation to adjust appearance, notifications, or your
-account. Search settings by a control or theme name to find it across all groups.
+Open **Settings** from navigation to adjust appearance, notifications, payments,
+or your account. Search settings by a control or theme name to find it across all groups.
 **Clear search** or Escape returns to the selected group.
 
 ## Appearance
@@ -35,6 +35,14 @@ and all its devices. [Dashboards](dashboards.md) explains saved data and refresh
 and this browser's push subscription. Enable each device separately. You can
 choose turn completions, agent updates, and requests needing attention
 independently. See [Push notifications](notifications.md).
+
+## Payments
+
+Use **Settings → Payments** to connect the owner's Link wallet, review requests
+from all agents, and refresh purchase status. The native iPhone app offers the
+same shared wallet and purchase history. Each purchase requires approval in
+Link for its merchant and final total. See [Payments with Link](payments.md)
+for setup, supported purchases, and recovery.
 
 ## Account and security
 

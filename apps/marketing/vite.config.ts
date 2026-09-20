@@ -3,6 +3,9 @@ import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ command, mode }) => {
   const root = fileURLToPath(new URL(".", import.meta.url));
+  const screenshots = fileURLToPath(
+    new URL("../../docs/screenshots/", import.meta.url),
+  );
   const env = loadEnv(mode, root, "ROOST_");
   const docs =
     env.ROOST_DOCS_URL ||
@@ -30,7 +33,11 @@ The Roost app is single-user, needs private access, and requires a running host 
 - [Getting started](${markdownBase}/getting-started.md): Connect Codex and create an agent.
 - [Reply threads](${markdownBase}/message-threads.md): Focused follow-ups with shared agent context.
 - [Coding jobs](${markdownBase}/coding-job-workspaces.md): Previews, saved feedback, continuation, and PR review.
+- [Shared Feed](${markdownBase}/feed.md): Personalized sources, stories, saved articles, and discussions.
 - [Dashboards](${markdownBase}/dashboards.md): Saved trackers, datasets, and charts.
+- [Interactive trackers](${markdownBase}/juxi.md): Shared dashboard views, editable trackers in chat, and live weather.
+- [iPhone and mobile](${markdownBase}/mobile.md): Native app setup and home-screen installation.
+- [Payments with Link](${markdownBase}/payments.md): Owner-approved retail purchases and checkout requirements.
 - [Settings and appearance](${markdownBase}/settings.md): Themes, response styles, and account controls.
 - [Notifications](${markdownBase}/notifications.md): Device setup and meaningful updates.
 - [Passkey login](${markdownBase}/authentication.md): Optional native access control.
@@ -70,6 +77,12 @@ ${docs.includes("github.com/") ? "" : `\n## Full documentation\n\n- [Documentati
         transformIndexHtml(html) {
           return html
             .replaceAll(
+              "../../docs/screenshots/",
+              command === "serve"
+                ? `/@fs${screenshots}`
+                : "../../docs/screenshots/",
+            )
+            .replaceAll(
               "__DOCS_URL__",
               escapeAttribute(
                 docs.includes("github.com/")
@@ -97,9 +110,16 @@ ${docs.includes("github.com/") ? "" : `\n## Full documentation\n\n- [Documentati
               "__JOBS_URL__",
               escapeAttribute(docsPage("coding-job-workspaces")),
             )
+            .replaceAll("__FEED_URL__", escapeAttribute(docsPage("feed")))
+            .replaceAll("__JUXI_URL__", escapeAttribute(docsPage("juxi")))
             .replaceAll(
               "__DASHBOARDS_URL__",
               escapeAttribute(docsPage("dashboards")),
+            )
+            .replaceAll("__MOBILE_URL__", escapeAttribute(docsPage("mobile")))
+            .replaceAll(
+              "__PAYMENTS_URL__",
+              escapeAttribute(docsPage("payments")),
             )
             .replaceAll(
               "__SETTINGS_URL__",

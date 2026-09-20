@@ -1,4 +1,57 @@
-# Mobile and home-screen installation
+# iPhone and mobile web
+
+Use Roost from the native iPhone app or your phone's browser. Both connect to the
+same server, agents, Feed, notes, and trackers. Agents keep working when you close
+either client, while Roost and its host remain running.
+
+## Native iPhone app
+
+The SwiftUI app lives in `apps/ios` and requires iOS 17 or later. Build it with
+Xcode 16 or later; physical-device installation needs Apple signing. Follow the
+[native setup guide](https://github.com/srctl/roost/blob/main/apps/ios/README.md)
+for the project, signing, and device-token setup. TestFlight/App Store distribution
+and native push notifications require separate Apple configuration.
+
+On the server, create a token for this device:
+
+```sh
+roost mobile create --name iPhone --output ~/iphone-token.txt
+```
+
+Enter the server's HTTPS origin and that token in the app. The token is written
+once to an owner-readable file; transfer it privately and remove the transfer
+file after connecting. The app stores the connection in the iOS Keychain.
+It needs a directly reachable mobile API: an interactive browser-login proxy
+does not pass its cookies to the native app. The setup guide explains this boundary.
+
+### Move between your agent's work
+
+Use the bottom bar for **Chat**, **Dashboard**, **Notes**, and **Coding** for a
+coding agent. Each section keeps its own navigation history. **More → Computer**
+opens the shared desktop. The bar makes room for the keyboard while composing.
+
+- Swipe right on an assistant message to open a focused reply thread, or use its
+  context menu. Main conversations and reply threads keep separate drafts.
+- Attach photos or files, inspect image previews, and open attachments with
+  Quick Look. You can send an attachment without adding text.
+- Edit [trackers](dashboards.md), check weather, and inspect native charts in
+  Dashboard or directly in chat. The selected dashboard view is shared with web.
+- Open **Feed** beside Agents to read and save the same [personalized stories](feed.md).
+- Open **Settings → Payments** or the conversation's Payments control to review
+  [Link purchases](payments.md) and continue approval in Link.
+
+### Keep a draft through connection recovery
+
+Unsent drafts and pending sends recover after the app closes. Retrying an
+uncertain send uses its original message ID and payload, preventing duplicate
+turns. A confirmed rejected send returns to an editable draft.
+
+Use **Settings → Replace device token** to renew an expired token and keep drafts
+for the same server. **Disconnect this iPhone** revokes the token and clears local
+drafts. Reopening the app refreshes saved server state; conversation history and
+actions still require a connection.
+
+## Home-screen web app
 
 Open your Roost HTTPS address in Safari, then choose **Share → Add to Home Screen**
 and open it as a web app. Roost provides a standalone manifest, app icons, and an
@@ -75,10 +128,3 @@ The standalone height workaround follows [WebKit bug 254868](https://bugs.webkit
 If installed before the status-bar metadata was added, iOS may require removing
 and re-adding the home-screen app; [WebKit bug 316008](https://bugs.webkit.org/show_bug.cgi?id=316008)
 describes metadata captured at install time that does not update afterward.
-
-## Native iPhone app
-
-The native SwiftUI client lives in `apps/ios`. See the
-[native setup and API guide](https://github.com/srctl/roost/blob/main/apps/ios/README.md)
-for Xcode setup, device tokens, supported features, and simulator verification.
-The PWA and native app use the same Roost server and agent data.

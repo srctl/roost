@@ -16,9 +16,8 @@ connect it to Codex.
 
 ## Work with your agents
 
-- [Shared Feed](feed.md) — curated stories and optional important email updates in one stream.
-
-- [Message threads](message-threads.md) — keep a focused follow-up alongside the main conversation.
+- [Shared Feed](feed.md) — follow publications, personalize stories, and discuss what matters in a shared chronological stream.
+- [Message threads](message-threads.md) — keep focused follow-ups alongside the main conversation and react to replies on the web.
 - [Coding job workspaces](coding-job-workspaces.md) — open previews, save feedback, continue workers, and review PRs.
 - [Coding agents](coding-agents.md) — manage development jobs, task sources, and execution profiles.
 - [Automations](automations.md) — recurring work, timezones, quiet updates, and run history.
@@ -26,11 +25,12 @@ connect it to Codex.
 - [Files and approvals](files-and-approvals.md) — upload inputs, download results,
   and review actions that need your permission.
 - [Payments with Link](payments.md) — connect a wallet and approve agent purchases on web and iPhone.
-- [Dashboards](dashboards.md) — keep saved trackers, notes, and charts outside chat.
+- [Dashboards](dashboards.md) — edit to-do lists, log meals, and check live weather in Dashboard or chat.
+- [Adaptive views and trackers](juxi.md) — focus an existing dashboard by topic or format, with shared views on web and iPhone.
 - [Shared computer](computer.md) — watch browser work and take control of the desktop.
 - [Push notifications](notifications.md) — receive results and approval requests on your devices.
 - [Settings and appearance](settings.md) — find controls, preview themes, and choose how replies look.
-- [Mobile access](mobile.md) — add Roost to your home screen.
+- [iPhone and mobile web](mobile.md) — connect the native app or add Roost to your home screen.
 
 ## Build and operate
 

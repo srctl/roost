@@ -22,6 +22,10 @@ The original message and its files stay visible at the top. Reply counts include
 user and assistant messages; unread markers help you find new replies. Thread
 links and notifications reopen the relevant conversation.
 
+In the native iPhone app, swipe right on an assistant reply or choose **Reply in
+thread** from its context menu. Replies containing horizontally scrolling code
+or tables use the context menu so the swipe remains available for their content.
+
 ## Send a follow-up
 
 Use the thread's composer to send text and attachments as you would in the main
@@ -38,6 +42,26 @@ The agent receives the parent message and a bounded amount of recent context
 when a thread starts. It can retrieve relevant messages from its other
 conversations, but does not automatically receive every conversation in full.
 Ask it to check another thread when a decision there matters.
+
+## React with an emoji
+
+On the web, choose **Add reaction** below an assistant message. Pick a suggested
+emoji or enter a single emoji in **Any emoji**. Select your reaction again to
+remove it. Reactions work in the main conversation and reply threads, and show
+whether you or the agent reacted.
+
+Agents can add their own reactions to saved user or assistant messages during a
+run. Your reaction is saved as feedback for later conversation context; adding
+one does not send a message or start another turn. Emoji reaction controls are
+currently available in the browser and home-screen web app.
+
+## Long-running replies
+
+Replies can continue past ten minutes while the provider is still making
+progress. Roost times out a reply after ten minutes without progress, pauses
+that timer while an explicit approval is waiting, and restarts it after an
+accepted follow-up. **Stop** remains available. If a reply times out, its partial
+output stays in the conversation; inspect the result before retrying work.
 
 ## Technical reference
 
@@ -68,12 +92,8 @@ uses a tombstone, fences new sends/reopens and requests cancellation; archived
 rows remain in the origin and are excluded from retrieval. No cascading history
 or native-session deletion is performed.
 
-Ordinary replies time out after ten minutes without provider progress, rather
-than ten minutes of total work. Accepted follow-ups restart that window, and
-explicit approval requests pause it while waiting for a person. Stop remains
-available. Reflections keep their separate two-minute limit. A timed-out run
-keeps partial output and is never replayed automatically; inspect it before
-retrying an action that may already have happened.
+Reflections keep their separate two-minute limit. Timed-out and interrupted runs
+are never replayed automatically.
 
 Completed replies are reconciled from their streamed events and final turn items,
 without another full-history request. Tool activity display omits inline binary

@@ -12,6 +12,8 @@ The setting is saved on the Roost server and applies to every device.
 Turning it off hides the page's content and prevents dashboard reads and updates;
 existing widgets remain saved for when you enable it again.
 
+## Add an interactive tracker
+
 Use **Add tracker** to create a to-do list, calorie log, or weather card. Tasks can be
 added, completed, reopened and removed. Meal entries accept a label, date and
 explicit calorie count, with a total for the selected day. These controls save
@@ -25,6 +27,8 @@ includes the city, update time, attribution, and a **Refresh** control. Forecast
 are cached for 15 minutes; a provider outage clearly labels any older saved
 forecast. Weather works in Summary and directly in chat too.
 
+## Use a tracker in chat
+
 Ask **“Show my to-do list here”** or **“Create a meal log in this chat”** to use a
 tracker directly in the conversation. The agent saves it, then shows an inline
 view with working controls on web and iPhone. Chat and Dashboard share the same
@@ -33,6 +37,25 @@ snapshot. Editing a tracker never sends a chat message. Reply threads support th
 same controls, and closing a reply panel preserves unfinished tracker entries.
 If a tracker is removed or dashboards are turned off, its chat reference shows an
 unavailable message.
+
+[![Editable weekend checklist in a conversation, with a completed task, Add task field, and Open dashboard link.](screenshots/chat-trackers.png)](screenshots/chat-trackers.png)
+
+*Update the saved tracker directly in chat. Real Roost interface with fictional
+sample data. Select the image for full size.*
+
+## Focus your dashboard
+
+Choose **View** to show Everything, Summary, Charts, Tables, or Tasks. Only views
+with current content are offered. **Reset view** shows the complete dashboard.
+The selected view is saved on the server and shared with the native iPhone app.
+
+When the server has a TypeSafe planner credential, **Describe a view** can focus
+an existing tracker by topic: try “Show my garden progress” or “Show the launch
+checklist.” Roost uses Juxi to select an authored view of your current widgets;
+it does not rewrite their data. Manual views work without a planner credential.
+See [adaptive views and trackers](juxi.md) for setup and the shared web/native contract.
+
+## Ask your agent to maintain a tracker
 
 Talk to an agent about what you want to track and which information will be useful.
 For example:

@@ -28,6 +28,7 @@ const sections = [
     title: "Use Roost",
     slugs: [
       "agents-and-memory",
+      "feed",
       "message-threads",
       "coding-agents",
       "coding-job-workspaces",
@@ -36,6 +37,8 @@ const sections = [
       "files-and-approvals",
       "computer",
       "dashboards",
+      "juxi",
+      "payments",
       "notifications",
       "mobile",
       "settings",

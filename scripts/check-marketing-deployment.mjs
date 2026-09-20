@@ -85,6 +85,10 @@ try {
     "/dashboards/",
     "/settings/",
     "/authentication/",
+    "/feed/",
+    "/juxi/",
+    "/mobile/",
+    "/payments/",
   ]) {
     assert(html.includes(`href="${docs}${path}"`), `Docs link: ${path}`);
   }
@@ -93,6 +97,16 @@ try {
   assert(script && style, "Missing fingerprinted assets");
   await request(script, 200, /(?:text|application)\/javascript/, immutable);
   await request(style, 200, /text\/css/, immutable);
+  const screenshots = [
+    ...html.matchAll(/<img[^>]+src="(\/assets\/[^"\s]+\.png)"/g),
+  ];
+  assert(
+    screenshots.length >= 2,
+    "Marketing must publish the current product screenshots",
+  );
+  for (const screenshot of screenshots) {
+    await request(screenshot[1], 200, /image\/png/, immutable);
+  }
   for (const name of ["roost", "moss", "wisp", "peach"]) {
     await request(`/${name}.svg`, 200, /image\/svg\+xml/, mutable);
   }
