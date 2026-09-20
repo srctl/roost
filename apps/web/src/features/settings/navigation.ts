@@ -10,6 +10,11 @@ export const settingsGroups = [
     description: "Updates and delivery on this device.",
   },
   {
+    id: "payments",
+    label: "Payments",
+    description: "Your Link wallet and purchases across your agents.",
+  },
+  {
     id: "account",
     label: "Account & security",
     description: "Codex sign-in and access to Roost.",
@@ -48,6 +53,12 @@ export const settingsEntries = [
     group: "notifications",
     terms:
       "Notifications enabled pause Turn completed summary Agent updates deliveries tracked changes Needs attention work fails approval push This device enable disable permission browser lock screen previews setup",
+  },
+  {
+    id: "payments",
+    group: "payments",
+    terms:
+      "Stripe Link wallet connect disconnect payment purchases shopping checkout merchant amount currency approval approve receipt status card",
   },
   {
     id: "account",

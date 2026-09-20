@@ -17,6 +17,7 @@ import {
 import { releaseComputer } from "../computer/session.server";
 import { computerAction } from "../computer/tools.server";
 import { PublishArtifact, publishArtifact } from "../files/tools.server";
+import { handlePaymentTool, paymentTools } from "../payments/tools.server";
 import { reflectionTools } from "../reflections/store.server";
 import { handleAgentTool } from "./agent-tools.server";
 import { CodexError, openAppServer, openHostServer } from "./app-server.server";
@@ -294,6 +295,14 @@ const makeAgentServer = (
             },
           ],
         };
+      }
+      if (paymentTools.some((tool) => tool.name === call.tool)) {
+        if (!bound.runId) throw new Error("No active run.");
+        return handlePaymentTool(
+          { agentId, runId: bound.runId, signal: bound.toolSignal },
+          call.tool,
+          call.arguments,
+        );
       }
       if (call.tool === "roost_computer") {
         return Effect.runPromise(computerAction(agentId, call.arguments), {

@@ -71,6 +71,12 @@ Roost installation while configuring proxy routes. For local simulator developme
 - Queued and running responses use the web app's three-dot typing bubble. It
   respects Reduce Motion and stays hidden while an approval needs attention.
 - System/light/dark appearance and device disconnection.
+- Settings → Payments connects the server’s shared Link wallet, with browser sign-in,
+  an expiring verification code, purchase approval links, and purchase status. The
+  conversation’s card button opens that agent’s purchases. Returning to the app
+  refreshes Link status; disconnecting the wallet requires confirmation because it
+  affects all agents and devices on the server. Link links open in the system browser
+  without the Roost device token.
 - Default, Rosé Pine, Carbonfox, and Catppuccin themes, using the web app's exact
   light/dark semantic palettes. Choose Settings → Color theme for a live preview;
   the theme and appearance are saved on this iPhone independently of the browser.
@@ -151,6 +157,10 @@ with HTTP 409 for note revision conflicts. Other unexpected errors remain generi
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET / DELETE | `session` | Verify API version / revoke current device |
+| GET | `payments` | Shared Link wallet and purchases; optional `agentId` filter |
+| POST | `payments/connect` | Start Link wallet connection |
+| POST | `payments/refresh` | Refresh Link connection and purchase statuses |
+| DELETE | `payments/connection` | Disconnect this server’s shared Link wallet |
 | GET | `agents` | List agents |
 | GET | `agents/:id/conversation` | Snapshot; optional `conversationId`, `since`, `before` |
 | POST | `agents/:id/messages` | Send `{messageId, conversationId?, text, attachmentIds?}` |

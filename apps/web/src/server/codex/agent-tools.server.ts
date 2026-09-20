@@ -34,6 +34,7 @@ import {
   notificationTools,
   notifyAgent,
 } from "../notifications/tools.server";
+import { paymentTools } from "../payments/tools.server";
 import { reflectionTools } from "../reflections/store.server";
 import {
   ReactToMessage,
@@ -69,6 +70,7 @@ const DeleteAutomationTool = Schema.Struct({
 });
 
 export const agentTools: DynamicToolSpec[] = [
+  ...paymentTools,
   ...noteTools,
   ...reactionTools,
   {

@@ -22,6 +22,17 @@ struct SettingsView: View {
                         .foregroundStyle(palette.muted)
                 }
                 .listRowBackground(palette.surface)
+                if let api = app.api {
+                    Section {
+                        NavigationLink {
+                            PaymentsView(api: api)
+                        } label: {
+                            Label("Payments", systemImage: "creditcard")
+                        }
+                        .accessibilityIdentifier("paymentsSettings")
+                    }
+                    .listRowBackground(palette.surface)
+                }
                 Section("Appearance") {
                     NavigationLink {
                         ThemePickerView()

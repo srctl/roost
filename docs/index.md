@@ -21,6 +21,7 @@ connect it to Codex.
 - [Delegation](delegation.md) — let agents hand a focused task to a specialist.
 - [Files and approvals](files-and-approvals.md) — upload inputs, download results,
   and review actions that need your permission.
+- [Payments with Link](payments.md) — connect a wallet and approve agent purchases on web and iPhone.
 - [Dashboards](dashboards.md) — keep saved trackers, notes, and charts outside chat.
 - [Shared computer](computer.md) — watch browser work and take control of the desktop.
 - [Push notifications](notifications.md) — receive results and approval requests on your devices.

@@ -9,6 +9,7 @@ import { readConversationSnapshot } from "../runs/conversation-snapshot.server";
 import { cancelRun, enqueueChat } from "../runs/store.server";
 import { openReplyThread } from "../runs/threads.server";
 import { ensureTimeline, startWorker } from "../runs/worker.server";
+import { mobilePaymentRequest } from "./payments.server";
 import { MobileTokens, mobileIdentity } from "./tokens.server";
 import {
   MobileWorkspaceError,
@@ -106,6 +107,8 @@ export function createMobileHandler(
           ? downloadFileRequest(internal)
           : uploadFileRequest(internal);
       }
+      const payments = await mobilePaymentRequest(path, request, body);
+      if (payments) return json(payments.value, payments.status);
       const workspace = await mobileWorkspaceRequest(path, request, body);
       if (workspace) return json(workspace.value, workspace.status);
       const match =

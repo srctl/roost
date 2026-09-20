@@ -205,9 +205,8 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     );
     assert.equal(thread().options.model, "fake");
     assert.ok((await run(getAgentConversation(agent.id))).threadId);
-    // Either feature preview used tool version 11; base threads used 10.
-    // Both must get a fresh native thread with the combined tool inventory.
-    for (const version of [10, 11, 13, 14, 15]) {
+    // Include reaction-only threads (16) when upgrading the tool inventory.
+    for (const version of [10, 11, 13, 14, 15, 16]) {
       const old = await run(getAgentConversation(agent.id));
       await run(
         withAgentStore((store) =>
@@ -226,7 +225,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 16);
+      assert.equal(migrated.toolVersion, 17);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
@@ -241,6 +240,12 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_restore_note",
         "roost_read_conversations",
         "roost_react_to_message",
+        "roost_payment_status",
+        "roost_request_purchase",
+        "roost_wait_for_purchase",
+        "roost_fill_payment",
+        "roost_cancel_purchase",
+        "roost_record_purchase",
         "roost_list_models",
         "roost_save_automation",
         "roost_list_datasets",

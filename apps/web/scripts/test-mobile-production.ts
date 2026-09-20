@@ -63,6 +63,35 @@ try {
   const agents = await fetch(`${endpoint}/agents`, { headers });
   assert.equal(agents.status, 200);
   assert.equal((await agents.json())[0].name, "Fixture");
+  assert.equal((await fetch(`${endpoint}/payments`)).status, 401);
+  const payments = await fetch(`${endpoint}/payments`, { headers });
+  assert.equal(payments.status, 200);
+  assert.match(payments.headers.get("cache-control")!, /no-store/);
+  assert.deepEqual(await payments.json(), { connected: false, purchases: [] });
+  assert.equal(
+    (
+      await fetch(`${endpoint}/payments/refresh`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: "{}",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await fetch(`${endpoint}/payments/connect`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          Origin: "https://untrusted.example",
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      })
+    ).status,
+    403,
+  );
   assert.equal(
     (
       await fetch(`${endpoint}/agents`, {
@@ -81,7 +110,7 @@ try {
   );
   assert.equal((await fetch(`${endpoint}/agents`, { headers })).status, 401);
   console.log(
-    "Production mobile smoke passed: token authentication with web auth enabled, browser-route isolation, origin rejection, and revocation.",
+    "Production mobile smoke passed: token authentication, payment settings, browser-route isolation, origin rejection, and revocation.",
   );
 } finally {
   const stopped = new Promise<void>((resolve) =>

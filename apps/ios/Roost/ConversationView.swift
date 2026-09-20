@@ -264,6 +264,14 @@ struct ConversationView: View {
         }
         if isMain {
             ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    PaymentsView(api: model.api, agentId: model.agent.id)
+                } label: {
+                    Image(systemName: "creditcard")
+                }
+                .accessibilityLabel("Agent payments")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showThreads = true
                 } label: {

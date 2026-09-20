@@ -86,6 +86,9 @@ importers:
       '@simplewebauthn/server':
         specifier: 13.3.2
         version: 13.3.2
+      '@stripe/link-sdk':
+        specifier: 0.6.0
+        version: 0.6.0
       '@stylexjs/stylex':
         specifier: 0.19.0
         version: 0.19.0
@@ -1098,6 +1101,10 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@stripe/link-sdk@0.6.0':
+    resolution: {integrity: sha512-jbQLD5v98oS6mPijKrmw1Gb1FZacC/uD7IZGrOZc2ICnTNLtE0A1BsgHbDn4Iy7xLLTeNKXNZ4+PZRI3E5/9dQ==}
+    engines: {node: '>=20'}
 
   '@stylexjs/babel-plugin@0.19.0':
     resolution: {integrity: sha512-2SnVZIl047TtqKW0nRTn7Irz0kmoot1bxdGDE/HwfwfF7dJYHqwkIFg92s87v3hj7zxJobrHWwDx1p3qvQXW4g==}
@@ -3690,6 +3697,10 @@ snapshots:
       '@peculiar/x509': 1.14.3
 
   '@standard-schema/spec@1.1.0': {}
+
+  '@stripe/link-sdk@0.6.0':
+    dependencies:
+      zod: 4.5.4
 
   '@stylexjs/babel-plugin@0.19.0':
     dependencies:
