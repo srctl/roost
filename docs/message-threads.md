@@ -42,6 +42,20 @@ uses a tombstone, fences new sends/reopens and requests cancellation; archived
 rows remain in the origin and are excluded from retrieval. No cascading history
 or native-session deletion is performed.
 
+Ordinary replies time out after ten minutes without provider progress, rather
+than ten minutes of total work. Accepted follow-ups restart that window, and
+explicit approval requests pause it while waiting for a person. Stop remains
+available. Reflections keep their separate two-minute limit. A timed-out run
+keeps partial output and is never replayed automatically; inspect it before
+retrying an action that may already have happened.
+
+Completed replies are reconciled from their streamed events and final turn items,
+without another full-history request. Tool activity display omits inline binary
+images and audio and bounds long output; the original response still reaches the
+model. Existing stored history is retained. Transport diagnostics record failed
+request methods or malformed-message size and shape without logging prompts,
+credentials, or raw provider output.
+
 ## Shared context
 
 A new child session receives its parent and bounded recent main/reply context.
