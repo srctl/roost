@@ -56,6 +56,16 @@ Roost installation while configuring proxy routes. For local simulator developme
 
 - Server connection and device credentials saved in the iOS Keychain.
 - Agent list, search, and pull-to-refresh, using Roost's original pixel characters.
+- A shared Feed tab beside Agents, with publication articles, generated stories,
+  and personal updates in one native stream. All/Unread/Saved filters, source
+  attribution, original links, a full reader, save/dismiss, relevance feedback,
+  and discussion with an agent use the same server state as the web app.
+- Feed preferences for interests, current priorities, RSS/Atom publications,
+  refresh frequency, contributing agent, and optional important email updates.
+  Jev relevance scoring has a secure API-key field and a separate, off-by-default
+  opt-in for sending private update excerpts to TypeSafe. Feed generation starts
+  only after enabling it in preferences; a contributing agent needs its own
+  connected email source before it can surface email updates.
 - Native conversation history, incremental live updates, older-message pagination,
   activity disclosure, inline Markdown and fenced code, send, follow-up, and stop.
 - Swipe right on an assistant message to open its reply thread, with independent
@@ -152,6 +162,11 @@ with HTTP 409 for note revision conflicts. Other unexpected errors remain generi
 | --- | --- | --- |
 | GET / DELETE | `session` | Verify API version / revoke current device |
 | GET | `agents` | List agents |
+| GET | `feed?filter=all\|unread\|saved&before=…` | Shared feed page, settings, and refresh status |
+| POST | `feed/refresh` | Queue a feed refresh; returns 202 with status |
+| POST | `feed/settings` | Revision-checked interests, publications, privacy, and ranking settings |
+| POST | `feed/items/:id` | `{action}`: save/unsave, read/unread, dismiss/restore, more/less |
+| POST | `feed/items/:id/discuss` | Idempotent `{requestId, agentId?}`; returns agent and conversation IDs |
 | GET | `agents/:id/conversation` | Snapshot; optional `conversationId`, `since`, `before` |
 | POST | `agents/:id/messages` | Send `{messageId, conversationId?, text, attachmentIds?}` |
 | POST | `agents/:id/stop` | Cancel `{id: runId}` |

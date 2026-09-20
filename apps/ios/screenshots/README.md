@@ -4,6 +4,27 @@ Captured from the native SwiftUI app on an iPhone 16 Pro simulator running iOS
 18.6. All conversations and agents shown are fictional fixture data. No live
 Roost account or provider was used.
 
+## Shared Feed
+
+- [Shared feed beside Agents](shared-feed-native.png)
+- [Article reader and source link](feed-reader-native.png)
+- [Interests, priorities, and publications](feed-preferences-native.png)
+- [Discussion with the contributing agent](feed-discussion-native.png)
+
+The native feed uses the same authenticated server state as the web surface.
+The full suite passed 22 unit tests and all three native UI flows in
+`/tmp/roost-feed-native-final.xcresult`. A focused follow-up passed all 22 unit
+tests and the Feed UI flow after reader refinements in
+`/tmp/roost-feed-native-reviewed.xcresult`. The Feed flow verifies original source
+attribution, reader navigation, read/save persistence through the mobile API,
+Saved/Unread filters, preference persistence, dismissal/restoration, and discussion
+navigation. Existing chat, replies, approvals, themes, relaunch, dashboard,
+coding, and shared Notes continue to pass.
+
+The feed is deliberately paused in the fixture so verification never fetches
+publications or invokes a real agent/provider. Native project generation is
+deterministic; strict Swift formatting and changed-fixture Biome checks pass.
+
 ## Compact navigation and continuous Notes
 
 The refreshed workspace screenshots below show the smaller floating material

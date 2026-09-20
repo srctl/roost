@@ -226,7 +226,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 15);
+      assert.equal(migrated.toolVersion, 17);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
@@ -245,6 +245,8 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_list_datasets",
         "roost_save_dataset",
         "roost_delete_dataset",
+        "roost_read_feed",
+        "roost_publish_feed_item",
       ])
         assert.ok(names.includes(name), name);
     }

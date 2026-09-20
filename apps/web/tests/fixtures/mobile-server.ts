@@ -24,6 +24,11 @@ import {
   saveDataset,
   setDashboardPreference,
 } from "../../src/server/dashboards/store.server";
+import {
+  DEFAULT_FEED_SETTINGS,
+  putFeedItem,
+  saveFeedSettings,
+} from "../../src/server/feed/store.server";
 import { createMobileHandler } from "../../src/server/mobile/http.server";
 import { MobileTokens } from "../../src/server/mobile/tokens.server";
 import { saveNote } from "../../src/server/notes/store.server";
@@ -78,6 +83,85 @@ async function seed() {
     }),
   );
   await run(setDashboardPreference(true));
+  await run(
+    saveFeedSettings({
+      ...DEFAULT_FEED_SETTINGS,
+      enabled: false,
+      agentId: wisp.id,
+      interests:
+        "Seattle, Capitol Hill, neighborhood gardens, and local culture.",
+      priorities: "Weekend plans and important reservation changes.",
+    }),
+  );
+  await run(
+    withAgentStore((db) => {
+      const now = Date.now();
+      for (const [index, item] of [
+        {
+          id: "8015a702-9046-4513-8567-a3daf8b31111",
+          kind: "story" as const,
+          title: "Why Seattle’s little gardens matter",
+          summary:
+            "The small spaces connecting neighbors, one growing season at a time.",
+          body: "Seattle’s neighborhood gardens offer room to grow food and connect with the people nearby. This is a fictional story for the native test fixture.",
+          sourceName: "Wisp",
+          why: "You follow neighborhood gardens and local culture.",
+        },
+        {
+          id: "8015a702-9046-4513-8567-a3daf8b32222",
+          kind: "update" as const,
+          title: "Your dinner reservation moved to 7:30",
+          summary: "A reservation update worth checking before you head out.",
+          body: "Your fictional dinner reservation is now at 7:30 PM. This is a test fixture, not a real email.",
+          sourceName: "Email",
+          why: "This changes your plans for tonight.",
+        },
+        {
+          id: "8015a702-9046-4513-8567-a3daf8b33333",
+          kind: "article" as const,
+          title: "A greener walk through Capitol Hill",
+          summary:
+            "A neighborhood project brings more shade, safer crossings, and places to pause.",
+          body: "A new neighborhood project explores greener streets and more space to walk. This is a fictional article used to verify the native feed.\n\nFollow the original source for the full story.",
+          sourceName: "Capitol Hill Seattle Blog",
+          why: "You follow Capitol Hill news and changes to neighborhood public spaces.",
+        },
+      ].entries()) {
+        putFeedItem(
+          db,
+          {
+            ...item,
+            url:
+              item.kind === "update"
+                ? null
+                : "https://example.com/fixture/neighborhood",
+            imageUrl: null,
+            sourceUrl: "https://example.com",
+            authorAgentId: item.kind === "article" ? null : wisp.id,
+            publishedAt: now - (3 - index) * 3_600_000,
+            createdAt: now - (3 - index) * 60_000,
+            readAt: null,
+            saved: false,
+            dismissed: false,
+            topics: ["Seattle", "Capitol Hill"],
+            importance: item.kind === "update" ? "important" : "normal",
+            score: 0.9,
+            scoring: item.kind === "article" ? "basic" : "agent",
+            citations:
+              item.kind === "update"
+                ? []
+                : [
+                    {
+                      title: "Original source",
+                      url: "https://example.com/fixture/neighborhood",
+                    },
+                  ],
+          },
+          `fixture:${item.id}`,
+        );
+      }
+    }),
+  );
   await run(
     saveDataset(moss.id, {
       key: "herb-growth",

@@ -8,6 +8,7 @@ import {
   CodingWorkspaceMigrationError,
   migrateCodingWorkspace,
 } from "../coding/workspace-migration.server";
+import { migrateFeed, migrateFeedDeletion } from "../feed/migration.server";
 import { migrateAgentDeletion } from "./deletion-migration.server";
 import {
   FeatureMigrationError,
@@ -315,7 +316,9 @@ export function withAgentStore<A>(
           migrateNotes(db);
           migrateCodingWorkspace(db);
           migrateAgentNavigation(db);
+          migrateFeed(db);
           migrateAgentDeletion(db);
+          migrateFeedDeletion(db);
           db.exec("PRAGMA user_version=14; COMMIT");
         } catch (error) {
           db.exec("ROLLBACK");
@@ -470,7 +473,7 @@ export const saveConversationThread = (
         "INSERT INTO agent_sessions (agentId, threadId, archive) VALUES (?, ?, ?) ON CONFLICT(agentId) DO UPDATE SET threadId=excluded.threadId,archive=excluded.archive",
       ).run(agentId, threadId, archive);
     db.prepare(
-      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,15)",
+      "INSERT OR REPLACE INTO agent_tool_versions (threadId,version) VALUES (?,17)",
     ).run(threadId);
   });
 

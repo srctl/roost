@@ -7,6 +7,7 @@ struct AgentsView: View {
     @State private var search = ""
     @State private var settings = false
     @State private var selectedAgent: Agent?
+    @State private var surface = "agents"
     @Environment(\.roostReduceMotion) private var reduceMotion
     var filtered: [Agent] {
         app.agents.filter {
@@ -25,7 +26,17 @@ struct AgentsView: View {
                 }
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                agentList
+                TabView(selection: $surface) {
+                    if let api = app.api {
+                        FeedView(app: app, api: api)
+                            .tabItem { Label("Feed", systemImage: "newspaper") }
+                            .tag("feed")
+                    }
+                    agentList
+                        .tabItem { Label("Agents", systemImage: "bubble.left.and.bubble.right") }
+                        .tag("agents")
+                }
+                .tint(palette.accent)
             }
         }
     }

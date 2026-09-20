@@ -9,6 +9,7 @@ import { readConversationSnapshot } from "../runs/conversation-snapshot.server";
 import { cancelRun, enqueueChat } from "../runs/store.server";
 import { openReplyThread } from "../runs/threads.server";
 import { ensureTimeline, startWorker } from "../runs/worker.server";
+import { mobileFeedRequest } from "./feed.server";
 import { MobileTokens, mobileIdentity } from "./tokens.server";
 import {
   MobileWorkspaceError,
@@ -108,6 +109,8 @@ export function createMobileHandler(
       }
       const workspace = await mobileWorkspaceRequest(path, request, body);
       if (workspace) return json(workspace.value, workspace.status);
+      const feed = await mobileFeedRequest(path, request, body, prepare);
+      if (feed) return json(feed.value, feed.status);
       const match =
         /^agents\/([^/]+)\/(conversation|messages|stop|threads|approvals)$/.exec(
           path,

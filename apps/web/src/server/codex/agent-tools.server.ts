@@ -27,6 +27,7 @@ import {
   delegateTask,
   listDelegations,
 } from "../delegations/store.server";
+import { feedTools, handleFeedTool } from "../feed/tools.server";
 import { fileTools } from "../files/tools.server";
 import { handleNoteTool, noteTools } from "../notes/tools.server";
 import {
@@ -64,6 +65,7 @@ const DeleteAutomationTool = Schema.Struct({
 });
 
 export const agentTools: DynamicToolSpec[] = [
+  ...feedTools,
   ...noteTools,
   {
     type: "function",
@@ -206,6 +208,8 @@ export function handleAgentTool(
       );
     if (codingTools.some((spec) => spec.name === tool))
       return yield* handleCodingTool(agentId, runId, tool, arguments_);
+    if (feedTools.some((spec) => spec.name === tool))
+      return yield* handleFeedTool(agentId, runId, tool, arguments_);
     if (tool === "roost_notify")
       return yield* notifyAgent(
         agentId,
