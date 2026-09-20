@@ -7,6 +7,7 @@ struct DashboardActionRequest: Codable, Equatable {
         case deleteTodo = "delete-todo"
         case addMeal = "add-meal"
         case deleteMeal = "delete-meal"
+        case setWeatherUnit = "set-weather-unit"
     }
     let key: String
     let expectedRevision: Int
@@ -17,19 +18,34 @@ struct DashboardActionRequest: Codable, Equatable {
     var done: Bool?
     var date: String?
     var calories: Int?
+    var unit: WeatherUnit?
 }
 
 struct DashboardTrackerRequest: Codable, Equatable {
     let key: String
     let kind: DashboardTrackerKind
     let title: String
+    var locationId: Int?
+    var unit: WeatherUnit?
 }
 
 enum DashboardTrackerKind: String, Codable, CaseIterable, Identifiable {
-    case todo, calories
+    case todo, calories, weather
     var id: String { rawValue }
-    var title: String { self == .todo ? "To-do list" : "Calorie log" }
-    var symbol: String { self == .todo ? "checklist" : "fork.knife" }
+    var title: String {
+        switch self {
+        case .todo: "To-do list"
+        case .calories: "Calorie log"
+        case .weather: "Weather"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .todo: "checklist"
+        case .calories: "fork.knife"
+        case .weather: "cloud.sun"
+        }
+    }
 }
 
 struct DashboardTrackerDraft {
@@ -240,6 +256,7 @@ struct DashboardTrackerCreation: View {
     @Environment(JuxiDashboardModel.self) private var model
     let kind: DashboardTrackerKind
     @State private var title: String
+    @State private var weatherUnit: WeatherUnit = .celsius
     private var request: DashboardTrackerRequest? { model.pendingTrackerCreation }
     init(kind: DashboardTrackerKind) {
         self.kind = kind
@@ -253,13 +270,18 @@ struct DashboardTrackerCreation: View {
                         .disabled(model.updating || request != nil)
                         .accessibilityIdentifier("tracker-title")
                 }
+                if kind == .weather { weatherLocation }
                 if let error = model.error { ErrorNotice(text: error) }
                 Button(request == nil ? "Create tracker" : "Retry creating tracker") {
                     let request =
                         request
                         ?? DashboardTrackerRequest(
                             key: kind.rawValue + "-" + UUID().uuidString.lowercased(),
-                            kind: kind, title: title.trimmingCharacters(in: .whitespacesAndNewlines)
+                            kind: kind,
+                            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                            locationId: kind == .weather
+                                ? model.weatherLocationSearch.selected?.id : nil,
+                            unit: kind == .weather ? weatherUnit : nil
                         )
                     Task {
                         if await model.createTracker(request) {
@@ -269,7 +291,10 @@ struct DashboardTrackerCreation: View {
                 }
                 .disabled(
                     model.updating || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || title.trimmingCharacters(in: .whitespacesAndNewlines).utf16.count > 100)
+                        || title.trimmingCharacters(in: .whitespacesAndNewlines).utf16.count > 100
+                        || (kind == .weather && request == nil
+                            && model.weatherLocationSearch.selected == nil)
+                )
                 if model.updating { ProgressView("Creating…") }
             }
             .navigationTitle("New \(kind.title.lowercased())")
@@ -279,7 +304,60 @@ struct DashboardTrackerCreation: View {
                 }
             }
             .interactiveDismissDisabled(model.updating)
-            .onAppear { if let request { title = request.title } }
+            .onAppear {
+                if let request {
+                    title = request.title
+                    weatherUnit = request.unit ?? .celsius
+                }
+            }
         }
+    }
+
+    private var weatherLocation: some View {
+        Section("City") {
+            TextField(
+                "City or place",
+                text: Binding(
+                    get: { model.weatherLocationSearch.query },
+                    set: { model.weatherLocationSearch.query = $0 })
+            )
+            .submitLabel(.search).onSubmit(searchCities)
+            .accessibilityIdentifier("weather-city-query")
+            Button("Search cities", action: searchCities)
+                .disabled(!model.weatherLocationSearch.canSearch)
+            if model.weatherLocationSearch.loading { ProgressView("Searching cities…") }
+            if let error = model.weatherLocationSearch.error { ErrorNotice(text: error) }
+            if model.weatherLocationSearch.searched && model.weatherLocationSearch.results.isEmpty {
+                Text("No places found. Try a nearby city or a more specific name.").font(.caption)
+            }
+            ForEach(model.weatherLocationSearch.results) { location in
+                Button {
+                    model.weatherLocationSearch.selected = location
+                    if title == "Weather" { title = location.name + " weather" }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(location.name)
+                            Text(location.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if model.weatherLocationSearch.selected?.id == location.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                .accessibilityIdentifier("weather-location-\(location.id)")
+            }
+            Picker("Temperature", selection: $weatherUnit) {
+                ForEach(WeatherUnit.allCases) { Text($0.symbol).tag($0) }
+            }
+            .pickerStyle(.segmented).accessibilityIdentifier("weather-create-unit")
+            Text("Search for a city with Open-Meteo, then choose a result to load its forecast.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .disabled(model.updating || request != nil)
+    }
+    private func searchCities() {
+        Task { await model.weatherLocationSearch.search(using: model.weatherLocations) }
     }
 }

@@ -11,6 +11,8 @@ import {
 } from "../automations/store.server";
 import { codingTools, handleCodingTool } from "../coding/tools.server";
 import {
+  CreateWeatherTrackerTool,
+  createDashboardTracker,
   DeleteDashboard,
   dashboardTools,
   deleteDashboard,
@@ -21,6 +23,7 @@ import {
   SaveDataset,
   saveDashboard,
   saveDataset,
+  searchWeatherLocations,
   showDashboard,
 } from "../dashboards/tools.server";
 import {
@@ -214,6 +217,17 @@ export function handleAgentTool(
         yield* Schema.decodeUnknown(NotifyAgent)(arguments_),
       );
     if (tool === "roost_list_datasets") return yield* listDatasets(agentId);
+    if (tool === "roost_search_weather_locations")
+      return yield* searchWeatherLocations(agentId, arguments_);
+    if (tool === "roost_create_weather_tracker") {
+      const input = yield* Schema.decodeUnknown(CreateWeatherTrackerTool, {
+        onExcessProperty: "error",
+      })(arguments_);
+      return yield* createDashboardTracker(agentId, {
+        ...input,
+        kind: "weather",
+      });
+    }
     if (tool === "roost_save_dataset")
       return yield* saveDataset(
         agentId,

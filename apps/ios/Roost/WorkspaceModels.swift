@@ -20,6 +20,8 @@ struct DashboardBlock: Decodable {
     let type: String
     let id: String?
     let entries: [DashboardMeal]?
+    let locationId: Int?
+    let unit: WeatherUnit?
     let title: String?
     let text: String?
     let style: String?

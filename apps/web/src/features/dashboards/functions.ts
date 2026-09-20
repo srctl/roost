@@ -14,9 +14,14 @@ import {
   getDashboardPreference,
   setDashboardPreference,
 } from "../../server/dashboards/store.server";
+import {
+  searchWeatherLocations as findWeatherLocations,
+  getDashboardWeather as readWeather,
+} from "../../server/dashboards/weather.server";
 import { decodeCreateDashboardTracker, decodeDashboardAction } from "./actions";
 import { decodeChatDashboardInput } from "./chat";
 import { changeDashboardPresentationSchema } from "./presentation";
+import { decodeDashboardWeatherInput, decodeWeatherSearch } from "./weather";
 
 const result = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(
@@ -55,6 +60,32 @@ export const getChatDashboard = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(decodeChatDashboardInput)
   .handler(({ data }) => result(readChatDashboard(data.agentId, data.key)));
+
+export const searchWeatherLocations = createServerFn({ method: "GET" })
+  .middleware([available])
+  .validator((input: unknown) => {
+    const { agentId, ...search } = input as Record<string, unknown>;
+    return {
+      agentId: Schema.decodeUnknownSync(Schema.UUID)(agentId),
+      ...decodeWeatherSearch(search),
+    };
+  })
+  .handler(({ data: { agentId, ...data } }) =>
+    result(findWeatherLocations(agentId, data)),
+  );
+
+export const getDashboardWeather = createServerFn({ method: "GET" })
+  .middleware([available])
+  .validator((input: unknown) => {
+    const { agentId, ...weather } = input as Record<string, unknown>;
+    return {
+      agentId: Schema.decodeUnknownSync(Schema.UUID)(agentId),
+      ...decodeDashboardWeatherInput(weather),
+    };
+  })
+  .handler(({ data: { agentId, ...data } }) =>
+    result(readWeather(agentId, data)),
+  );
 
 export const changeDashboardPresentation = createServerFn({ method: "POST" })
   .middleware([available])

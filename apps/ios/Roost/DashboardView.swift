@@ -214,7 +214,12 @@ struct DashboardWidgetCard: View {
         VStack(alignment: .leading, spacing: cardContext.inline ? 16 : 20) {
             Text(widget.title).font(cardContext.inline ? .headline : .title3.weight(.semibold))
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                if ["todo-list", "calorie-log"].contains(block.type) {
+                if block.type == "weather" {
+                    DashboardWeatherView(
+                        widgetKey: widget.key, revision: widget.revision, block: block
+                    )
+                    .id(block.id)
+                } else if ["todo-list", "calorie-log"].contains(block.type) {
                     DashboardTrackerView(
                         widgetKey: widget.key, revision: widget.revision, block: block
                     )

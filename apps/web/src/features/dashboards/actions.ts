@@ -4,6 +4,8 @@ import {
   DashboardDate,
   DashboardItemLabel,
   DashboardKey,
+  WeatherLocationId,
+  WeatherUnit,
 } from "./schema";
 
 const common = {
@@ -32,6 +34,11 @@ export const DashboardAction = Schema.Union(
     calories: DashboardCalories,
   }),
   Schema.Struct({ ...common, action: Schema.Literal("delete-meal") }),
+  Schema.Struct({
+    ...common,
+    action: Schema.Literal("set-weather-unit"),
+    unit: WeatherUnit,
+  }),
 );
 export type DashboardAction = typeof DashboardAction.Type;
 export const decodeDashboardAction = Schema.decodeUnknownSync(DashboardAction, {
@@ -39,11 +46,21 @@ export const decodeDashboardAction = Schema.decodeUnknownSync(DashboardAction, {
 });
 
 export type DashboardContentAction = DashboardAction;
-export const CreateDashboardTracker = Schema.Struct({
+const trackerFields = {
   key: DashboardKey,
-  kind: Schema.Literal("todo", "calories"),
   title: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(100)),
+};
+export const CreateWeatherTracker = Schema.Struct({
+  ...trackerFields,
+  kind: Schema.Literal("weather"),
+  locationId: WeatherLocationId,
+  unit: WeatherUnit,
 });
+export const CreateDashboardTracker = Schema.Union(
+  Schema.Struct({ ...trackerFields, kind: Schema.Literal("todo") }),
+  Schema.Struct({ ...trackerFields, kind: Schema.Literal("calories") }),
+  CreateWeatherTracker,
+);
 export type CreateDashboardTracker = typeof CreateDashboardTracker.Type;
 export const decodeCreateDashboardTracker = Schema.decodeUnknownSync(
   CreateDashboardTracker,

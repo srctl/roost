@@ -20,7 +20,7 @@ enum DashboardFocus: String, Codable, CaseIterable, Identifiable {
     func includes(_ block: DashboardBlock) -> Bool {
         switch self {
         case .all: true
-        case .summary: ["metrics", "markdown"].contains(block.type)
+        case .summary: ["metrics", "markdown", "weather"].contains(block.type)
         case .charts: ["chart", "dataset-chart"].contains(block.type)
         case .tables: ["table", "calorie-log"].contains(block.type)
         case .tasks: ["tasks", "todo-list"].contains(block.type)
@@ -40,6 +40,8 @@ struct DashboardTransport {
     var enable: () async throws -> Void
     var action: (DashboardActionRequest) async throws -> DashboardWidget
     var create: (DashboardTrackerRequest) async throws -> DashboardWidget
+    var weather: (String, String, Bool) async throws -> WeatherReport
+    var locations: (String) async throws -> [WeatherLocation]
 
     init(api: RoostAPI, agentId: String, chatKey: String? = nil) {
         let path = "agents/\(agentId)/dashboard"
@@ -70,6 +72,18 @@ struct DashboardTransport {
             try JSONDecoder()
                 .decode(DashboardWidget.self, from: await api.post(path + "/tracker", $0))
         }
+        weather = { key, blockId, refresh in
+            var query = [
+                URLQueryItem(name: "key", value: key),
+                URLQueryItem(name: "blockId", value: blockId),
+            ]
+            if refresh { query.append(URLQueryItem(name: "refresh", value: "true")) }
+            return try await api.get(path + "/weather", query: query)
+        }
+        locations = { query in
+            try await api.get(
+                path + "/weather/locations", query: [URLQueryItem(name: "query", value: query)])
+        }
     }
 
     static func validateChat(_ snapshot: DashboardSnapshot, key: String) throws -> DashboardSnapshot
@@ -90,6 +104,12 @@ struct DashboardTransport {
         },
         create: @escaping (DashboardTrackerRequest) async throws -> DashboardWidget = { _ in
             throw APIError(message: "Tracker unavailable")
+        },
+        weather: @escaping (String, String, Bool) async throws -> WeatherReport = { _, _, _ in
+            throw APIError(message: "Weather unavailable")
+        },
+        locations: @escaping (String) async throws -> [WeatherLocation] = { _ in
+            throw APIError(message: "Search unavailable")
         }
     ) {
         self.load = load
@@ -97,6 +117,8 @@ struct DashboardTransport {
         self.enable = enable
         self.action = action
         self.create = create
+        self.weather = weather
+        self.locations = locations
     }
 }
 
@@ -109,17 +131,36 @@ struct DashboardTransport {
     private(set) var trackerRequests: [String: DashboardActionRequest] = [:]
     private(set) var trackerErrors: [String: String] = [:]
     private(set) var pendingTrackerCreation: DashboardTrackerRequest?
+    let weatherLocationSearch = WeatherLocationSearch()
     private let transport: DashboardTransport
     private var generation = 0
     private var refreshID = 0
     private var loadedIntent = false
     private var active = true
+    @ObservationIgnored private var weatherCards: [String: WeatherCardModel] = [:]
 
     init(transport: DashboardTransport) { self.transport = transport }
 
     func invalidate() {
         active = false
         generation += 1
+        for card in weatherCards.values { card.invalidate() }
+    }
+
+    func weatherCard(key: String, blockId: String) -> WeatherCardModel {
+        let token = key + "/" + blockId
+        if let existing = weatherCards[token] { return existing }
+        let card = WeatherCardModel { [transport] refresh in
+            try await transport.weather(key, blockId, refresh)
+        }
+        if !active { card.invalidate() }
+        weatherCards[token] = card
+        return card
+    }
+
+    func weatherLocations(query: String) async throws -> [WeatherLocation] {
+        guard active else { throw CancellationError() }
+        return try await transport.locations(query)
     }
 
     func refresh() async {
@@ -264,6 +305,7 @@ struct DashboardTransport {
             }
             mergeWidget(widget)
             pendingTrackerCreation = nil
+            if request.kind == .weather { weatherLocationSearch.query = "" }
             updating = false
             // Creating a tracker should reveal it even when the prior view hid its block type.
             if snapshot?.presentation != nil { await reset() }

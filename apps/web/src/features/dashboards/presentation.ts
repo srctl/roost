@@ -87,7 +87,11 @@ export function filterDashboardWidgets(
           case "all":
             return true;
           case "summary":
-            return block.type === "metrics" || block.type === "markdown";
+            return (
+              block.type === "metrics" ||
+              block.type === "markdown" ||
+              block.type === "weather"
+            );
           case "charts":
             return block.type === "chart" || block.type === "dataset-chart";
           case "tables":

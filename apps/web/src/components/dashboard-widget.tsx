@@ -10,6 +10,7 @@ import { colors } from "../styles/tokens.stylex";
 import { MessageContent } from "./conversation/message-content";
 import { DashboardChart } from "./dashboard-chart";
 import { DashboardTracker } from "./dashboard-tracker";
+import { DashboardWeather } from "./dashboard-weather";
 import { Button } from "./ui/button";
 
 function Chart({
@@ -138,6 +139,15 @@ function Block({
   onReload: () => Promise<void>;
 }) {
   switch (block.type) {
+    case "weather":
+      return (
+        <DashboardWeather
+          block={block}
+          widget={widget}
+          onChange={onChange}
+          onReload={onReload}
+        />
+      );
     case "todo-list":
     case "calorie-log":
       return (

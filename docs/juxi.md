@@ -53,7 +53,7 @@ from the current sorted widget inventory; only the stable widget key is persiste
 ## Interactive trackers
 
 Choose **Add tracker** on an enabled dashboard to create a **To-do list** or
-**Calorie log** with a name. These are working forms on web and iPhone. Agents can
+**Calorie log** with a name, or **Weather** with an explicitly selected city. These are working forms on web and iPhone. Agents can
 also compose `todo-list` and `calorie-log` blocks with existing dashboard blocks
 through `roost_save_dashboard`.
 
@@ -71,12 +71,48 @@ uses `POST dashboard/tracker` for creation and `POST dashboard/action` for bound
 item actions. These share the browser's server implementation and ownership checks.
 Existing static `tasks` blocks remain report snapshots; `todo-list` is editable.
 
+## Weather
+
+**Current branch status:** weather rendering, configuration, authenticated routes,
+and local provider fixtures are implemented. The live Open-Meteo adapter remains
+disconnected pending approval to send an explicitly chosen city to that service.
+City search and forecasts currently work only with the test fixture. The behavior
+below describes that implemented flow; it is not yet available with live weather.
+
+Choose **Add tracker → Weather**, search for a city or postal code, choose a matching
+location, and select Celsius or Fahrenheit. The same card works in Dashboard,
+Summary, and inline chat on web and iPhone. It shows current conditions, feels-like
+temperature, wind in km/h, and a five-day forecast with daily precipitation probability.
+**Refresh** requests an update; temperature-unit changes save to the widget.
+
+Weather blocks store only a location ID and unit. The server resolves the city and
+fetches actual conditions from [Open-Meteo](https://open-meteo.com/), so the agent
+cannot supply invented readings. Forecasts are cached for 15 minutes, with a
+60-second cooldown on explicit refreshes. Cached forecasts up to 24 hours old can
+remain visible after a provider failure, with a stale-data notice and their original
+update time. No-data failures show a retryable message. Loading a forecast never
+sends a chat message, requests device location, or calls a language model.
+
+Agent tools `roost_search_weather_locations` and `roost_create_weather_tracker`
+resolve and create a weather tracker. `roost_show_dashboard` then places the saved
+reference in an active conversation. The authenticated mobile read endpoints are
+`GET dashboard/weather/locations?query=…` and
+`GET dashboard/weather?key=…&blockId=…`; both enforce enabled dashboards and agent
+ownership. The provider layer validates locations and forecasts, bounds its cache, and shares
+in-flight requests. The live HTTP adapter has not been added.
+
+The public Open-Meteo service is for non-commercial use; commercial hosting needs
+its customer service. See [Open-Meteo pricing and terms](https://open-meteo.com/en/pricing).
+The planned adapter will use fixed provider hosts and server-only credentials where
+required. No weather credentials are read by this branch. Both renderers include
+provider attribution.
+
 ## Trackers in chat
 
 Ask the agent to create or show a tracker in the conversation. After saving it,
 the agent can call `roost_show_dashboard` with the saved widget key. Roost inserts
 an inline tracker in that conversation, including reply threads. To-do controls,
-calorie entry forms, charts, and other supported blocks work on web and iPhone.
+calorie entry forms, weather forecasts, charts, and other supported blocks work on web and iPhone.
 Edits update the same saved widget shown in Dashboard, without sending a chat
 message or changing the composer's draft.
 
@@ -156,6 +192,7 @@ corepack pnpm check
 corepack pnpm test:dashboard:browser
 corepack pnpm test:trackers:browser
 corepack pnpm test:chat-trackers:browser
+corepack pnpm test:weather:browser
 corepack pnpm dev:mobile-fixture
 ```
 
@@ -166,6 +203,13 @@ totals and task completion, and exercises concurrent edits and a lost save respo
 It also verifies that form drafts and exact retry requests survive view changes.
 The chat tracker test covers inline editing, repeated references, reply threads,
 both chat styles, shared dashboard state, and unavailable content.
+The weather browser test injects a deterministic local transport into a disposable
+copy of the built server. It verifies city selection, saved units, Summary focus,
+inline chat, draft preservation, stale recovery, and layouts at 1440, 390, and
+320 pixels. The production build stays untouched and external fetches are denied.
+Native weather UI tests use the same local provider seam and verify creation,
+unit changes, refresh, and the saved card in chat. These are fixture-data checks;
+they do not verify a live provider connection.
 Set `ROOST_TEST_CHROME` if using an installed Chrome executable instead of Playwright's
 browser. It does not make live model calls. Server tests mock the TypeSafe HTTP
 transport while exercising Juxi's actual planner and validation.

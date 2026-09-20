@@ -44,6 +44,10 @@ import {
   updateDashboardPresentation,
 } from "../dashboards/presentation.server";
 import { setDashboardPreference } from "../dashboards/store.server";
+import {
+  getDashboardWeather,
+  searchWeatherLocations,
+} from "../dashboards/weather.server";
 import { assertAvailable } from "../maintenance.server";
 import {
   noteHistory,
@@ -115,7 +119,7 @@ export async function mobileWorkspaceRequest(
   body: (request: Request) => Promise<unknown>,
 ): Promise<{ value: unknown; status?: number } | null> {
   const match =
-    /^agents\/([^/]+)\/(dashboard|jobs|note)(?:\/([^/]+)(?:\/(feedback|continue|stop|messages|acknowledge))?)?$/.exec(
+    /^agents\/([^/]+)\/(dashboard|jobs|note)(?:\/([^/]+)(?:\/(feedback|continue|stop|messages|acknowledge|locations))?)?$/.exec(
       path,
     );
   if (!match) return null;
@@ -178,6 +182,38 @@ export async function mobileWorkspaceRequest(
             restoreNote(agentId, Schema.decodeUnknownSync(NoteRestore)(data)),
           ),
         };
+    }
+  }
+  if (
+    section === "dashboard" &&
+    rawId === "weather" &&
+    request.method === "GET"
+  ) {
+    const query = new URL(request.url).searchParams;
+    if ([...query.keys()].some((key) => query.getAll(key).length !== 1))
+      throw new MobileWorkspaceError("Provide each weather option only once.");
+    const input = Object.fromEntries(query);
+    if (action === "locations")
+      return { value: await run(searchWeatherLocations(agentId, input)) };
+    if (!action) {
+      const refresh =
+        input.refresh === undefined
+          ? undefined
+          : input.refresh === "true"
+            ? true
+            : input.refresh === "false"
+              ? false
+              : null;
+      if (refresh === null)
+        throw new MobileWorkspaceError("Refresh must be true or false.");
+      return {
+        value: await run(
+          getDashboardWeather(agentId, {
+            ...input,
+            ...(refresh === undefined ? {} : { refresh }),
+          }),
+        ),
+      };
     }
   }
   if (

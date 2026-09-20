@@ -65,6 +65,10 @@ function applyAction(
   input: DashboardAction,
 ): DashboardBlock {
   switch (input.action) {
+    case "set-weather-unit":
+      if (block.type !== "weather")
+        throw invalid("This block is not a weather tracker.");
+      return { ...block, unit: input.unit };
     case "add-todo":
       if (block.type !== "todo-list")
         throw invalid("This block is not an editable to-do list.");
@@ -152,8 +156,6 @@ export const updateDashboardContent = (
           : invalid("Could not update this dashboard item."),
     });
     if (retry) return retry;
-    if (widget.revision !== data.expectedRevision)
-      return yield* Effect.fail(conflict());
     const index = widget.blocks.findIndex(
       (block) => "id" in block && block.id === data.blockId,
     );
@@ -161,6 +163,18 @@ export const updateDashboardContent = (
       return yield* Effect.fail(
         invalid("This dashboard block is no longer available."),
       );
+    const current = widget.blocks[index]!;
+    // Replaying a confirmed unit selection must not overwrite another change
+    // or increment the revision merely because its first response was lost.
+    if (
+      data.action === "set-weather-unit" &&
+      current.type === "weather" &&
+      current.unit === data.unit &&
+      data.expectedRevision <= widget.revision
+    )
+      return widget;
+    if (widget.revision !== data.expectedRevision)
+      return yield* Effect.fail(conflict());
     const block = yield* Effect.try({
       try: () => applyAction(widget.blocks[index]!, data),
       catch: (error) =>
@@ -197,7 +211,9 @@ function existingTracker(
     block &&
     "id" in block &&
     block.id === "items" &&
-    block.type === (data.kind === "todo" ? "todo-list" : "calorie-log")
+    (data.kind === "weather"
+      ? block.type === "weather" && block.locationId === data.locationId
+      : block.type === (data.kind === "todo" ? "todo-list" : "calorie-log"))
   )
     return widget;
   throw conflict(
@@ -242,7 +258,16 @@ export const createDashboardTracker = (
       blocks:
         data.kind === "todo"
           ? [{ type: "todo-list", id: "items", items: [] }]
-          : [{ type: "calorie-log", id: "items", entries: [] }],
+          : data.kind === "calories"
+            ? [{ type: "calorie-log", id: "items", entries: [] }]
+            : [
+                {
+                  type: "weather",
+                  id: "items",
+                  locationId: data.locationId,
+                  unit: data.unit,
+                },
+              ],
     }).pipe(
       Effect.catchAll((error) => {
         if (

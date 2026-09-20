@@ -19,6 +19,16 @@ const url = Schema.String.pipe(
 export const DashboardKey = Schema.String.pipe(
   Schema.pattern(/^[a-z0-9][a-z0-9-]{0,63}$/),
 );
+export const WeatherUnit = Schema.Literal("celsius", "fahrenheit");
+export type WeatherUnit = typeof WeatherUnit.Type;
+export const WeatherLocationId = Schema.Int.pipe(Schema.between(1, 2147483647));
+export const DashboardWeather = Schema.Struct({
+  type: Schema.Literal("weather"),
+  id: DashboardKey,
+  locationId: WeatherLocationId,
+  unit: WeatherUnit,
+}).annotations({ parseOptions: { onExcessProperty: "error" } });
+export type DashboardWeather = typeof DashboardWeather.Type;
 const revision = Schema.NonNegativeInt.pipe(Schema.greaterThan(0));
 const cell = Schema.Union(
   text,
@@ -150,6 +160,7 @@ export type DashboardCalorieLog = typeof DashboardCalorieLog.Type;
 export const DashboardBlock = Schema.Union(
   DashboardTodoList,
   DashboardCalorieLog,
+  DashboardWeather,
   DatasetChart,
   Schema.Struct({
     type: Schema.Literal("markdown"),
@@ -204,13 +215,19 @@ export const DashboardBlock = Schema.Union(
 
 function uniqueActionIds(blocks: readonly (typeof DashboardBlock.Type)[]) {
   const actionable = blocks.filter(
-    (block) => block.type === "todo-list" || block.type === "calorie-log",
+    (block) =>
+      block.type === "todo-list" ||
+      block.type === "calorie-log" ||
+      block.type === "weather",
   );
   const blockIds = actionable.map((block) => block.id);
   const itemIds = actionable.flatMap((block) =>
-    (block.type === "todo-list" ? block.items : block.entries).map(
-      (item) => item.id,
-    ),
+    (block.type === "todo-list"
+      ? block.items
+      : block.type === "calorie-log"
+        ? block.entries
+        : []
+    ).map((item) => item.id),
   );
   return (
     new Set(blockIds).size === blockIds.length &&

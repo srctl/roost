@@ -205,9 +205,9 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     );
     assert.equal(thread().options.model, "fake");
     assert.ok((await run(getAgentConversation(agent.id))).threadId);
-    // Older inventories, including version 16 before inline dashboard messages,
+    // Older inventories, including version 17 before live weather trackers,
     // must get a fresh native thread while preserving their archived history.
-    for (const version of [10, 11, 13, 14, 15, 16]) {
+    for (const version of [10, 11, 13, 14, 15, 16, 17]) {
       const old = await run(getAgentConversation(agent.id));
       await run(
         withAgentStore((store) =>
@@ -226,7 +226,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 17);
+      assert.equal(migrated.toolVersion, 18);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
@@ -250,6 +250,8 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_save_dataset",
         "roost_delete_dataset",
         "roost_show_dashboard",
+        "roost_search_weather_locations",
+        "roost_create_weather_tracker",
       ])
         assert.ok(names.includes(name), name);
       const dashboardSchema = JSON.stringify(

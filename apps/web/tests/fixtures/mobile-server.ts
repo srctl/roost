@@ -26,10 +26,18 @@ import {
   saveDataset,
   setDashboardPreference,
 } from "../../src/server/dashboards/store.server";
+import {
+  WeatherProvider,
+  weatherProvider,
+} from "../../src/server/dashboards/weather-provider.server";
 import { createMobileHandler } from "../../src/server/mobile/http.server";
 import { MobileTokens } from "../../src/server/mobile/tokens.server";
 import { saveNote } from "../../src/server/notes/store.server";
-import { enqueueChat } from "../../src/server/runs/store.server";
+import {
+  enqueueChat,
+  finishRun,
+  type Run,
+} from "../../src/server/runs/store.server";
 import { putMessage } from "../../src/server/runs/timeline.server";
 
 const root = mkdtempSync(join(tmpdir(), "roost-native-ui-"));
@@ -38,7 +46,94 @@ const run = Effect.runPromise;
 let loseNextSendResponse = false;
 let rejectNextSend = false;
 let fixtureAgentId = "";
+const weatherCity = {
+  id: 5809844,
+  name: "Seattle",
+  admin1: "Washington",
+  country: "United States",
+  latitude: 47.6062,
+  longitude: -122.3321,
+  timezone: "America/Los_Angeles",
+};
+function fixtureForecast(temperatureUnit: string) {
+  const now = new Date();
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: weatherCity.timezone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  const offset =
+    (Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    ) -
+      Math.floor(now.getTime() / 1000) * 1000) /
+    1000;
+  const midnight =
+    Date.UTC(parts.year, parts.month - 1, parts.day) / 1000 - offset;
+  const fahrenheit = temperatureUnit === "fahrenheit";
+  const unit = fahrenheit ? "°F" : "°C";
+  return {
+    utc_offset_seconds: offset,
+    current_units: {
+      temperature_2m: unit,
+      apparent_temperature: unit,
+      wind_speed_10m: "km/h",
+    },
+    daily_units: { temperature_2m_max: unit, temperature_2m_min: unit },
+    current: {
+      time: Math.floor(now.getTime() / 1000),
+      temperature_2m: fahrenheit ? 68 : 20,
+      apparent_temperature: fahrenheit ? 66 : 19,
+      weather_code: 2,
+      is_day: 1,
+      wind_speed_10m: 12,
+    },
+    daily: {
+      time: Array.from({ length: 5 }, (_, i) => midnight + i * 86400),
+      weather_code: [2, 3, 61, 2, 0],
+      temperature_2m_max: fahrenheit
+        ? [72, 70, 66, 69, 73]
+        : [22, 21, 19, 21, 23],
+      temperature_2m_min: fahrenheit
+        ? [54, 53, 51, 52, 54]
+        : [12, 12, 11, 11, 12],
+      precipitation_probability_max: [10, 20, 70, 25, 5],
+    },
+  };
+}
+
+function installWeatherFixture() {
+  // Local-only transport: exercise the real provider validation/cache and all
+  // authenticated routes without transferring searches or locations externally.
+  const local = new WeatherProvider({
+    transport: {
+      search: async (query) => ({
+        results: query.toLowerCase().includes("seattle") ? [weatherCity] : [],
+      }),
+      location: async () => weatherCity,
+      forecast: async (_location, unit) => fixtureForecast(unit),
+    },
+  });
+  weatherProvider.search = local.search.bind(local);
+  weatherProvider.location = local.location.bind(local);
+  weatherProvider.forecast = local.forecast.bind(local);
+}
 async function seed() {
+  installWeatherFixture();
   loseNextSendResponse = false;
   rejectNextSend = false;
   rmSync(root, { recursive: true, force: true });
@@ -333,6 +428,9 @@ const server = createServer(async (incoming, outgoing) => {
           key: input.key,
           kind: input.kind,
           title: input.title,
+          ...(input.kind === "weather"
+            ? { locationId: input.locationId, unit: input.unit }
+            : {}),
         }),
       );
       await run(
@@ -361,6 +459,19 @@ const server = createServer(async (incoming, outgoing) => {
       const shown = await run(
         showDashboard(fixtureAgentId, runId, { key: input.key }),
       );
+      if (input.complete === true) {
+        const completed = await run(
+          withAgentStore(
+            (db) =>
+              db
+                .prepare(
+                  "UPDATE runs SET owner='ui-fixture-chat' WHERE id=? RETURNING *",
+                )
+                .get(runId) as Run,
+          ),
+        );
+        await run(finishRun(completed, "completed", []));
+      }
       outgoing.writeHead(200, { "Content-Type": "application/json" });
       outgoing.end(JSON.stringify({ agentId: fixtureAgentId, ...shown }));
       return;

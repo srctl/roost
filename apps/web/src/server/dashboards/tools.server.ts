@@ -1,10 +1,12 @@
 import { JSONSchema } from "effect";
+import { CreateWeatherTracker } from "../../features/dashboards/actions";
 import { ShowDashboard } from "../../features/dashboards/chat";
 import {
   DeleteDashboard,
   SaveDashboard,
   SaveDataset,
 } from "../../features/dashboards/schema";
+import { WeatherSearch } from "../../features/dashboards/weather";
 import type { JsonValue } from "../codex/protocol/serde_json/JsonValue";
 import type { DynamicToolSpec } from "../codex/protocol/v2/DynamicToolSpec";
 
@@ -13,7 +15,11 @@ export {
   SaveDashboard,
   SaveDataset,
 } from "../../features/dashboards/schema";
+export { WeatherSearch } from "../../features/dashboards/weather";
+export { createDashboardTracker } from "./actions.server";
 export { showDashboard } from "./chat.server";
+export { searchWeatherLocations } from "./weather.server";
+export const CreateWeatherTrackerTool = CreateWeatherTracker.omit("kind");
 export {
   deleteDashboard,
   deleteDataset,
@@ -24,6 +30,22 @@ export {
 } from "./store.server";
 
 export const dashboardTools: DynamicToolSpec[] = [
+  {
+    type: "function",
+    name: "roost_search_weather_locations",
+    description:
+      "Find up to five canonical weather locations for a city explicitly requested by the user. Use the returned location ID rather than guessing coordinates or inferring the user's location. If several places match, clarify which city they mean. Dashboards must already be enabled. Location search uses the configured weather service.",
+    inputSchema: JSONSchema.make(WeatherSearch) as unknown as JsonValue,
+  },
+  {
+    type: "function",
+    name: "roost_create_weather_tracker",
+    description:
+      "Create a saved live weather tracker for the user's chosen location ID from roost_search_weather_locations. Supply a stable key, title and unit celsius|fahrenheit. This saves only canonical location configuration, never invented weather observations. Forecast values are fetched by Roost from the weather provider when displayed. Retry with the same key/title/location returns the current tracker. Call roost_show_dashboard with the key afterwards to show it inline in the current user conversation. Dashboards must already be enabled.",
+    inputSchema: JSONSchema.make(
+      CreateWeatherTrackerTool,
+    ) as unknown as JsonValue,
+  },
   {
     type: "function",
     name: "roost_list_datasets",
@@ -64,7 +86,7 @@ export const dashboardTools: DynamicToolSpec[] = [
     type: "function",
     name: "roost_save_dashboard",
     description:
-      "Create or update a named dashboard widget from the user's tracking requirements. Discuss the useful content with the user: general trackers, project/task status, or metrics/trends. Compose bounded native blocks: markdown notes, metrics (label/value/note), tables (columns/rows), line or bar charts (title/style/points with label/value), links (http/https sources), tasks (label/status todo|doing|done). For interactive trackers use todo-list {type,id:stable-block-key,items:[{id:UUID,label,done:boolean}]} or calorie-log {type,id:stable-block-key,entries:[{id:UUID,date:YYYY-MM-DD,label,calories:integer}]}. Empty interactive blocks are allowed so the user can add items. Todo lists hold up to 100 items; calorie logs hold up to 200 entries with calories from 0 to 20000. Labels are 1-200 characters. Dates must be valid calendar dates. Keep block IDs and item UUIDs stable; block IDs and item IDs must be unique within a widget. Interactive controls write directly to this saved widget; read the latest revision before agent edits and preserve entries the user added. Record only user-supplied calorie amounts; do not estimate, invent goals or add nutrition advice. For reusable visualizations, save data with roost_save_dataset and use dataset-chart blocks: datasetKey, style (line/bar/stacked-bar/area/donut/scatter), x column key, series [{column,label}]. Series must be numeric; scatter x must be numeric; series labels must be unique; bar/stacked-bar/donut category labels must be unique; donut supports up to 24 categories, exactly one series, and a positive total; area, stacked-bar, and donut require nonnegative values. Empty datasets show an empty state. No executable HTML. Use a stable lowercase key such as project-status. Omit expectedRevision only for a new key; read first and pass the current revision to update. Save complete desired content. Saving persists content without creating chat messages. For a user-requested tracker, call roost_show_dashboard with its key after saving to render the interactive tracker inline; do not duplicate it in prose. Existing user-authorized automations can refresh saved content without showing a chat card. Never invent fresh measurements or imply data was checked when it was not. Dashboards must already be enabled in Settings.",
+      "Create or update a named dashboard widget from the user's tracking requirements. Discuss the useful content with the user: general trackers, project/task status, or metrics/trends. Compose bounded native blocks: markdown notes, metrics (label/value/note), tables (columns/rows), line or bar charts (title/style/points with label/value), links (http/https sources), tasks (label/status todo|doing|done). For interactive trackers use todo-list {type,id:stable-block-key,items:[{id:UUID,label,done:boolean}]} or calorie-log {type,id:stable-block-key,entries:[{id:UUID,date:YYYY-MM-DD,label,calories:integer}]}. Empty interactive blocks are allowed so the user can add items. Todo lists hold up to 100 items; calorie logs hold up to 200 entries with calories from 0 to 20000. Labels are 1-200 characters. Dates must be valid calendar dates. Keep block IDs and item UUIDs stable; block IDs and item IDs must be unique within a widget. Interactive controls write directly to this saved widget; read the latest revision before agent edits and preserve entries the user added. Record only user-supplied calorie amounts; do not estimate, invent goals or add nutrition advice. For live weather, use roost_search_weather_locations then roost_create_weather_tracker. Composite widgets may include weather {type,id:stable-block-key,locationId:canonical-location-id,unit:celsius|fahrenheit}; save configuration only, never forecast values or provider URLs. For reusable visualizations, save data with roost_save_dataset and use dataset-chart blocks: datasetKey, style (line/bar/stacked-bar/area/donut/scatter), x column key, series [{column,label}]. Series must be numeric; scatter x must be numeric; series labels must be unique; bar/stacked-bar/donut category labels must be unique; donut supports up to 24 categories, exactly one series, and a positive total; area, stacked-bar, and donut require nonnegative values. Empty datasets show an empty state. No executable HTML. Use a stable lowercase key such as project-status. Omit expectedRevision only for a new key; read first and pass the current revision to update. Save complete desired content. Saving persists content without creating chat messages. For a user-requested tracker, call roost_show_dashboard with its key after saving to render the interactive tracker inline; do not duplicate it in prose. Existing user-authorized automations can refresh saved content without showing a chat card. Never invent fresh measurements or imply data was checked when it was not. Dashboards must already be enabled in Settings.",
     inputSchema: JSONSchema.make(SaveDashboard) as unknown as JsonValue,
   },
   {
