@@ -105,7 +105,10 @@ struct ConversationView: View {
         .themedScreen()
         .scrollDismissesKeyboard(.interactively)
         .defaultScrollAnchor(.bottom)
-        .refreshable { await model.refresh() }
+        .refreshable {
+            await model.refresh()
+            await model.dashboards.refreshVisible(force: true)
+        }
         .onChange(of: model.entries) { old, new in
             if followBottom || old.isEmpty { proxy.scrollTo("bottom", anchor: .bottom) }
         }
@@ -155,6 +158,7 @@ struct ConversationView: View {
             guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 await model.refresh()
+                await model.dashboards.refreshVisible()
                 do {
                     try await Task.sleep(
                         for: .seconds(model.error != nil ? 8 : model.busy ? 1 : 4))
@@ -178,9 +182,13 @@ struct ConversationView: View {
                     Label("Replying to", systemImage: "arrow.turn.down.right")
                         .font(.caption)
                         .foregroundStyle(palette.muted)
-                    Text(parent.text)
-                        .lineLimit(5)
-                        .font(.subheadline)
+                    if let key = parent.ui?.dashboardKey {
+                        InlineDashboardCard(
+                            store: model.dashboards, key: key,
+                            occurrence: model.conversationId + "-parent")
+                    } else {
+                        Text(parent.text).lineLimit(5).font(.subheadline)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,7 +200,9 @@ struct ConversationView: View {
                     style: isMain ? responseStyle : .codex,
                     canReply: isMain,
                     reply: { Task { replyID = await model.reply(to: entry.message) } },
-                    file: { file in Task { await open(file) } }
+                    file: { file in Task { await open(file) } },
+                    dashboards: model.dashboards,
+                    occurrence: model.conversationId + "-" + entry.id
                 )
                 .modifier(
                     MessageEntrance(animated: model.arrivingMessageIDs.contains(entry.id))

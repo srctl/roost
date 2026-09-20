@@ -41,9 +41,16 @@ struct DashboardTransport {
     var action: (DashboardActionRequest) async throws -> DashboardWidget
     var create: (DashboardTrackerRequest) async throws -> DashboardWidget
 
-    init(api: RoostAPI, agentId: String) {
+    init(api: RoostAPI, agentId: String, chatKey: String? = nil) {
         let path = "agents/\(agentId)/dashboard"
-        load = { try await api.get(path) }
+        load = {
+            if let chatKey {
+                let snapshot: DashboardSnapshot = try await api.get(
+                    path + "/chat", query: [URLQueryItem(name: "key", value: chatKey)])
+                return try Self.validateChat(snapshot, key: chatKey)
+            }
+            return try await api.get(path)
+        }
         present = { request in
             let data = try await api.post(path + "/presentation", request)
             do {
@@ -63,6 +70,15 @@ struct DashboardTransport {
             try JSONDecoder()
                 .decode(DashboardWidget.self, from: await api.post(path + "/tracker", $0))
         }
+    }
+
+    static func validateChat(_ snapshot: DashboardSnapshot, key: String) throws -> DashboardSnapshot
+    {
+        guard snapshot.widgets.count <= 1, snapshot.widgets.allSatisfy({ $0.key == key }) else {
+            throw APIError(
+                message: "This tracker does not match its chat reference. Refresh and try again.")
+        }
+        return snapshot
     }
 
     init(
@@ -97,25 +113,33 @@ struct DashboardTransport {
     private var generation = 0
     private var refreshID = 0
     private var loadedIntent = false
+    private var active = true
 
     init(transport: DashboardTransport) { self.transport = transport }
 
+    func invalidate() {
+        active = false
+        generation += 1
+    }
+
     func refresh() async {
-        guard !updating else { return }
+        guard active, !updating else { return }
         await load()
     }
 
     @discardableResult private func load(clearError: Bool = true) async -> Bool {
+        guard active else { return false }
         refreshID += 1
         let request = refreshID
         let generation = self.generation
         do {
             var incoming = try await transport.load()
-            guard !Task.isCancelled, generation == self.generation, request == refreshID else {
+            guard active, !Task.isCancelled, generation == self.generation, request == refreshID
+            else {
                 return false
             }
             // A delayed replica or refresh must never replace a newer confirmed selection.
-            if let existing = snapshot?.presentation,
+            if incoming.enabled, !incoming.widgets.isEmpty, let existing = snapshot?.presentation,
                 existing.revision > (incoming.presentation?.revision ?? -1)
             {
                 incoming.presentation = existing
@@ -149,7 +173,7 @@ struct DashboardTransport {
     func reset() async { await present(intent: "") }
 
     private func present(focus: DashboardFocus? = nil, intent: String? = nil) async {
-        guard !updating, let presentation = snapshot?.presentation else { return }
+        guard active, !updating, let presentation = snapshot?.presentation else { return }
         let submittedDraft = intentDraft
         let replacesDraft = intent != nil || intentDraft == presentation.intent
         updating = true
@@ -160,12 +184,13 @@ struct DashboardTransport {
             let result = try await transport.present(
                 DashboardPresentationRequest(
                     revision: presentation.revision, focus: focus, intent: intent))
-            guard !Task.isCancelled else { return }
+            guard active, !Task.isCancelled else { return }
             if result.revision >= (snapshot?.presentation?.revision ?? -1) {
                 snapshot?.presentation = result
                 if replacesDraft && intentDraft == submittedDraft { intentDraft = result.intent }
             }
         } catch let failure as APIError where failure.status == 409 {
+            guard active else { return }
             let reloaded = await load(clearError: false)
             if reloaded {
                 error =
@@ -180,7 +205,7 @@ struct DashboardTransport {
     }
 
     func trackerAction(_ input: DashboardActionRequest) async -> Bool {
-        guard !updating else { return false }
+        guard active, !updating else { return false }
         let token = input.key + "/" + input.blockId
         let request = trackerRequests[token] ?? input
         trackerRequests[token] = request
@@ -190,7 +215,7 @@ struct DashboardTransport {
         defer { updating = false }
         do {
             let widget = try await transport.action(request)
-            guard !Task.isCancelled else { return false }
+            guard active, !Task.isCancelled else { return false }
             mergeWidget(widget)
             trackerRequests[token] = nil
             if request.action == .addTodo,
@@ -210,6 +235,7 @@ struct DashboardTransport {
             }
             return true
         } catch let failure as APIError where failure.status == 409 {
+            guard active else { return false }
             trackerRequests[token] = nil
             let reloaded = await load(clearError: false)
             trackerErrors[token] =
@@ -224,7 +250,7 @@ struct DashboardTransport {
     }
 
     func createTracker(_ input: DashboardTrackerRequest) async -> Bool {
-        guard !updating else { return false }
+        guard active, !updating else { return false }
         let request = pendingTrackerCreation ?? input
         pendingTrackerCreation = request
         updating = true
@@ -232,7 +258,7 @@ struct DashboardTransport {
         generation += 1
         do {
             let widget = try await transport.create(request)
-            guard !Task.isCancelled else {
+            guard active, !Task.isCancelled else {
                 updating = false
                 return false
             }
@@ -270,7 +296,7 @@ struct DashboardTransport {
     }
 
     func enable() async {
-        guard !updating else { return }
+        guard active, !updating else { return }
         updating = true
         generation += 1
         defer { updating = false }

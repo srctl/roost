@@ -205,9 +205,9 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
     );
     assert.equal(thread().options.model, "fake");
     assert.ok((await run(getAgentConversation(agent.id))).threadId);
-    // Older inventories, including version 15 before editable dashboard blocks,
+    // Older inventories, including version 16 before inline dashboard messages,
     // must get a fresh native thread while preserving their archived history.
-    for (const version of [10, 11, 13, 14, 15]) {
+    for (const version of [10, 11, 13, 14, 15, 16]) {
       const old = await run(getAgentConversation(agent.id));
       await run(
         withAgentStore((store) =>
@@ -226,7 +226,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
       );
       const migrated = await run(getAgentConversation(agent.id));
       assert.notEqual(migrated.threadId, old.threadId);
-      assert.equal(migrated.toolVersion, 16);
+      assert.equal(migrated.toolVersion, 17);
       assert.equal(migrated.codexHome, old.codexHome);
       assert.equal(migrated.workspace, old.workspace);
       assert.ok(
@@ -249,6 +249,7 @@ test("automation models migrate, persist, validate, snapshot, and isolate execut
         "roost_list_datasets",
         "roost_save_dataset",
         "roost_delete_dataset",
+        "roost_show_dashboard",
       ])
         assert.ok(names.includes(name), name);
       const dashboardSchema = JSON.stringify(

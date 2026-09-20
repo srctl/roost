@@ -9,7 +9,12 @@ import {
   decodeDashboardAction,
 } from "../../features/dashboards/actions";
 import { chartDataError } from "../../features/dashboards/chart-data";
+import { decodeShowDashboard } from "../../features/dashboards/chat";
 import { changeDashboardPresentationSchema } from "../../features/dashboards/presentation";
+import type {
+  DashboardDataset,
+  DashboardWidget,
+} from "../../features/dashboards/schema";
 import {
   NoteInstructionWrite,
   NoteRestore,
@@ -33,6 +38,7 @@ import {
   createDashboardTracker,
   updateDashboardContent,
 } from "../dashboards/actions.server";
+import { readChatDashboard } from "../dashboards/chat.server";
 import {
   readDashboard,
   updateDashboardPresentation,
@@ -74,6 +80,31 @@ async function run<A, E extends { message: string }>(
   );
   if (!result.ok) throw new MobileWorkspaceError(result.error);
   return result.value;
+}
+
+function mobileDashboard<
+  T extends {
+    widgets: readonly DashboardWidget[];
+    datasets: readonly DashboardDataset[];
+  },
+>(snapshot: T) {
+  return {
+    ...snapshot,
+    widgets: snapshot.widgets.map((widget) => ({
+      ...widget,
+      blocks: widget.blocks.map((block) =>
+        block.type === "dataset-chart"
+          ? {
+              ...block,
+              chartError: chartDataError(
+                block,
+                snapshot.datasets.find((item) => item.key === block.datasetKey),
+              ),
+            }
+          : block,
+      ),
+    })),
+  };
 }
 
 // Called only after mobile bearer authentication. Every resource is resolved
@@ -151,6 +182,20 @@ export async function mobileWorkspaceRequest(
   }
   if (
     section === "dashboard" &&
+    rawId === "chat" &&
+    !action &&
+    request.method === "GET"
+  ) {
+    const query = new URL(request.url).searchParams;
+    if (query.getAll("key").length !== 1)
+      throw new MobileWorkspaceError("Provide one saved dashboard key.");
+    const input = decodeShowDashboard(Object.fromEntries(query));
+    return {
+      value: mobileDashboard(await run(readChatDashboard(agentId, input.key))),
+    };
+  }
+  if (
+    section === "dashboard" &&
     rawId === "tracker" &&
     !action &&
     request.method === "POST"
@@ -196,29 +241,8 @@ export async function mobileWorkspaceRequest(
       return { value: await run(setDashboardPreference(data.enabled)) };
     }
     if (request.method === "GET") {
-      const { enabled, datasets, widgets, presentation } = await run(
-        readDashboard(agentId),
-      );
       return {
-        value: {
-          enabled,
-          datasets,
-          presentation,
-          widgets: widgets.map((widget) => ({
-            ...widget,
-            blocks: widget.blocks.map((block) =>
-              block.type === "dataset-chart"
-                ? {
-                    ...block,
-                    chartError: chartDataError(
-                      block,
-                      datasets.find((item) => item.key === block.datasetKey),
-                    ),
-                  }
-                : block,
-            ),
-          })),
-        },
+        value: mobileDashboard(await run(readDashboard(agentId))),
       };
     }
   }

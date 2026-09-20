@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { OptionalMessageUI } from "../dashboards/chat";
 import { MAX_ATTACHMENTS } from "./files";
 
 const FileAttachment = Schema.Struct({
@@ -29,6 +30,7 @@ export const Message = Schema.Struct({
   id: Schema.String,
   role: Schema.Literal("user", "assistant", "notice", "activity"),
   text: Schema.String,
+  ui: Schema.optional(OptionalMessageUI),
   files: Schema.optional(Schema.Array(FileAttachment)),
   title: Schema.optional(Schema.String),
   status: Schema.optional(Schema.String),

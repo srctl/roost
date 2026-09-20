@@ -24,6 +24,7 @@ import { motion } from "../styles/motion.stylex";
 import { colors } from "../styles/tokens.stylex";
 import { AgentHeader } from "./agent-header";
 import { ApprovalRequests } from "./approval-requests";
+import { ChatDashboardProvider } from "./conversation/chat-dashboard";
 import { Composer } from "./conversation/composer";
 import { AgentMessage, UserMessage } from "./conversation/message";
 import { ConversationNotice } from "./conversation/notice";
@@ -354,336 +355,351 @@ export function Conversation({
   }
 
   return (
-    <section
-      {...stylex.props(styles.conversation, embedded && styles.embedded)}
-      aria-label={
-        parent ? `Thread with ${agent.name}` : `Conversation with ${agent.name}`
-      }
+    <ChatDashboardProvider
+      key={agent.id}
+      agentId={agent.id}
+      agentName={agent.name}
     >
-      {embedded ? (
-        <header {...stylex.props(styles.chatHeader)}>
-          <h2 {...stylex.props(styles.chatTitle)}>
-            {title ?? (parent ? "Thread" : "Conversation")}
-          </h2>
-          {onClose && (
-            <Button
-              onClick={onClose}
-              aria-label={
-                conversationId !== agent.id ? "Close thread" : "Close chat"
-              }
-              xstyle={
-                conversationId !== agent.id ? undefined : styles.closeChat
-              }
-            >
-              <Icon name="close" />
-            </Button>
-          )}
-        </header>
-      ) : (
-        <AgentHeader agent={agent}>
-          {computerEnabled && (
-            <Button
-              aria-label="Open computer"
-              aria-haspopup="dialog"
-              onClick={() => setManualComputerOpen(true)}
-            >
-              <Icon name="monitor" />
-            </Button>
-          )}
-        </AgentHeader>
-      )}
-      <div {...stylex.props(styles.historyArea)}>
-        <ScrollArea
-          label="Conversation history"
-          viewportRef={viewport}
-          onScroll={(event) => {
-            const element = event.currentTarget;
-            if (restoredScroll.current) {
-              const top = element.getBoundingClientRect().top;
-              const anchor = [
-                ...element.querySelectorAll<HTMLElement>("[data-message-id]"),
-              ].find((node) => node.getBoundingClientRect().bottom > top);
-              sessionStorage.setItem(
-                `roost:scroll:${conversationId}`,
-                JSON.stringify({
-                  top: element.scrollTop,
-                  anchor: anchor?.dataset.messageId,
-                  offset: anchor ? anchor.getBoundingClientRect().top - top : 0,
-                }),
-              );
-            }
-            const distance =
-              element.scrollHeight - element.scrollTop - element.clientHeight;
-            updateBottomButton();
-            if (settleUntil.current > Date.now()) {
-              if (distance < 2) settleUntil.current = 0;
-              return;
-            }
-            followReply.current = distance < 64;
-          }}
-        >
-          <div
-            ref={history}
-            {...stylex.props(
-              styles.history,
-              parent && styles.threadHistory,
-              live && styles.enter,
-            )}
-          >
-            {parent && (
-              <>
-                <ThreadMessage agent={agent} message={parent} />
-                <div {...stylex.props(styles.replySeparator)}>
-                  <span>
-                    {threads.find((thread) => thread.id === conversationId)
-                      ?.replyCount ?? 0}{" "}
-                    {threads.find((thread) => thread.id === conversationId)
-                      ?.replyCount === 1
-                      ? "reply"
-                      : "replies"}
-                  </span>
-                  <span {...stylex.props(styles.replyRule)} />
-                </div>
-              </>
-            )}
-            {loading && showLoading && (
-              <p role="status">Loading conversation… You can start typing.</p>
-            )}
-            {before !== null && (
+      <section
+        {...stylex.props(styles.conversation, embedded && styles.embedded)}
+        aria-label={
+          parent
+            ? `Thread with ${agent.name}`
+            : `Conversation with ${agent.name}`
+        }
+      >
+        {embedded ? (
+          <header {...stylex.props(styles.chatHeader)}>
+            <h2 {...stylex.props(styles.chatTitle)}>
+              {title ?? (parent ? "Thread" : "Conversation")}
+            </h2>
+            {onClose && (
               <Button
-                disabled={loadingOlder}
-                onClick={() => {
-                  if (viewport.current)
-                    prepend.current = {
-                      height: viewport.current.scrollHeight,
-                      top: viewport.current.scrollTop,
-                    };
-                  followReply.current = false;
-                  void loadOlder();
-                }}
+                onClick={onClose}
+                aria-label={
+                  conversationId !== agent.id ? "Close thread" : "Close chat"
+                }
+                xstyle={
+                  conversationId !== agent.id ? undefined : styles.closeChat
+                }
               >
-                {loadingOlder
-                  ? "Loading older messages…"
-                  : "Load older messages"}
+                <Icon name="close" />
               </Button>
             )}
-            {!loading && !messages.length && (
-              <div {...stylex.props(styles.empty)}>
-                <h2>
-                  {parent ? "No replies yet" : `Say hello to ${agent.name}.`}
-                </h2>
-                <p>
-                  {parent
-                    ? "Reply to this message to continue the discussion."
-                    : "Ask a question, share an idea, or tell your agent what you need."}
-                </p>
-              </div>
+          </header>
+        ) : (
+          <AgentHeader agent={agent}>
+            {computerEnabled && (
+              <Button
+                aria-label="Open computer"
+                aria-haspopup="dialog"
+                onClick={() => setManualComputerOpen(true)}
+              >
+                <Icon name="monitor" />
+              </Button>
             )}
-            {threadError && <p role="alert">{threadError}</p>}
-            {messages.map((message, index) => {
-              const existingThread = threads.find(
-                (thread) => thread.parentMessageId === message.id,
-              );
-              const openReply = async () => {
-                if (!onOpenThread) return;
-                if (existingThread) {
-                  setThreadError(undefined);
-                  onOpenThread(existingThread.id);
-                  return;
-                }
-                try {
-                  const result = await openThread({
-                    data: {
-                      agentId: agent.id,
-                      parentMessageId: message.id,
-                    },
-                  });
-                  if (result.ok) {
-                    setThreadError(undefined);
-                    onOpenThread(result.value.id);
-                  } else setThreadError(result.error);
-                } catch {
-                  setThreadError("Could not open this thread. Please retry.");
-                }
-              };
-
-              const replyAction = onOpenThread &&
-                message.role === "assistant" && (
-                  <Button
-                    xstyle={styles.replyAction}
-                    title="Reply in thread"
-                    aria-label="Reply in thread"
-                    onClick={openReply}
-                  >
-                    <Icon name="reply" />
-                  </Button>
+          </AgentHeader>
+        )}
+        <div {...stylex.props(styles.historyArea)}>
+          <ScrollArea
+            label="Conversation history"
+            viewportRef={viewport}
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              if (restoredScroll.current) {
+                const top = element.getBoundingClientRect().top;
+                const anchor = [
+                  ...element.querySelectorAll<HTMLElement>("[data-message-id]"),
+                ].find((node) => node.getBoundingClientRect().bottom > top);
+                sessionStorage.setItem(
+                  `roost:scroll:${conversationId}`,
+                  JSON.stringify({
+                    top: element.scrollTop,
+                    anchor: anchor?.dataset.messageId,
+                    offset: anchor
+                      ? anchor.getBoundingClientRect().top - top
+                      : 0,
+                  }),
                 );
-              return (
-                <div
-                  key={message.id}
-                  id={message.id}
-                  data-message-id={message.id}
-                >
-                  {parent &&
-                  (message.role === "user" || message.role === "assistant") ? (
-                    <ThreadMessage
-                      agent={agent}
-                      message={message}
-                      previous={messages[index - 1]}
-                      entering={entering.has(message.id)}
-                    />
-                  ) : message.role === "user" ? (
-                    <UserMessage
-                      files={message.files}
-                      entering={entering.has(message.id)}
-                    >
-                      {message.text}
-                    </UserMessage>
-                  ) : message.role === "notice" ? (
-                    <ConversationNotice agentId={agent.id} message={message} />
-                  ) : message.role === "activity" ? (
-                    <ToolActivity
-                      conversationId={conversationId}
-                      agentId={agent.id}
-                      message={message}
-                      entering={entering.has(message.id)}
-                    />
-                  ) : (
-                    <AgentMessage
-                      action={replyAction}
-                      name={agent.name}
-                      title={message.title}
-                      files={message.files}
-                      entering={entering.has(message.id)}
-                    >
-                      {message.text}
-                    </AgentMessage>
-                  )}
-                  {onOpenThread && existingThread && (
-                    <Button
-                      title="Reply in thread"
-                      aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
-                      onClick={openReply}
-                    >
-                      {replyLabel(message.id)}
-                    </Button>
-                  )}
-                  {computerEnabled &&
-                    computerOpen &&
-                    message.id === computerAnchor && (
-                      <Suspense
-                        fallback={<p role="status">Loading desktop…</p>}
-                      >
-                        <ComputerPanel
-                          agentName={agent.name}
-                          onClose={() => setDismissedComputerRun(runId)}
-                        />
-                      </Suspense>
-                    )}
-                </div>
-              );
-            })}
-            {computerEnabled &&
-              computerOpen &&
-              !messages.some((message) => message.id === computerAnchor) && (
-                <Suspense fallback={<p role="status">Loading desktop…</p>}>
-                  <ComputerPanel
-                    agentName={agent.name}
-                    onClose={() => setDismissedComputerRun(runId)}
-                  />
-                </Suspense>
-              )}
-            {busy &&
-              runStatus !== "queued" &&
-              !waitingForApproval &&
-              responseStyle === "messages" && (
-                <TypingIndicator name={agent.name} />
-              )}
-          </div>
-        </ScrollArea>
-        {showBottomButton && (
-          <Button
-            aria-label="Scroll to bottom"
-            title="Scroll to bottom"
-            xstyle={styles.bottomButton}
-            onClick={() => {
-              const element = viewport.current;
-              if (!element) return;
-              followReply.current = true;
-              smoothNext.current = false;
-              settleUntil.current = 0;
-              // An immediate jump also respects reduced motion and cannot fight
-              // the next manual scroll while a long animation settles.
-              scrollToEnd(element, false);
+              }
+              const distance =
+                element.scrollHeight - element.scrollTop - element.clientHeight;
               updateBottomButton();
-              element.focus({ preventScroll: true });
+              if (settleUntil.current > Date.now()) {
+                if (distance < 2) settleUntil.current = 0;
+                return;
+              }
+              followReply.current = distance < 64;
             }}
           >
-            <Icon name="arrow-down" size={20} />
-          </Button>
-        )}
-      </div>
-      {computerEnabled && manualComputerOpen && (
-        <Suspense fallback={<p role="status">Loading desktop…</p>}>
-          <ComputerPanel
-            agentName={agent.name}
-            fullScreen
-            onClose={() => setManualComputerOpen(false)}
-          />
-        </Suspense>
-      )}
-      {error && (
-        <Appear role="alert" xstyle={styles.error}>
-          {error}
-          <Button disabled={busy} onClick={() => void reload()}>
-            Reload conversation
-          </Button>
-        </Appear>
-      )}
-      {active && active.conversationId !== conversationId && (
-        <p role="status">
-          Agent is working in another conversation. New messages will queue.
-        </p>
-      )}
-      {runStatus === "queued" && (
-        <p role="status">
-          Queued — waiting for the agent’s active conversation.
-        </p>
-      )}
-      <ApprovalRequests
-        agentId={agent.id}
-        busy={busy}
-        runId={runId ?? undefined}
-      />
-      <Composer
-        suggestion={suggestion}
-        compact={!!parent}
-        agentId={agent.id}
-        agentName={agent.name}
-        conversationId={conversationId}
-        busy={busy}
-        loading={loading}
-        status={
-          busy
-            ? runStatus === "queued"
-              ? "Queued"
-              : waitingForApproval
-                ? "Waiting for you"
-                : liveStatus
-            : undefined
-        }
-        onSend={(text, files) => {
-          followReply.current = true;
-          smoothNext.current = true;
+            <div
+              ref={history}
+              {...stylex.props(
+                styles.history,
+                parent && styles.threadHistory,
+                live && styles.enter,
+              )}
+            >
+              {parent && (
+                <>
+                  <ThreadMessage agent={agent} message={parent} />
+                  <div {...stylex.props(styles.replySeparator)}>
+                    <span>
+                      {threads.find((thread) => thread.id === conversationId)
+                        ?.replyCount ?? 0}{" "}
+                      {threads.find((thread) => thread.id === conversationId)
+                        ?.replyCount === 1
+                        ? "reply"
+                        : "replies"}
+                    </span>
+                    <span {...stylex.props(styles.replyRule)} />
+                  </div>
+                </>
+              )}
+              {loading && showLoading && (
+                <p role="status">Loading conversation… You can start typing.</p>
+              )}
+              {before !== null && (
+                <Button
+                  disabled={loadingOlder}
+                  onClick={() => {
+                    if (viewport.current)
+                      prepend.current = {
+                        height: viewport.current.scrollHeight,
+                        top: viewport.current.scrollTop,
+                      };
+                    followReply.current = false;
+                    void loadOlder();
+                  }}
+                >
+                  {loadingOlder
+                    ? "Loading older messages…"
+                    : "Load older messages"}
+                </Button>
+              )}
+              {!loading && !messages.length && (
+                <div {...stylex.props(styles.empty)}>
+                  <h2>
+                    {parent ? "No replies yet" : `Say hello to ${agent.name}.`}
+                  </h2>
+                  <p>
+                    {parent
+                      ? "Reply to this message to continue the discussion."
+                      : "Ask a question, share an idea, or tell your agent what you need."}
+                  </p>
+                </div>
+              )}
+              {threadError && <p role="alert">{threadError}</p>}
+              {messages.map((message, index) => {
+                const existingThread = threads.find(
+                  (thread) => thread.parentMessageId === message.id,
+                );
+                const openReply = async () => {
+                  if (!onOpenThread) return;
+                  if (existingThread) {
+                    setThreadError(undefined);
+                    onOpenThread(existingThread.id);
+                    return;
+                  }
+                  try {
+                    const result = await openThread({
+                      data: {
+                        agentId: agent.id,
+                        parentMessageId: message.id,
+                      },
+                    });
+                    if (result.ok) {
+                      setThreadError(undefined);
+                      onOpenThread(result.value.id);
+                    } else setThreadError(result.error);
+                  } catch {
+                    setThreadError("Could not open this thread. Please retry.");
+                  }
+                };
 
-          return send(text, files);
-        }}
-        onStop={stop}
-      />
-      {/* Run after the composer fixes the history viewport height, before the
+                const replyAction = onOpenThread &&
+                  message.role === "assistant" && (
+                    <Button
+                      xstyle={styles.replyAction}
+                      title="Reply in thread"
+                      aria-label="Reply in thread"
+                      onClick={openReply}
+                    >
+                      <Icon name="reply" />
+                    </Button>
+                  );
+                return (
+                  <div
+                    key={message.id}
+                    id={message.id}
+                    data-message-id={message.id}
+                  >
+                    {parent &&
+                    (message.role === "user" ||
+                      message.role === "assistant") ? (
+                      <ThreadMessage
+                        agent={agent}
+                        message={message}
+                        previous={messages[index - 1]}
+                        entering={entering.has(message.id)}
+                      />
+                    ) : message.role === "user" ? (
+                      <UserMessage
+                        files={message.files}
+                        entering={entering.has(message.id)}
+                      >
+                        {message.text}
+                      </UserMessage>
+                    ) : message.role === "notice" ? (
+                      <ConversationNotice
+                        agentId={agent.id}
+                        message={message}
+                      />
+                    ) : message.role === "activity" ? (
+                      <ToolActivity
+                        conversationId={conversationId}
+                        agentId={agent.id}
+                        message={message}
+                        entering={entering.has(message.id)}
+                      />
+                    ) : (
+                      <AgentMessage
+                        action={replyAction}
+                        name={agent.name}
+                        title={message.title}
+                        files={message.files}
+                        ui={message.ui}
+                        entering={entering.has(message.id)}
+                      >
+                        {message.text}
+                      </AgentMessage>
+                    )}
+                    {onOpenThread && existingThread && (
+                      <Button
+                        title="Reply in thread"
+                        aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
+                        onClick={openReply}
+                      >
+                        {replyLabel(message.id)}
+                      </Button>
+                    )}
+                    {computerEnabled &&
+                      computerOpen &&
+                      message.id === computerAnchor && (
+                        <Suspense
+                          fallback={<p role="status">Loading desktop…</p>}
+                        >
+                          <ComputerPanel
+                            agentName={agent.name}
+                            onClose={() => setDismissedComputerRun(runId)}
+                          />
+                        </Suspense>
+                      )}
+                  </div>
+                );
+              })}
+              {computerEnabled &&
+                computerOpen &&
+                !messages.some((message) => message.id === computerAnchor) && (
+                  <Suspense fallback={<p role="status">Loading desktop…</p>}>
+                    <ComputerPanel
+                      agentName={agent.name}
+                      onClose={() => setDismissedComputerRun(runId)}
+                    />
+                  </Suspense>
+                )}
+              {busy &&
+                runStatus !== "queued" &&
+                !waitingForApproval &&
+                responseStyle === "messages" && (
+                  <TypingIndicator name={agent.name} />
+                )}
+            </div>
+          </ScrollArea>
+          {showBottomButton && (
+            <Button
+              aria-label="Scroll to bottom"
+              title="Scroll to bottom"
+              xstyle={styles.bottomButton}
+              onClick={() => {
+                const element = viewport.current;
+                if (!element) return;
+                followReply.current = true;
+                smoothNext.current = false;
+                settleUntil.current = 0;
+                // An immediate jump also respects reduced motion and cannot fight
+                // the next manual scroll while a long animation settles.
+                scrollToEnd(element, false);
+                updateBottomButton();
+                element.focus({ preventScroll: true });
+              }}
+            >
+              <Icon name="arrow-down" size={20} />
+            </Button>
+          )}
+        </div>
+        {computerEnabled && manualComputerOpen && (
+          <Suspense fallback={<p role="status">Loading desktop…</p>}>
+            <ComputerPanel
+              agentName={agent.name}
+              fullScreen
+              onClose={() => setManualComputerOpen(false)}
+            />
+          </Suspense>
+        )}
+        {error && (
+          <Appear role="alert" xstyle={styles.error}>
+            {error}
+            <Button disabled={busy} onClick={() => void reload()}>
+              Reload conversation
+            </Button>
+          </Appear>
+        )}
+        {active && active.conversationId !== conversationId && (
+          <p role="status">
+            Agent is working in another conversation. New messages will queue.
+          </p>
+        )}
+        {runStatus === "queued" && (
+          <p role="status">
+            Queued — waiting for the agent’s active conversation.
+          </p>
+        )}
+        <ApprovalRequests
+          agentId={agent.id}
+          busy={busy}
+          runId={runId ?? undefined}
+        />
+        <Composer
+          suggestion={suggestion}
+          compact={!!parent}
+          agentId={agent.id}
+          agentName={agent.name}
+          conversationId={conversationId}
+          busy={busy}
+          loading={loading}
+          status={
+            busy
+              ? runStatus === "queued"
+                ? "Queued"
+                : waitingForApproval
+                  ? "Waiting for you"
+                  : liveStatus
+              : undefined
+          }
+          onSend={(text, files) => {
+            followReply.current = true;
+            smoothNext.current = true;
+
+            return send(text, files);
+          }}
+          onStop={stop}
+        />
+        {/* Run after the composer fixes the history viewport height, before the
           server markup is painted. React follows subsequent message updates. */}
-      <script>{`{const v=document.currentScript?.parentElement?.querySelector('[aria-label="Conversation history"]');if(v)v.scrollTop=v.scrollHeight;}`}</script>
-    </section>
+        <script>{`{const v=document.currentScript?.parentElement?.querySelector('[aria-label="Conversation history"]');if(v)v.scrollTop=v.scrollHeight;}`}</script>
+      </section>
+    </ChatDashboardProvider>
   );
 }
 

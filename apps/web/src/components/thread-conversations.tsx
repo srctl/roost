@@ -7,6 +7,7 @@ import {
 } from "../features/chat/functions";
 import { colors } from "../styles/tokens.stylex";
 import { Conversation } from "./conversation";
+import { ChatDashboardProvider } from "./conversation/chat-dashboard";
 import { Button } from "./ui/button";
 
 export function ThreadConversations({
@@ -104,67 +105,78 @@ export function ThreadConversations({
     ? snapshot.value.threads.find((t) => t.id === id)?.parent
     : undefined;
   return (
-    <div {...stylex.props(styles.layout)}>
-      <div {...stylex.props(styles.main, !!id && styles.mainWithThread)}>
-        <Conversation
-          agent={agent}
-          initialConversation={initialConversation}
-          onOpenThread={open}
-        />
-      </div>
-      {id && (
-        <section
-          ref={panel}
-          aria-label="Reply thread"
-          {...stylex.props(styles.panel)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              close();
-            }
-            if (
-              event.key === "Tab" &&
-              matchMedia("(max-width: 700px)").matches
-            ) {
-              const items = panel.current?.querySelectorAll<HTMLElement>(
-                "button:not(:disabled), textarea, input, a[href]",
-              );
-              if (items?.length) {
-                const first = items[0]!,
-                  last = items[items.length - 1]!;
-                if (event.shiftKey && document.activeElement === first) {
-                  event.preventDefault();
-                  last.focus();
-                } else if (!event.shiftKey && document.activeElement === last) {
-                  event.preventDefault();
-                  first.focus();
+    <ChatDashboardProvider
+      key={agent.id}
+      agentId={agent.id}
+      agentName={agent.name}
+    >
+      <div {...stylex.props(styles.layout)}>
+        <div {...stylex.props(styles.main, !!id && styles.mainWithThread)}>
+          <Conversation
+            agent={agent}
+            initialConversation={initialConversation}
+            onOpenThread={open}
+          />
+        </div>
+        {id && (
+          <section
+            ref={panel}
+            aria-label="Reply thread"
+            {...stylex.props(styles.panel)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                close();
+              }
+              if (
+                event.key === "Tab" &&
+                matchMedia("(max-width: 700px)").matches
+              ) {
+                const items = panel.current?.querySelectorAll<HTMLElement>(
+                  "button:not(:disabled), textarea, input, a[href]",
+                );
+                if (items?.length) {
+                  const first = items[0]!,
+                    last = items[items.length - 1]!;
+                  if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                  } else if (
+                    !event.shiftKey &&
+                    document.activeElement === last
+                  ) {
+                    event.preventDefault();
+                    first.focus();
+                  }
                 }
               }
-            }
-          }}
-        >
-          {snapshot?.ok && (parent || snapshot.value.job) ? (
-            <Conversation
-              key={id}
-              agent={agent}
-              conversationId={id}
-              title={snapshot?.ok ? snapshot.value.job?.title : undefined}
-              initialConversation={snapshot}
-              parent={parent}
-              embedded
-              onClose={close}
-            />
-          ) : (
-            <>
-              <Button onClick={close}>Close thread</Button>
-              <p role={snapshot && !snapshot.ok ? "alert" : "status"}>
-                {snapshot && !snapshot.ok ? snapshot.error : "Loading thread…"}
-              </p>
-            </>
-          )}
-        </section>
-      )}
-    </div>
+            }}
+          >
+            {snapshot?.ok && (parent || snapshot.value.job) ? (
+              <Conversation
+                key={id}
+                agent={agent}
+                conversationId={id}
+                title={snapshot?.ok ? snapshot.value.job?.title : undefined}
+                initialConversation={snapshot}
+                parent={parent}
+                embedded
+                onClose={close}
+              />
+            ) : (
+              <>
+                <Button onClick={close}>Close thread</Button>
+                <p role={snapshot && !snapshot.ok ? "alert" : "status"}>
+                  {snapshot && !snapshot.ok
+                    ? snapshot.error
+                    : "Loading thread…"}
+                </p>
+              </>
+            )}
+          </section>
+        )}
+      </div>
+    </ChatDashboardProvider>
   );
 }
 const styles = stylex.create({

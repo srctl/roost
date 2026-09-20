@@ -21,6 +21,7 @@ import {
   SaveDataset,
   saveDashboard,
   saveDataset,
+  showDashboard,
 } from "../dashboards/tools.server";
 import {
   DelegateTask,
@@ -229,6 +230,14 @@ export function handleAgentTool(
         agentId,
         yield* Schema.decodeUnknown(SaveDashboard)(arguments_),
       );
+    if (tool === "roost_show_dashboard") {
+      if (allowMutations !== true)
+        return yield* new CodexError({
+          message:
+            "Inline trackers can only be shown in an active user conversation.",
+        });
+      return yield* showDashboard(agentId, runId, arguments_);
+    }
     if (tool === "roost_delete_dashboard")
       return yield* deleteDashboard(
         agentId,

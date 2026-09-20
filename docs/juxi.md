@@ -71,6 +71,27 @@ uses `POST dashboard/tracker` for creation and `POST dashboard/action` for bound
 item actions. These share the browser's server implementation and ownership checks.
 Existing static `tasks` blocks remain report snapshots; `todo-list` is editable.
 
+## Trackers in chat
+
+Ask the agent to create or show a tracker in the conversation. After saving it,
+the agent can call `roost_show_dashboard` with the saved widget key. Roost inserts
+an inline tracker in that conversation, including reply threads. To-do controls,
+calorie entry forms, charts, and other supported blocks work on web and iPhone.
+Edits update the same saved widget shown in Dashboard, without sending a chat
+message or changing the composer's draft.
+
+The message stores a bounded reference to the agent's widget, not a copy of its
+data. It shows the latest saved content when reopened and periodically refreshes
+while visible. The inline view always shows that widget's complete content,
+independently of the dashboard's selected view. Deleted trackers and disabled
+dashboards show an unavailable message; they never fall back to another tracker.
+Old clients can still read the message's plain-text fallback.
+
+Only an active user-chat run can show a tracker, and the server derives the target
+conversation from that run. Repeating the tool for the same run and key does not
+duplicate the message. Background saves remain quiet. Both clients validate the
+structured reference and Juxi plan; ordinary Markdown is never executed as UI.
+
 ## Coding handoff
 
 Coding job workspaces now have **Review**, **Try**, and **Overview** views backed by
@@ -134,6 +155,7 @@ Use the pinned Corepack pnpm toolchain from the repository root:
 corepack pnpm check
 corepack pnpm test:dashboard:browser
 corepack pnpm test:trackers:browser
+corepack pnpm test:chat-trackers:browser
 corepack pnpm dev:mobile-fixture
 ```
 
@@ -142,6 +164,8 @@ selection, reload, shared mobile state, conflicts, reset, and viewport geometry.
 The tracker browser test creates both tracker types through the UI, checks daily
 totals and task completion, and exercises concurrent edits and a lost save response.
 It also verifies that form drafts and exact retry requests survive view changes.
+The chat tracker test covers inline editing, repeated references, reply threads,
+both chat styles, shared dashboard state, and unavailable content.
 Set `ROOST_TEST_CHROME` if using an installed Chrome executable instead of Playwright's
 browser. It does not make live model calls. Server tests mock the TypeSafe HTTP
 transport while exercising Juxi's actual planner and validation.

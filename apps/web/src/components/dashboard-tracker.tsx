@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useState,
 } from "react";
 import type { DashboardContentAction } from "../features/dashboards/actions";
@@ -84,6 +85,7 @@ export function DashboardTracker({
   onReload: () => Promise<void>;
 }) {
   const context = useContext(DraftContext);
+  const instance = useId();
   if (!context) throw new Error("Dashboard trackers require a draft owner.");
   const { drafts, update } = context;
   const token = `${widget.key}/${block.type}/${block.id}`;
@@ -144,7 +146,7 @@ export function DashboardTracker({
       setSaving(false);
     }
   }
-  const fieldId = `tracker-${widget.key}-${block.id}`;
+  const fieldId = `tracker-${instance}-${widget.key}-${block.id}`;
   const completed =
     block.type === "todo-list" ? block.items.filter((item) => item.done) : [];
   const open =

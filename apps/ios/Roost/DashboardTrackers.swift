@@ -60,6 +60,7 @@ enum DashboardTrackerValues {
 
 struct DashboardTrackerView: View {
     @Environment(\.palette) private var palette
+    @Environment(\.dashboardCardContext) private var cardContext
     @Environment(JuxiDashboardModel.self) private var model
     let widgetKey: String
     let revision: Int?
@@ -120,7 +121,7 @@ struct DashboardTrackerView: View {
                         .accessibilityLabel(
                             "Mark \(item.label) \(item.done == true ? "incomplete" : "complete")"
                         )
-                        .accessibilityIdentifier("todo-toggle-\(id)")
+                        .accessibilityIdentifier(cardContext.identifier("todo-toggle-\(id)"))
                         Text(item.label).strikethrough(item.done == true)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         Button(role: .destructive) {
@@ -135,7 +136,8 @@ struct DashboardTrackerView: View {
             HStack(alignment: .center) {
                 TextField("Add a task", text: draft.todo)
                     .focused($editing).submitLabel(.done).onSubmit(addTodo)
-                    .disabled(locked).accessibilityIdentifier("todo-input-\(block.id ?? "")")
+                    .disabled(locked)
+                    .accessibilityIdentifier(cardContext.identifier("todo-input-\(block.id ?? "")"))
                 Button(action: addTodo) {
                     Image(systemName: "plus").frame(minWidth: 44, minHeight: 44)
                 }
@@ -155,14 +157,15 @@ struct DashboardTrackerView: View {
         let entries = (block.entries ?? []).filter { $0.date == day }
         return VStack(alignment: .leading, spacing: 16) {
             DatePicker("Day", selection: draft.day, displayedComponents: .date)
-                .disabled(locked).accessibilityIdentifier("calorie-day-\(block.id ?? "")")
+                .disabled(locked)
+                .accessibilityIdentifier(cardContext.identifier("calorie-day-\(block.id ?? "")"))
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(DashboardTrackerValues.total(block.entries ?? [], day: day).formatted())
                     .font(.system(.largeTitle, design: .rounded).weight(.semibold))
                 Text("kcal logged").font(.subheadline).foregroundStyle(palette.muted)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("calorie-total-\(block.id ?? "")")
+            .accessibilityIdentifier(cardContext.identifier("calorie-total-\(block.id ?? "")"))
             if entries.isEmpty { Text("No entries for this day.").foregroundStyle(palette.muted) }
             ForEach(entries) { entry in
                 HStack {
@@ -179,11 +182,12 @@ struct DashboardTrackerView: View {
             VStack(alignment: .leading, spacing: 12) {
                 TextField("Meal or snack", text: draft.meal)
                     .focused($editing).textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("meal-input-\(block.id ?? "")")
+                    .accessibilityIdentifier(cardContext.identifier("meal-input-\(block.id ?? "")"))
                 HStack {
                     TextField("Calories", text: draft.calories)
                         .keyboardType(.numberPad).focused($editing).textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("calories-input-\(block.id ?? "")")
+                        .accessibilityIdentifier(
+                            cardContext.identifier("calories-input-\(block.id ?? "")"))
                     Button("Add meal", action: addMeal).buttonStyle(.borderedProminent)
                         .disabled(
                             !validLabel(draft.wrappedValue.meal)

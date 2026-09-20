@@ -55,7 +55,8 @@
     "ios:build": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -sdk iphonesimulator -derivedDataPath apps/ios/build build",
     "ios:test": "xcodebuild -project apps/ios/Roost.xcodeproj -scheme Roost -derivedDataPath apps/ios/build test",
     "test:dashboard:browser": "corepack pnpm --filter @roost/web test:dashboard:browser",
-    "test:trackers:browser": "corepack pnpm --filter @roost/web test:trackers:browser"
+    "test:trackers:browser": "corepack pnpm --filter @roost/web test:trackers:browser",
+    "test:chat-trackers:browser": "corepack pnpm --filter @roost/web test:chat-trackers:browser"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"

@@ -204,14 +204,15 @@ struct DashboardView: View {
 
 struct DashboardWidgetCard: View {
     @Environment(\.palette) private var palette
+    @Environment(\.dashboardCardContext) private var cardContext
     let widget: DashboardWidget
     let blocks: [DashboardBlock]
     let datasets: [DashboardDataset]
     let discuss: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(widget.title).font(.title3.weight(.semibold))
+        VStack(alignment: .leading, spacing: cardContext.inline ? 16 : 20) {
+            Text(widget.title).font(cardContext.inline ? .headline : .title3.weight(.semibold))
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 if ["todo-list", "calorie-log"].contains(block.type) {
                     DashboardTrackerView(
@@ -226,17 +227,19 @@ struct DashboardWidgetCard: View {
                 Text(Date(milliseconds: widget.updatedAt), style: .relative)
                     .font(.caption).foregroundStyle(palette.muted)
                 Spacer()
-                Button {
-                    discuss(
-                        "Give me a brief update on the \"\(widget.title)\" dashboard (key: \(widget.key)), including unfinished tasks and suggested next steps. Read the current dashboard data first."
-                    )
-                } label: {
-                    Label("Discuss", systemImage: "bubble.left")
+                if !cardContext.inline {
+                    Button {
+                        discuss(
+                            "Give me a brief update on the \"\(widget.title)\" dashboard (key: \(widget.key)), including unfinished tasks and suggested next steps. Read the current dashboard data first."
+                        )
+                    } label: {
+                        Label("Discuss", systemImage: "bubble.left")
+                    }
+                    .font(.subheadline)
                 }
-                .font(.subheadline)
             }
         }
-        .padding(20)
+        .padding(cardContext.inline ? 16 : 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(palette.surface, in: RoundedRectangle(cornerRadius: 24))
     }

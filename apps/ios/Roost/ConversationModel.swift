@@ -5,6 +5,7 @@ import Observation
     let agent: Agent
     let conversationId: String
     let api: RoostAPI
+    let dashboards: ChatDashboardStore
     var entries: [Entry] = []
     var threads: [ReplyThread] = []
     var approvals: [Approval] = []
@@ -56,10 +57,12 @@ import Observation
             }
     }
 
-    init(agent: Agent, conversationId: String, api: RoostAPI) {
+    init(agent: Agent, conversationId: String, api: RoostAPI, dashboards: ChatDashboardStore? = nil)
+    {
         self.agent = agent
         self.conversationId = conversationId
         self.api = api
+        self.dashboards = dashboards ?? ChatDashboardStore(api: api, agentId: agent.id)
         do {
             if let saved = try Drafts.load(
                 server: api.connection.server, agent: agent.id, conversation: conversationId)
@@ -281,6 +284,7 @@ import Observation
     var loading = false
     private(set) var connectionGeneration = UUID()
     private var conversations: [String: ConversationModel] = [:]
+    private var chatDashboards: [String: ChatDashboardStore] = [:]
     private let session: URLSession?
 
     init(session: URLSession? = nil) {
@@ -306,7 +310,10 @@ import Observation
         let id = id ?? agent.id
         let key = agent.id + ":" + id
         if let existing = conversations[key] { return existing }
-        let model = ConversationModel(agent: agent, conversationId: id, api: api)
+        let dashboards = chatDashboards[agent.id] ?? ChatDashboardStore(api: api, agentId: agent.id)
+        chatDashboards[agent.id] = dashboards
+        let model = ConversationModel(
+            agent: agent, conversationId: id, api: api, dashboards: dashboards)
         conversations[key] = model
         return model
     }
@@ -323,6 +330,8 @@ import Observation
         try SecureConnection.save(connection)
         for model in conversations.values { model.invalidate() }
         conversations = [:]
+        for store in chatDashboards.values { store.invalidate() }
+        chatDashboards = [:]
         self.agents = agents
         self.connection = connection
         connectionGeneration = UUID()
@@ -353,6 +362,8 @@ import Observation
         Drafts.clearPreviews()
         try SecureConnection.clear()
         for model in conversations.values { model.invalidate() }
+        for store in chatDashboards.values { store.invalidate() }
+        chatDashboards = [:]
         connection = nil
         connectionGeneration = UUID()
         agents = []

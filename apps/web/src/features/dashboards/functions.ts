@@ -5,6 +5,7 @@ import {
   createDashboardTracker as createDashboardTrackerRecord,
   updateDashboardContent,
 } from "../../server/dashboards/actions.server";
+import { readChatDashboard } from "../../server/dashboards/chat.server";
 import {
   readDashboard,
   updateDashboardPresentation,
@@ -14,6 +15,7 @@ import {
   setDashboardPreference,
 } from "../../server/dashboards/store.server";
 import { decodeCreateDashboardTracker, decodeDashboardAction } from "./actions";
+import { decodeChatDashboardInput } from "./chat";
 import { changeDashboardPresentationSchema } from "./presentation";
 
 const result = <A, E>(effect: Effect.Effect<A, E>) =>
@@ -48,6 +50,11 @@ export const getDashboard = createServerFn({ method: "GET" })
   .middleware([available])
   .validator(Schema.decodeUnknownSync(Schema.Struct({ agentId: Schema.UUID })))
   .handler(({ data }) => result(readDashboard(data.agentId)));
+
+export const getChatDashboard = createServerFn({ method: "GET" })
+  .middleware([available])
+  .validator(decodeChatDashboardInput)
+  .handler(({ data }) => result(readChatDashboard(data.agentId, data.key)));
 
 export const changeDashboardPresentation = createServerFn({ method: "POST" })
   .middleware([available])

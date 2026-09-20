@@ -19,6 +19,8 @@ import {
   readCodingWorkspace,
   writeCodingWorkspace,
 } from "../../src/server/coding/workspace-store.server";
+import { createDashboardTracker } from "../../src/server/dashboards/actions.server";
+import { showDashboard } from "../../src/server/dashboards/chat.server";
 import {
   saveDashboard,
   saveDataset,
@@ -35,6 +37,7 @@ process.env.ROOST_DATA_DIR = root;
 const run = Effect.runPromise;
 let loseNextSendResponse = false;
 let rejectNextSend = false;
+let fixtureAgentId = "";
 async function seed() {
   loseNextSendResponse = false;
   rejectNextSend = false;
@@ -60,6 +63,7 @@ async function seed() {
       model: "fixture",
     }),
   );
+  fixtureAgentId = moss.id;
   const wisp = await run(
     saveAgent({
       id: randomUUID(),
@@ -318,6 +322,49 @@ const server = createServer(async (incoming, outgoing) => {
     }
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    if (
+      incoming.url === "/__fixture/chat-tracker" &&
+      incoming.method === "POST" &&
+      incoming.headers["x-roost-test"] === "reset"
+    ) {
+      const input = JSON.parse(Buffer.concat(chunks).toString());
+      await run(
+        createDashboardTracker(fixtureAgentId, {
+          key: input.key,
+          kind: input.kind,
+          title: input.title,
+        }),
+      );
+      await run(
+        withAgentStore((db) => {
+          db.prepare("UPDATE runs SET status='completed' WHERE agentId=?").run(
+            fixtureAgentId,
+          );
+        }),
+      );
+      const runId = randomUUID();
+      await run(
+        enqueueChat({
+          agentId: fixtureAgentId,
+          messageId: runId,
+          conversationId: input.conversationId,
+          text: `Show my ${input.title.toLowerCase()} here.`,
+        }),
+      );
+      await run(
+        withAgentStore((db) => {
+          db.prepare(
+            "UPDATE runs SET status='running',threadId='ui-fixture-chat' WHERE id=?",
+          ).run(runId);
+        }),
+      );
+      const shown = await run(
+        showDashboard(fixtureAgentId, runId, { key: input.key }),
+      );
+      outgoing.writeHead(200, { "Content-Type": "application/json" });
+      outgoing.end(JSON.stringify({ agentId: fixtureAgentId, ...shown }));
+      return;
+    }
     const headers = new Headers();
     for (const [key, value] of Object.entries(incoming.headers))
       if (value)

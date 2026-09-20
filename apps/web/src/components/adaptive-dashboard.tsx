@@ -28,6 +28,7 @@ type DashboardContent = {
   onDiscuss: (question: string) => void;
   onWidgetChange: (widget: Widget) => void;
   onReload: () => Promise<void>;
+  inline?: boolean;
 };
 
 const ContentContext = createContext<DashboardContent | null>(null);
@@ -59,6 +60,7 @@ function DashboardContents({
   onDiscuss,
   onWidgetChange,
   onReload,
+  inline,
   showDataSources = true,
 }: DashboardContent & { showDataSources?: boolean }) {
   return (
@@ -76,10 +78,30 @@ function DashboardContents({
             onDiscuss={onDiscuss}
             onChange={onWidgetChange}
             onReload={onReload}
+            inline={inline}
           />
         ))}
       </div>
     </>
+  );
+}
+
+/** Render a validated authored plan without the dashboard's global view controls. */
+export function DashboardPlanContent({
+  plan,
+  ...content
+}: DashboardContent & { plan: DashboardPresentation["plan"] }) {
+  const valid =
+    plan && validateDashboardPlan(plan, content.widgets, content.datasets);
+  const ordinary = <DashboardContents {...content} showDataSources={false} />;
+  return (
+    <ContentContext value={content}>
+      {valid ? (
+        <PlannedDashboard plan={valid} errorFallback={ordinary} />
+      ) : (
+        ordinary
+      )}
+    </ContentContext>
   );
 }
 

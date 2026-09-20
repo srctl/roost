@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: Read-only report snapshots allow duplicate labels and cells, with no editable row state to preserve.
 import * as stylex from "@stylexjs/stylex";
+import { Link } from "@tanstack/react-router";
 import type {
   DashboardBlock,
   DashboardDataset,
@@ -254,6 +255,7 @@ export function DashboardWidget({
   datasets = [],
   onChange,
   onReload,
+  inline = false,
 }: {
   widget: Widget;
   datasets?: readonly DashboardDataset[];
@@ -261,6 +263,7 @@ export function DashboardWidget({
   onDiscuss: (question: string) => void;
   onChange: (widget: Widget) => void;
   onReload: () => Promise<void>;
+  inline?: boolean;
 }) {
   return (
     <article {...stylex.props(styles.widget)} aria-label={widget.title}>
@@ -284,23 +287,38 @@ export function DashboardWidget({
         ))}
       </div>
       <footer {...stylex.props(styles.footer)}>
-        <time dateTime={new Date(widget.updatedAt).toISOString()}>
-          Updated{" "}
-          {new Date(widget.updatedAt)
-            .toISOString()
-            .replace("T", " ")
-            .slice(0, 16)}{" "}
-          UTC
-        </time>
-        <Button
-          onClick={() =>
-            onDiscuss(
-              `Give me a brief update on the "${widget.title}" dashboard (key: ${widget.key}), including unfinished tasks and suggested next steps. Read the current dashboard data first.`,
-            )
-          }
-        >
-          Discuss with {agentName}
-        </Button>
+        {inline ? (
+          <>
+            <span>Live tracker · changes save to Dashboard</span>
+            <Link
+              to="/agents/$agentId/dashboard"
+              params={{ agentId: widget.agentId }}
+              {...stylex.props(styles.link)}
+            >
+              Open dashboard
+            </Link>
+          </>
+        ) : (
+          <>
+            <time dateTime={new Date(widget.updatedAt).toISOString()}>
+              Updated{" "}
+              {new Date(widget.updatedAt)
+                .toISOString()
+                .replace("T", " ")
+                .slice(0, 16)}{" "}
+              UTC
+            </time>
+            <Button
+              onClick={() =>
+                onDiscuss(
+                  `Give me a brief update on the "${widget.title}" dashboard (key: ${widget.key}), including unfinished tasks and suggested next steps. Read the current dashboard data first.`,
+                )
+              }
+            >
+              Discuss with {agentName}
+            </Button>
+          </>
+        )}
       </footer>
     </article>
   );

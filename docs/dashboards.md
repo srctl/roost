@@ -1,6 +1,6 @@
 # Dashboards
 
-Dashboards keep useful trackers outside an agent's conversation. They are **off
+Dashboards keep useful trackers that can also appear in an agent's conversation. They are **off
 by default**. Enable **Settings → Dashboards**, then open an agent and choose
 **Dashboard** in its header. Conversation and Dashboard tabs keep both views
 within the same agent. On desktop, the existing conversation sits beside the
@@ -18,6 +18,15 @@ explicit calorie count, with a total for the selected day. These controls save
 directly to Roost and work in the native iPhone app too. They do not estimate
 nutrition values or create a calorie target. Existing drafts survive conflicts;
 retries do not silently duplicate additions.
+
+Ask **“Show my to-do list here”** or **“Create a meal log in this chat”** to use a
+tracker directly in the conversation. The agent saves it, then shows an inline
+view with working controls on web and iPhone. Chat and Dashboard share the same
+saved data. Reopened messages show current contents rather than a historical
+snapshot. Editing a tracker never sends a chat message. Reply threads support the
+same controls, and closing a reply panel preserves unfinished tracker entries.
+If a tracker is removed or dashboards are turned off, its chat reference shows an
+unavailable message.
 
 Talk to an agent about what you want to track and which information will be useful.
 For example:
