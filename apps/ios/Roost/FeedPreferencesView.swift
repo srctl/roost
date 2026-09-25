@@ -97,7 +97,7 @@ struct FeedPreferencesView: View {
                     Text("Stories and personal updates")
                 } footer: {
                     Text(
-                        "A contributing agent can write stories and surface important updates using its connected sources. Email updates require email access for that agent; this setting does not connect an inbox."
+                        "Any agent can contribute stories and personal updates when asked. The selected agent handles automatic feed curation. Email updates require email access for that agent; this setting does not connect an inbox."
                     )
                 }
                 .listRowBackground(palette.surface)
