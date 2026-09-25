@@ -2,3 +2,7 @@ Neovim context:
 - Reference: /Users/scottrichardson/workspace/github.com/scottjr632/roost/apps/web/src/server/feed/jev.server.ts:211-242
 
 shouldn't we be using the typesafe sdk? instead of just the api?
+
+---
+
+great do that
