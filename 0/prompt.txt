@@ -1,0 +1,43 @@
+can you rewrite the @apps/web/src/server/feed/jev.server.ts file so that its able to be read and understood by a jr engineer?
+
+---
+
+Neovim context:
+- Reference: /Users/scottrichardson/workspace/github.com/scottjr632/roost/apps/web/src/server/feed/jev.server.ts:336
+
+why do we accept unknown here? I'm pretty sure the type is already typed no?
+
+---
+
+dude, its ok. that's way too defensive
+
+---
+
+in general, you can trust the types that come from things?
+
+---
+
+oh no can you add that base url back? I didn't mean to
+
+---
+
+yeah go for it
+
+---
+
+cool, can you now to @src/server/feed/tools.server.ts ?
+
+---
+
+Neovim context:
+- Reference: /Users/scottrichardson/workspace/github.com/scottjr632/roost/apps/web/src/server/feed/tools.server.ts:75-77
+
+I don't like this section comments, or comments that just restate what the code is doing. can you remove those?
+
+---
+
+also add that to your agents.md or claude.md so that you stop doing this
+
+---
+
+oh also put that you should write code in a way that a jr engineer can understand
