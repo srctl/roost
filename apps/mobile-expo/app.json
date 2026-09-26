@@ -7,6 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "roost-expo",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "bundleIdentifier": "dev.roost.expo-prototype",
       "supportsTablet": true
@@ -27,9 +34,12 @@
           "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 96,
-          "dark": { "backgroundColor": "#20221E" }
+          "dark": {
+            "backgroundColor": "#20221E"
+          }
         }
-      ]
+      ],
+      "./plugins/with-scene-lifecycle"
     ],
     "experiments": {
       "typedRoutes": true,

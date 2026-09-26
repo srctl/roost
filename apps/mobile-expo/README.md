@@ -53,6 +53,30 @@ Expo Go is not enough: `react-native-keyboard-controller` needs a
 development build. On web the mobile API rejects browser `Origin` headers,
 so the web build needs a same-origin proxy that strips them.
 
+Xcode 27 builds need the UIScene life cycle or the app is killed at launch.
+`plugins/with-scene-lifecycle.js` switches the generated project to Expo's
+`ExpoAppSceneDelegate` during prebuild, so leave it in `app.json`. CocoaPods
+also needs a UTF-8 locale (`export LANG=en_US.UTF-8`) or `pod install` fails.
+
+## Updates without store review
+
+`expo-updates` is installed. A release build checks for a new JS bundle at
+launch and switches to it on the next launch, on iOS and Android alike.
+
+- Only JS and assets ship this way. Adding a native module, changing
+  permissions or native `app.json` settings, or bumping the Expo SDK needs a
+  new store build.
+- `runtimeVersion` uses the `fingerprint` policy: it is a hash of the native
+  project, so an update only reaches binaries whose native code can run it.
+- `eas.json` builds `preview` (internal install) and `production` binaries
+  on matching update channels, so an update can go to your phone first.
+- There is no update server yet. `updates.url` is unset, which leaves updates
+  off in release builds and does nothing in development builds. To use EAS,
+  run `npx eas-cli init` and `npx eas-cli update:configure` (they add the
+  project id and `updates.url`), make a build per platform, then publish with
+  `npx eas-cli update --channel preview`. A self-hosted server that speaks the
+  Expo Updates protocol can take the place of EAS by pointing `updates.url` at it.
+
 ## Checks
 
 ```sh
