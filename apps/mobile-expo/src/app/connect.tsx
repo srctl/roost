@@ -10,6 +10,7 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Character } from "@/components/character";
+import { NativeButton } from "@/components/native-button";
 import { useSession } from "@/lib/session";
 import { usePalette } from "@/lib/theme";
 
@@ -125,28 +126,17 @@ export default function ConnectScreen() {
           {shown}
         </Text>
       ) : null}
-      <Pressable
-        onPress={submit}
-        disabled={connecting || !server || !token}
-        testID="connectButton"
-        accessibilityRole="button"
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 8,
-          paddingVertical: 15,
-          borderRadius: 14,
-          backgroundColor: palette.accent,
-          opacity: connecting || !server || !token ? 0.45 : pressed ? 0.8 : 1,
-        })}
-      >
-        {connecting ? <ActivityIndicator color={palette.onAccent} /> : null}
-        <Text
-          style={{ color: palette.onAccent, fontSize: 17, fontWeight: "600" }}
-        >
-          {connecting ? "Connecting…" : "Connect to Roost"}
-        </Text>
-      </Pressable>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <NativeButton
+          label={connecting ? "Connecting…" : "Connect to Roost"}
+          variant="glassProminent"
+          size="large"
+          disabled={connecting || !server || !token}
+          testID="connectButton"
+          onPress={submit}
+        />
+        {connecting ? <ActivityIndicator color={palette.muted} /> : null}
+      </View>
       <Pressable
         onPress={() =>
           Alert.alert(

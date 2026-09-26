@@ -16,6 +16,20 @@ It is not part of the pnpm workspace and has its own `package-lock.json`.
 | Chat | Revision polling (1s busy / 4s idle / 8s error), idempotent send + retry, stop, approvals, reply threads, swipe-to-reply with haptic, long-press menu, typing indicator, entrance animation, keyboard-aware inverted list | Attachments, image previews, inline dashboards, draft persistence, activity details, message flight animation, Codex style |
 | Feed | All/Saved filter, time-of-day sections, images, save/dismiss (long press), reader in a native form sheet | Swipe actions, preferences, discuss, pagination |
 
+## Native controls
+
+On iOS the chrome and controls are system components, so they pick up
+Liquid Glass and the system animations on iOS 26:
+
+- Tabs: `NativeTabs` (UITabBarController).
+- Header buttons and menus: `Stack.Toolbar` (UIBarButtonItem + UIMenu).
+- Buttons: `NativeButton` renders a SwiftUI `Button` with `.buttonStyle(.glass)`
+  or `.glassProminent` via `@expo/ui/swift-ui` (`native-button.ios.tsx`).
+- Composer: `GlassView` from `expo-glass-effect` (UIGlassEffect).
+- Message long-press: SwiftUI `.contextMenu` via `@expo/ui` (`message-menu.ios.tsx`).
+
+Android and web use the plain React Native fallbacks in the same folders.
+
 Themes and pixel characters are read straight from
 `apps/ios/Roost/Resources/*.json`, so both apps share one source of truth.
 

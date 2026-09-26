@@ -1,13 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import {
-  ActionSheetIOS,
-  Alert,
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Text, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   FadeInDown,
@@ -22,6 +15,8 @@ import { motion, usePalette } from "@/lib/theme";
 import { Character } from "./character";
 import { Icon } from "./icon";
 import { Markdown } from "./markdown";
+import { MessageMenu } from "./message-menu";
+import type { MenuAction } from "./message-menu.types";
 
 const replyThreshold = 72;
 
@@ -83,34 +78,23 @@ export function MessageRow({
     ],
   }));
 
-  const openMenu = () => {
-    const actions = [
-      "Copy text",
-      ...(swipeable ? ["Reply in thread"] : []),
-      "Cancel",
-    ];
-    const choose = (index: number) => {
-      if (actions[index] === "Copy text")
-        Clipboard.setStringAsync(message.text);
-      if (actions[index] === "Reply in thread") onReply();
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: actions, cancelButtonIndex: actions.length - 1 },
-        choose,
-      );
-    } else {
-      Alert.alert(
-        "Message",
-        undefined,
-        actions.map((title, index) => ({
-          text: title,
-          style: title === "Cancel" ? "cancel" : "default",
-          onPress: () => choose(index),
-        })),
-      );
-    }
-  };
+  const { width } = useWindowDimensions();
+  const actions: MenuAction[] = [
+    {
+      title: "Copy text",
+      sf: "doc.on.doc",
+      onPress: () => Clipboard.setStringAsync(message.text),
+    },
+    ...(swipeable
+      ? [
+          {
+            title: "Reply in thread",
+            sf: "arrowshape.turn.up.left" as const,
+            onPress: onReply,
+          },
+        ]
+      : []),
+  ];
 
   if (message.role === "activity") {
     return (
@@ -169,68 +153,69 @@ export function MessageRow({
         <Animated.View
           style={[{ alignItems: isUser ? "flex-end" : "flex-start" }, rowStyle]}
         >
-          <Pressable
-            onLongPress={openMenu}
-            delayLongPress={350}
-            accessibilityActions={
-              swipeable ? [{ name: "reply", label: "Reply in thread" }] : []
-            }
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === "reply") onReply();
-            }}
-            style={{
-              maxWidth: "88%",
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              backgroundColor: isUser ? palette.action : palette.bubble,
-              borderTopLeftRadius: 18,
-              borderTopRightRadius: 18,
-              borderBottomLeftRadius: isUser ? 18 : 5,
-              borderBottomRightRadius: isUser ? 5 : 18,
-              gap: 8,
-            }}
-          >
-            {!isUser && message.title ? (
-              <Text style={{ color: palette.muted, fontSize: 12 }}>
-                {message.title}
-              </Text>
-            ) : null}
-            {isUser ? (
-              <Text
-                selectable
-                style={{
-                  color: palette.onAccent,
-                  fontSize: 17,
-                  lineHeight: 23,
-                }}
-              >
-                {message.text}
-              </Text>
-            ) : (
-              <Markdown text={message.text} />
-            )}
-            {message.files?.map((file) => (
-              <View
-                key={file.id}
-                style={{ flexDirection: "row", gap: 6, alignItems: "center" }}
-              >
-                <Icon
-                  sf="doc"
-                  md="description"
-                  size={14}
-                  color={isUser ? palette.onAccent : palette.accent}
-                />
+          <MessageMenu actions={actions}>
+            <View
+              accessibilityActions={
+                swipeable ? [{ name: "reply", label: "Reply in thread" }] : []
+              }
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === "reply") onReply();
+              }}
+              style={{
+                // Match the web Messages style's 88% maximum bubble width.
+                maxWidth: (width - 40) * 0.88,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                backgroundColor: isUser ? palette.action : palette.bubble,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                borderBottomLeftRadius: isUser ? 18 : 5,
+                borderBottomRightRadius: isUser ? 5 : 18,
+                gap: 8,
+              }}
+            >
+              {!isUser && message.title ? (
+                <Text style={{ color: palette.muted, fontSize: 12 }}>
+                  {message.title}
+                </Text>
+              ) : null}
+              {isUser ? (
                 <Text
+                  selectable
                   style={{
-                    color: isUser ? palette.onAccent : palette.accent,
-                    fontSize: 15,
+                    color: palette.onAccent,
+                    fontSize: 17,
+                    lineHeight: 23,
                   }}
                 >
-                  {file.name}
+                  {message.text}
                 </Text>
-              </View>
-            ))}
-          </Pressable>
+              ) : (
+                <Markdown text={message.text} />
+              )}
+              {message.files?.map((file) => (
+                <View
+                  key={file.id}
+                  style={{ flexDirection: "row", gap: 6, alignItems: "center" }}
+                >
+                  <Icon
+                    sf="doc"
+                    md="description"
+                    size={14}
+                    color={isUser ? palette.onAccent : palette.accent}
+                  />
+                  <Text
+                    style={{
+                      color: isUser ? palette.onAccent : palette.accent,
+                      fontSize: 15,
+                    }}
+                  >
+                    {file.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </MessageMenu>
         </Animated.View>
       </GestureDetector>
     </Animated.View>

@@ -1,9 +1,9 @@
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
-  Pressable,
   Text,
   TextInput,
   View,
@@ -15,12 +15,12 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import type { Approval } from "@/lib/api";
-import { motion, usePalette } from "@/lib/theme";
+import { usePalette } from "@/lib/theme";
 import { Icon } from "./icon";
+import { NativeButton } from "./native-button";
 
 function Dot({ index }: { index: number }) {
   const palette = usePalette();
@@ -95,55 +95,6 @@ export function TypingIndicator({
   );
 }
 
-// PressFeedback in Motion.swift: scale to 0.92 and fade while pressed.
-function PressScale({
-  onPress,
-  disabled,
-  label,
-  children,
-}: {
-  onPress: () => void;
-  disabled?: boolean;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: scale.value < 1 ? 0.72 : 1,
-  }));
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPressIn={() => {
-        scale.value = withSpring(0.92, motion.press);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, motion.press);
-      }}
-      hitSlop={6}
-    >
-      <Animated.View
-        style={[
-          {
-            width: 44,
-            height: 44,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: disabled ? 0.35 : 1,
-          },
-          style,
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 export function Composer({
   agentName,
   draft,
@@ -168,79 +119,96 @@ export function Composer({
   const palette = usePalette();
   const hasDraft = draft.trim().length > 0;
   const canSend = !sending && (pending || (hasDraft && draft.length <= 32_000));
+  const glass = isLiquidGlassAvailable();
   return (
     <View
       style={{
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 10,
+        gap: 8,
         marginHorizontal: 12,
         marginBottom: 8,
-        paddingHorizontal: 8,
-        backgroundColor: palette.bubble,
-        borderRadius: 24,
       }}
     >
-      <PressScale label="Add attachment" onPress={() => {}} disabled>
-        <Icon sf="plus" md="add" size={20} color={palette.foreground} />
-      </PressScale>
-      <TextInput
-        value={pending ? "" : draft}
-        onChangeText={setDraft}
-        editable={!pending}
-        multiline
-        placeholder={busy ? "Add a follow-up…" : `Message ${agentName}…`}
-        placeholderTextColor={palette.muted}
-        accessibilityLabel={
-          pending ? "Waiting for message delivery" : "Message"
-        }
+      <NativeButton
+        label="Add attachment"
+        sf="plus"
+        md="add"
+        iconOnly
+        size="large"
+        disabled
+        onPress={() => {}}
+      />
+      {/* UIGlassEffect on iOS 26; a plain rounded surface elsewhere. */}
+      <GlassView
+        glassEffectStyle="regular"
+        isInteractive
         style={{
           flex: 1,
-          maxHeight: 140,
-          paddingTop: 12,
-          paddingBottom: 12,
-          fontSize: 17,
-          color: palette.foreground,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          borderRadius: 25,
+          paddingLeft: 16,
+          paddingRight: 4,
+          minHeight: 50,
+          backgroundColor: glass ? undefined : palette.bubble,
         }}
-      />
-      {busy ? (
-        <PressScale label="Stop response" onPress={onStop} disabled={stopping}>
-          {stopping ? (
-            <ActivityIndicator color={palette.muted} />
-          ) : (
-            <Icon
-              sf="stop.fill"
-              md="stop"
-              size={18}
-              color={palette.foreground}
-            />
-          )}
-        </PressScale>
-      ) : null}
-      {!busy || hasDraft || pending ? (
-        <PressScale
-          label={pending ? "Retry message" : "Send message"}
-          disabled={!canSend}
-          onPress={() => {
-            if (Platform.OS !== "web")
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onSend();
+      >
+        <TextInput
+          value={pending ? "" : draft}
+          onChangeText={setDraft}
+          editable={!pending}
+          multiline
+          placeholder={busy ? "Add a follow-up…" : `Message ${agentName}…`}
+          placeholderTextColor={palette.muted}
+          accessibilityLabel={
+            pending ? "Waiting for message delivery" : "Message"
+          }
+          style={{
+            flex: 1,
+            maxHeight: 140,
+            paddingTop: 14,
+            paddingBottom: 14,
+            fontSize: 17,
+            color: palette.foreground,
           }}
-        >
-          {sending ? (
-            <ActivityIndicator color={palette.muted} />
-          ) : (
-            <Icon
-              sf={
-                pending ? "arrow.clockwise.circle.fill" : "arrow.up.circle.fill"
-              }
-              md={pending ? "refresh" : "arrow_circle_up"}
-              size={32}
-              color={palette.accent}
-            />
-          )}
-        </PressScale>
-      ) : null}
+        />
+        <View style={{ paddingVertical: 5, flexDirection: "row", gap: 4 }}>
+          {busy ? (
+            stopping ? (
+              <ActivityIndicator color={palette.muted} style={{ width: 40 }} />
+            ) : (
+              <NativeButton
+                label="Stop response"
+                sf="stop.fill"
+                md="stop"
+                iconOnly
+                onPress={onStop}
+              />
+            )
+          ) : null}
+          {!busy || hasDraft || pending ? (
+            sending ? (
+              <ActivityIndicator color={palette.muted} style={{ width: 40 }} />
+            ) : (
+              <NativeButton
+                label={pending ? "Retry message" : "Send message"}
+                sf={pending ? "arrow.clockwise" : "arrow.up"}
+                md={pending ? "refresh" : "arrow_upward"}
+                variant="glassProminent"
+                iconOnly
+                disabled={!canSend}
+                testID="sendMessage"
+                onPress={() => {
+                  if (Platform.OS !== "web")
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onSend();
+                }}
+              />
+            )
+          ) : null}
+        </View>
+      </GlassView>
     </View>
   );
 }
@@ -306,33 +274,20 @@ export function ApprovalCard({
           alignItems: "center",
         }}
       >
-        <Pressable
+        <NativeButton
+          label="Decline"
+          destructive
+          disabled={working}
           onPress={() => respond("decline")}
-          disabled={working}
-          style={{
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            borderRadius: 10,
-            backgroundColor: palette.bubble,
-          }}
-        >
-          <Text style={{ color: "#C0392B", fontWeight: "500" }}>Decline</Text>
-        </Pressable>
+        />
         {working ? <ActivityIndicator color={palette.muted} /> : null}
-        <Pressable
-          onPress={() => respond("approve")}
+        <NativeButton
+          label="Approve once"
+          variant="glassProminent"
           disabled={working}
-          style={{
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            borderRadius: 10,
-            backgroundColor: palette.accent,
-          }}
-        >
-          <Text style={{ color: palette.onAccent, fontWeight: "600" }}>
-            Approve once
-          </Text>
-        </Pressable>
+          testID="approveOnce"
+          onPress={() => respond("approve")}
+        />
       </View>
     </View>
   );

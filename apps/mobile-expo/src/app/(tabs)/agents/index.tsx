@@ -2,7 +2,6 @@ import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -98,31 +97,20 @@ export default function AgentsScreen() {
             onChangeText: (event) => setSearch(event.nativeEvent.text),
             hideWhenScrolling: true,
           },
-          headerLeft: () => (
-            <Pressable
-              accessibilityLabel="Disconnect"
-              hitSlop={10}
-              onPress={() =>
-                Alert.alert("Disconnect this device?", undefined, [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Disconnect",
-                    style: "destructive",
-                    onPress: disconnect,
-                  },
-                ])
-              }
-            >
-              <Icon
-                sf="gearshape"
-                md="settings"
-                size={22}
-                color={palette.accent}
-              />
-            </Pressable>
-          ),
         }}
       />
+      {/* Native UIBarButtonItem + UIMenu: Liquid Glass on iOS 26. */}
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Menu icon="gearshape" accessibilityLabel="Settings">
+          <Stack.Toolbar.MenuAction
+            icon="rectangle.portrait.and.arrow.right"
+            destructive
+            onPress={disconnect}
+          >
+            Disconnect this device
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
       <FlatList
         data={filtered}
         keyExtractor={(a) => a.id}

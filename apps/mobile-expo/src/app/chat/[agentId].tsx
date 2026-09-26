@@ -19,7 +19,6 @@ import {
   Composer,
   TypingIndicator,
 } from "@/components/chat-parts";
-import { Icon } from "@/components/icon";
 import { EmptyConversation, MessageRow } from "@/components/message-row";
 import type { Entry } from "@/lib/api";
 import { useConversation } from "@/lib/conversation";
@@ -100,20 +99,38 @@ export default function ChatScreen() {
             </View>
           ),
           headerBackTitle: "Agents",
-          headerRight: main
-            ? () => (
-                <Pressable accessibilityLabel="Reply threads" hitSlop={10}>
-                  <Icon
-                    sf="bubble.left.and.bubble.right"
-                    md="forum"
-                    size={20}
-                    color={palette.accent}
-                  />
-                </Pressable>
-              )
-            : undefined,
         }}
       />
+      {main ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Menu
+            icon="bubble.left.and.bubble.right"
+            accessibilityLabel="Reply threads"
+            title={
+              chat.threads.length ? "Reply threads" : "No reply threads yet"
+            }
+          >
+            {chat.threads.map((thread) => (
+              <Stack.Toolbar.MenuAction
+                key={thread.id}
+                subtitle={
+                  thread.replyCount === 1
+                    ? "1 reply"
+                    : `${thread.replyCount} replies`
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: "/chat/[agentId]",
+                    params: { agentId, conversationId: thread.id },
+                  })
+                }
+              >
+                {thread.parent.text.slice(0, 80)}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar>
+      ) : null}
       <FlatList
         data={rows}
         inverted
