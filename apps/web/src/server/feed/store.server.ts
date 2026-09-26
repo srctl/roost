@@ -394,6 +394,7 @@ export const feedEditorContext = (agentId: string) =>
       enabled: settings.enabled,
       interests: settings.interests,
       priorities: settings.priorities,
+      personalUpdatesEnabled: settings.enabled,
       emailEnabled: settings.emailEnabled && settings.agentId === agentId,
       selectedEditor: settings.agentId === agentId,
       sources: settings.sources.filter((source) => source.enabled),
@@ -440,13 +441,6 @@ export const publishFeedItem = (
       if (!run)
         throw new AgentStoreError({
           message: "Publishing requires an active agent run.",
-        });
-      if (
-        data.kind === "update" &&
-        (!settings.emailEnabled || settings.agentId !== agentId)
-      )
-        throw new AgentStoreError({
-          message: "Personal updates are not enabled for this feed agent.",
         });
       if (data.kind === "story" && data.citations.length === 0)
         throw new AgentStoreError({

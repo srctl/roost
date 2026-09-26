@@ -90,16 +90,17 @@ final class WeatherTests: XCTestCase {
         async throws
     {
         let report = try report(stale: true)
+        let fetched = try XCTUnwrap(WeatherText.instant(report.updatedAt))
         var calls = 0
         let model = WeatherCardModel { refresh in
             calls += 1
             if refresh { throw APIError(message: "Provider unavailable") }
             return report
         }
-        await model.load(locationId: 5_809_844, unit: .celsius)
-        await model.load(locationId: 5_809_844, unit: .celsius)
+        await model.load(locationId: 5_809_844, unit: .celsius, now: fetched)
+        await model.load(locationId: 5_809_844, unit: .celsius, now: fetched)
         XCTAssertEqual(calls, 1)
-        await model.load(locationId: 5_809_844, unit: .celsius, refresh: true)
+        await model.load(locationId: 5_809_844, unit: .celsius, refresh: true, now: fetched)
         XCTAssertEqual(model.report?.current.temperature, 20)
         XCTAssertEqual(model.report?.stale, true)
         XCTAssertEqual(model.report?.notice, "Showing cached weather.")

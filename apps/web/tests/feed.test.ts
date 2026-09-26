@@ -412,10 +412,6 @@ test("publication requires current active ownership and sources, and retry keys 
       run(publishFeedItem(a.id, runA, publication({ citations: [] }))),
       /source citation/,
     );
-    await assert.rejects(
-      run(publishFeedItem(a.id, runA, publication({ kind: "update" }))),
-      /Personal updates/,
-    );
     const first = await run(publishFeedItem(a.id, runA, input));
     assert.deepEqual(await run(publishFeedItem(a.id, runA, input)), first);
     await assert.rejects(
@@ -707,6 +703,55 @@ test("shared editor context exposes public candidates but keeps another agent's 
     assert.equal(JSON.stringify(other).includes("Private topic"), false);
   }));
 
+test("any agent can publish personal updates without an email editor, with attribution and safe retries", async () =>
+  fixture(async () => {
+    const a = await agent("Guy"),
+      b = await agent("Other");
+    const runA = await runningRun(a.id),
+      runB = await runningRun(b.id);
+    const input = publication({
+      kind: "update",
+      key: "hockey-roundup",
+      citations: [],
+    });
+    assert.equal(
+      (await run(feedEditorContext(a.id))).personalUpdatesEnabled,
+      false,
+    );
+    await assert.rejects(run(publishFeedItem(a.id, runA, input)), /disabled/);
+    await configure();
+    const context = await run(feedEditorContext(a.id));
+    assert.equal(context.personalUpdatesEnabled, true);
+    assert.equal(context.emailEnabled, false);
+    assert.equal(context.selectedEditor, false);
+    await assert.rejects(
+      run(publishFeedItem(a.id, runB, input)),
+      /active agent run/,
+    );
+    const first = await run(
+      handleFeedTool(a.id, runA, "roost_publish_feed_item", input),
+    );
+    assert.equal("authorAgentId" in first && first.authorAgentId, a.id);
+    assert.deepEqual(
+      await run(handleFeedTool(a.id, runA, "roost_publish_feed_item", input)),
+      first,
+    );
+    await run(
+      publishFeedItem(
+        b.id,
+        runB,
+        publication({ kind: "update", key: "hockey-roundup", citations: [] }),
+      ),
+    );
+    assert.equal((await run(readFeed())).items.length, 2);
+    assert.equal(
+      (await run(feedEditorContext(b.id))).items.some(
+        (item) => item.id === ("id" in first && first.id),
+      ),
+      false,
+    );
+  }));
+
 test("personal publication stays local until the separate private-scoring opt-in, then uses mocked Jev without hiding important updates", async () =>
   fixture(async () => {
     const a = await agent(),
@@ -753,17 +798,16 @@ test("personal publication stays local until the separate private-scoring opt-in
       );
       assert.equal(calls, 0);
       assert.equal("scoring" in local && local.scoring, "agent");
-      await assert.rejects(
-        run(
-          handleFeedTool(
-            b.id,
-            runB,
-            "roost_publish_feed_item",
-            publication({ kind: "update" }),
-          ),
+      const other = await run(
+        handleFeedTool(
+          b.id,
+          runB,
+          "roost_publish_feed_item",
+          publication({ kind: "update" }),
         ),
-        /Personal updates/,
       );
+      assert.equal("scoring" in other && other.scoring, "agent");
+      assert.equal(calls, 0);
       await configure({ scorePrivateUpdates: true });
       const scored = await run(
         handleFeedTool(
@@ -780,7 +824,7 @@ test("personal publication stays local until the separate private-scoring opt-in
       assert.equal(calls, 1);
       assert.equal("scoring" in scored && scored.scoring, "jev");
       assert.equal("score" in scored && scored.score, 0.9);
-      assert.equal((await run(readFeed())).items.length, 2);
+      assert.equal((await run(readFeed())).items.length, 3);
     } finally {
       globalThis.fetch = originalFetch;
     }
