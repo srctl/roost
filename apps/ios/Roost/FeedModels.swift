@@ -32,7 +32,15 @@ struct FeedItem: Codable, Identifiable, Hashable {
     let importance: String
     let score: Double?
     let scoring: String
+    let personalScores: PersonalScores?
     let citations: [Citation]
+
+    struct PersonalScores: Codable, Hashable {
+        let interest: Double
+        let usefulness: Double
+        let confidence: Double
+        let model: String
+    }
 
     struct Citation: Codable, Hashable {
         let title: String

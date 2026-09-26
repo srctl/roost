@@ -79,7 +79,8 @@ const fetched = (
   notModified: false,
 });
 const decision: FeedCandidateScore = {
-  relevance: 0.8,
+  interest: 0.8,
+  usefulness: 0.6,
   importance: 0.4,
   actionability: 0.2,
   novelty: 1,
@@ -294,8 +295,102 @@ test("scoring outages retain locally ranked stories and report a sanitized statu
     const page = await run(readFeed());
     assert.equal(page.items.length, 1);
     assert.equal(page.items[0]?.scoring, "basic");
+    assert.equal(page.items[0]?.personalScores, undefined);
     assert.match(page.status.lastError ?? "", /basic ranking/);
     assert.equal(page.status.lastError?.includes("secret-provider-key"), false);
+    // The next scheduled poll must refetch and retry unchanged articles after an outage.
+    await refreshFeedOnce({
+      now: () => now + 2 * 24 * 60 * 60 * 1000,
+      fetchSource: async (source) => {
+        assert.equal(source.etag, undefined);
+        assert.equal(source.lastModified, undefined);
+        return fetched([candidate()]);
+      },
+      scoreCandidate: async () => decision,
+    });
+    const recovered = (await run(readFeed())).items[0]!;
+    assert.equal(recovered.id, page.items[0]?.id);
+    assert.deepEqual(recovered.personalScores, {
+      interest: decision.interest,
+      usefulness: decision.usefulness,
+      confidence: decision.confidence,
+      model: decision.model,
+    });
+  }));
+
+test("useful but uninteresting and interesting but impractical articles both remain eligible", async () =>
+  fixture(async () => {
+    await singleSource({ jevEnabled: true, apiKey: "test-only-worker-key" });
+    await refreshFeedOnce({
+      now: () => now,
+      fetchSource: async () =>
+        fetched([
+          candidate("useful"),
+          candidate("interesting"),
+          candidate("neither"),
+        ]),
+      scoreCandidate: async (item) => ({
+        ...decision,
+        interest: item.title.endsWith("interesting") ? 0.9 : 0,
+        usefulness: item.title.endsWith("useful") ? 0.9 : 0,
+        importance: 0,
+        actionability: 0,
+      }),
+    });
+    const items = (await run(readFeed())).items;
+    assert.equal(items.length, 2);
+    assert.equal(
+      items.find((item) => item.title.endsWith("useful"))?.personalScores
+        ?.usefulness,
+      0.9,
+    );
+    assert.equal(
+      items.find((item) => item.title.endsWith("interesting"))?.personalScores
+        ?.interest,
+      0.9,
+    );
+    assert.ok(items.every((item) => item.importance === "normal"));
+  }));
+
+test("old scoring versions refetch unchanged sources and rescore saved articles", async () =>
+  fixture(async () => {
+    await singleSource({ jevEnabled: true, apiKey: "test-only-worker-key" });
+    const deps = {
+      now: () => now,
+      fetchSource: async () => fetched([candidate()]),
+      scoreCandidate: async () => decision,
+    };
+    await refreshFeedOnce(deps);
+    const original = (await run(readFeed())).items[0]!;
+    await run(actOnFeedItem({ id: original.id, action: "save" }));
+    await run(
+      withAgentStore((db) => {
+        db.prepare("UPDATE feed_source_state SET scoringVersion=NULL").run();
+        db.prepare(
+          "UPDATE feed_items SET fingerprint='old-fingerprint', content=json_remove(content, '$.personalScores')",
+        ).run();
+        db.prepare("DELETE FROM feed_scores").run();
+      }),
+    );
+    let calls = 0;
+    await refreshFeedOnce({
+      ...deps,
+      now: () => now + 2 * 24 * 60 * 60 * 1000,
+      fetchSource: async (source) => {
+        assert.equal(source.etag, undefined);
+        assert.equal(source.lastModified, undefined);
+        return fetched([candidate()]);
+      },
+      scoreCandidate: async () => {
+        calls++;
+        return decision;
+      },
+    });
+    const upgraded = (await run(readFeed())).items[0]!;
+    assert.equal(calls, 1);
+    assert.equal(upgraded.id, original.id);
+    assert.equal(upgraded.saved, true);
+    assert.equal(upgraded.personalScores?.usefulness, decision.usefulness);
   }));
 
 test("low-confidence scores keep candidates while confident irrelevance is hidden, with per-source variety caps", async () =>
@@ -314,7 +409,7 @@ test("low-confidence scores keep candidates while confident irrelevance is hidde
         ),
       scoreCandidate: async (item) => ({
         ...decision,
-        relevance: item.title.endsWith("-0") ? 0 : 0.8,
+        interest: item.title.endsWith("-0") ? 0 : 0.8,
         importance: 0,
         confidence: item.title.endsWith("-0") ? 0.4 : 0.9,
       }),
@@ -345,7 +440,8 @@ test("low-confidence scores keep candidates while confident irrelevance is hidde
         fetched([candidate("irrelevant"), candidate("uncertain")]),
       scoreCandidate: async (item) => ({
         ...decision,
-        relevance: 0,
+        interest: 0,
+        usefulness: 0,
         importance: 0,
         confidence: item.title.endsWith("uncertain") ? 0.2 : 1,
       }),

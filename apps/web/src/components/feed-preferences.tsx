@@ -441,12 +441,14 @@ export function FeedPreferences({
                   />
                   <span {...stylex.props(styles.checkboxText)}>
                     <span {...stylex.props(styles.label)}>
-                      Use Jev to find relevant stories
+                      Use Jev to score usefulness and interest
                     </span>
                     <span {...stylex.props(styles.hint)}>
-                      Send article excerpts, your interests, and priorities to
-                      TypeSafe's Jev for low-cost relevance scoring. Basic
-                      selection is available without a key.
+                      Jev uses your existing interests, priorities, and feed
+                      feedback to estimate practical usefulness and how much you
+                      would enjoy reading each story. Article excerpts and this
+                      profile are sent to TypeSafe. See both scores in the story
+                      reader; basic selection works without a key.
                     </span>
                   </span>
                 </label>

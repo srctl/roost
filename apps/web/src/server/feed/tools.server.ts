@@ -90,10 +90,21 @@ export const handleFeedTool = (
       )
         return item;
       const row = requireFeedItem(db, item.id);
-      const content = { ...JSON.parse(String(row.content)), scoring: "jev" };
+      const personalScores = {
+        interest: decision.interest,
+        usefulness: decision.usefulness,
+        confidence: decision.confidence,
+        model: decision.model,
+      };
+      const content = {
+        ...JSON.parse(String(row.content)),
+        scoring: "jev",
+        personalScores,
+      };
       const score = Math.max(
         item.importance === "important" ? 0.9 : 0,
-        0.4 * decision.relevance +
+        0.2 * decision.interest +
+          0.2 * decision.usefulness +
           0.4 * decision.importance +
           0.2 * decision.actionability,
       );
@@ -102,6 +113,6 @@ export const handleFeedTool = (
         JSON.stringify(content),
         item.id,
       );
-      return { ...item, score, scoring: "jev" as const };
+      return { ...item, score, scoring: "jev" as const, personalScores };
     });
   });

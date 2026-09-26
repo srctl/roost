@@ -5,7 +5,11 @@ import { withAgentStore } from "../agents/store.server";
 import { isMaintenance } from "../maintenance.server";
 import { insertRun } from "../runs/store.server";
 import { writeTransaction } from "../transaction.server";
-import { scoreFeedCandidate } from "./jev.server";
+import {
+  JEV_FEED_MODEL,
+  JEV_FEED_SCORING_VERSION,
+  scoreFeedCandidate,
+} from "./jev.server";
 import { type FeedCandidate, fetchFeedSource } from "./sources.server";
 import {
   canonicalFeedUrl,
@@ -71,6 +75,9 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
   );
   if (!claim) return false;
   const { settings, root } = claim;
+  const key = feedApiKey(root).key;
+  const scoringVersion =
+    settings.jevEnabled && key ? JEV_FEED_SCORING_VERSION : "basic-v1";
   const errors: string[] = [];
   let successfulSources = 0;
   let newCandidates = 0;
@@ -127,10 +134,14 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
       try {
         const fetched = await (dependencies.fetchSource ?? fetchFeedSource)({
           ...source,
-          etag: state?.etag ? String(state.etag) : undefined,
-          lastModified: state?.lastModified
-            ? String(state.lastModified)
-            : undefined,
+          etag:
+            state?.scoringVersion === scoringVersion && state?.etag
+              ? String(state.etag)
+              : undefined,
+          lastModified:
+            state?.scoringVersion === scoringVersion && state?.lastModified
+              ? String(state.lastModified)
+              : undefined,
         });
         successfulSources++;
         for (const candidate of fetched.items.slice(0, 30))
@@ -190,7 +201,7 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
           })),
       })),
     );
-    const key = feedApiKey(root).key;
+    const failedScoringSources = new Set<string>();
     const scored: {
       item: FeedItem;
       sourceId: string;
@@ -207,6 +218,7 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
       const fingerprint = feedHash([
+        scoringVersion,
         candidate.title,
         candidate.summary,
         settings.revision,
@@ -215,14 +227,22 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
       const prior = await run(
         withAgentStore((db) =>
           db
-            .prepare("SELECT fingerprint FROM feed_items WHERE dedupeKey=?")
+            .prepare(
+              "SELECT fingerprint,content FROM feed_items WHERE dedupeKey=?",
+            )
             .get(dedupeKey),
         ),
       );
-      if (prior?.fingerprint === fingerprint) continue;
+      if (
+        prior?.fingerprint === fingerprint &&
+        (!(settings.jevEnabled && key) ||
+          JSON.parse(String(prior.content)).personalScores)
+      )
+        continue;
       newCandidates++;
       let score = basicFeedScore(candidate, settings);
       let scoring: FeedItem["scoring"] = "basic";
+      let personalScores: FeedItem["personalScores"];
       let importance: FeedItem["importance"] = "normal";
       let visible = true;
       const more = context.feedback
@@ -243,8 +263,8 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
         const cacheKey = feedHash([
           fingerprint,
           scoreContext,
-          "jev-1.13.0",
-          "feed-v1",
+          JEV_FEED_MODEL,
+          JEV_FEED_SCORING_VERSION,
         ]);
         try {
           const cached = await run(
@@ -272,18 +292,27 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
               ),
             );
           score =
-            0.55 * decision.relevance +
-            0.25 * decision.importance +
-            0.1 * decision.actionability +
-            0.1 * decision.novelty;
+            0.4 * decision.interest +
+            0.35 * decision.usefulness +
+            0.15 * decision.importance +
+            0.05 * decision.actionability +
+            0.05 * decision.novelty;
+          personalScores = {
+            interest: decision.interest,
+            usefulness: decision.usefulness,
+            confidence: decision.confidence,
+            model: decision.model,
+          };
           importance = decision.importance >= 0.8 ? "important" : "normal";
           // Uncertain results remain candidates; confidence is not correctness.
           visible =
             decision.confidence < 0.7 ||
-            decision.relevance >= 0.3 ||
+            decision.interest >= 0.3 ||
+            decision.usefulness >= 0.3 ||
             decision.importance >= 0.5;
           scoring = "jev";
         } catch {
+          failedScoringSources.add(sourceId);
           if (
             !errors.includes(
               "Jev scoring is unavailable. Stories are using basic ranking.",
@@ -344,6 +373,7 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
           importance,
           score,
           scoring,
+          ...(personalScores ? { personalScores } : {}),
           citations: [{ title: candidate.title, url: candidate.url }],
         },
       });
@@ -396,13 +426,16 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
             .get()?.requested;
           for (const state of pending ? [] : validators)
             db.prepare(
-              "INSERT INTO feed_source_state(sourceId,url,etag,lastModified,lastFetchedAt,error) VALUES(?,?,?,?,?,NULL) ON CONFLICT(sourceId) DO UPDATE SET url=excluded.url,etag=excluded.etag,lastModified=excluded.lastModified,lastFetchedAt=excluded.lastFetchedAt,error=NULL",
+              "INSERT INTO feed_source_state(sourceId,url,etag,lastModified,lastFetchedAt,error,scoringVersion) VALUES(?,?,?,?,?,NULL,?) ON CONFLICT(sourceId) DO UPDATE SET url=excluded.url,etag=excluded.etag,lastModified=excluded.lastModified,lastFetchedAt=excluded.lastFetchedAt,error=NULL,scoringVersion=excluded.scoringVersion",
             ).run(
               state.sourceId,
               state.url,
-              state.etag,
-              state.lastModified,
+              failedScoringSources.has(state.sourceId) ? null : state.etag,
+              failedScoringSources.has(state.sourceId)
+                ? null
+                : state.lastModified,
               now(),
+              scoringVersion,
             );
           const last = db
             .prepare("SELECT * FROM feed_refresh WHERE id=1")
