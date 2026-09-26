@@ -1,6 +1,6 @@
 # Shared Feed
 
-Feed brings the publications you follow, stories from a selected Roost agent,
+Feed brings the publications you follow, stories and personal updates from any Roost agent,
 and optional important email updates into one personalized stream. It is shared
 between the web and native iPhone app, with stories grouped by when they were
 published.
@@ -18,8 +18,12 @@ Photo: [Joe Mabel](https://commons.wikimedia.org/wiki/File:Seattle_-_Volunteer_P
    topics, or projects you want the feed to follow.
 3. Add public RSS or Atom feeds and choose how often to check them. Capitol Hill
    Seattle Blog and The Seattle Times local feeds are editable presets.
-4. Optionally choose a contributing agent to add sourced context and original
+4. Optionally choose a contributing agent to automatically add sourced context and original
    stories. Enable email updates separately if that agent has a connected email source.
+
+Any agent can publish user-requested stories and personal updates while the Feed is enabled,
+including updates from conversations and automations. The selected agent and email
+setting control automatic curation, not which agents may contribute.
 
 Public sources work without a contributing agent or a Jev key. The feed starts
 disabled; saving enabled preferences starts a refresh. Use **Refresh** to check
