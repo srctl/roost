@@ -373,8 +373,8 @@ export function FeedPreferences({
                   Stories and personal updates
                 </h2>
                 <p {...stylex.props(styles.hint)}>
-                  An agent can connect the dots, write original stories, and
-                  contribute important updates to this shared feed.
+                  Any agent can contribute stories and personal updates when
+                  asked. Choose an agent below for automatic feed curation.
                 </p>
                 <label {...stylex.props(styles.field)}>
                   <span {...stylex.props(styles.label)}>
