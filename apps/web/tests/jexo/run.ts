@@ -43,16 +43,59 @@ const { runTest } = await import(
 );
 const { discoverTests, loadTest } = await moduleAt("src/core/definition.ts");
 const { createJevChooser } = await moduleAt("src/choosers/jev.ts");
-const live = process.argv.includes("--live");
-if (live) {
-  assert.equal(
-    process.env.ROOST_JEXO_LIVE,
-    "1",
-    "Paid execution requires ROOST_JEXO_LIVE=1 and --live",
+const { createJevVerifier } = await moduleAt("src/choosers/verification.ts");
+
+function expectedAction(description: string) {
+  if (description === "Type the declared name into Display name") {
+    return { kind: "fill", name: "Display name", inputName: "name" };
+  }
+  assert.ok(
+    description.startsWith("Click "),
+    `Unsupported offline step: ${description}`,
   );
+  return { kind: "click", name: description.slice(6) };
+}
+
+const scriptedVerifier = {
+  async verify(input: {
+    kind: string;
+    requirement: string;
+    afterActionIndex: number;
+    history: Array<{
+      kind: string;
+      target: { name: string };
+      inputName?: string;
+    }>;
+  }) {
+    assert.equal(
+      input.kind,
+      "step",
+      "Offline mode supports scripted steps and code checks only",
+    );
+    const expected = expectedAction(input.requirement);
+    const index = input.history.findIndex(
+      (action, index) =>
+        index + 1 > input.afterActionIndex &&
+        action.kind === expected.kind &&
+        action.target.name === expected.name &&
+        (expected.kind !== "fill" || action.inputName === "name"),
+    );
+    return {
+      status: index >= 0 ? "passed" : "failed",
+      ...(index >= 0 ? { actionIndex: index + 1 } : {}),
+      message:
+        index >= 0
+          ? "Offline scripted verification matched the observed action after the previous checkpoint; Jev was not called"
+          : "Required action missing after the previous checkpoint",
+      meta: { by: "script", durationMs: 0 },
+    };
+  },
+};
+const live = !process.argv.includes("--offline");
+if (live) {
   assert.ok(
     process.env.TYPESAFE_API_KEY,
-    "Live execution requires TYPESAFE_API_KEY",
+    "Jev execution requires TYPESAFE_API_KEY; --offline is an explicit scripted diagnostic mode",
   );
 }
 assert.ok(
@@ -149,7 +192,7 @@ try {
         // known fixture transitions; live Jev must choose its own route.
         if (live) return;
         const completed = activeTest.requiredSteps?.[actionCursor++];
-        if (completed?.id === "Save") {
+        if (completed?.description === "Click Save") {
           if (activeTest.name === "Reject a blank agent name")
             await page
               .getByRole("alert")
@@ -162,16 +205,15 @@ try {
               .waitFor();
         }
         const next = activeTest.requiredSteps?.[actionCursor];
-        if (next)
+        if (next) {
+          const expected = expectedAction(next.description);
           await page
-            .getByRole(next.id === "fill-name" ? "textbox" : "button", {
-              name:
-                next.id === "fill-name"
-                  ? "Display name"
-                  : next.description.replace(/^Click /, ""),
+            .getByRole(expected.kind === "fill" ? "textbox" : "button", {
+              name: expected.name,
               exact: true,
             })
             .waitFor();
+        }
       };
     });
     return context;
@@ -208,20 +250,16 @@ try {
             const step = steps[cursor];
             const meta = { by: "script", durationMs: 0 };
             if (!step) return { decision: { kind: "done" }, meta };
-            const expected =
-              step.id === "fill-name"
-                ? "Display name"
-                : step.description.replace(/^Click /, "");
+            const expected = expectedAction(step.description);
             const action = input.actions.find(
               (candidate) =>
-                candidate.target.name === expected &&
-                candidate.kind ===
-                  (step.id === "fill-name" ? "fill" : "click") &&
-                (step.id !== "fill-name" || candidate.inputName === "name"),
+                candidate.target.name === expected.name &&
+                candidate.kind === expected.kind &&
+                (expected.kind !== "fill" || candidate.inputName === "name"),
             );
             if (!action)
               throw new Error(
-                `Missing legal action ${expected}; observed ${input.actions.map((candidate) => candidate.target.name).join(", ")}`,
+                `Missing legal action ${expected.name}; observed ${input.actions.map((candidate) => candidate.target.name).join(", ")}`,
               );
             cursor++;
             return {
@@ -240,6 +278,7 @@ try {
       testFile: loaded.file,
       testSha256: loaded.sha256,
       chooser,
+      verifier: live ? createJevVerifier() : scriptedVerifier,
       browser,
       runsDir: output,
     });

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --import tsx run.ts",
-    "test:live": "node --import tsx run.ts --live",
+    "test:offline": "node --import tsx run.ts --offline",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   }
 }
