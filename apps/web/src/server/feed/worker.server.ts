@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import type { FeedItem, FeedSettings } from "../../features/feed/schema";
 import { withAgentStore } from "../agents/store.server";
+import { FEED_EDITOR_AUTOMATION_ID } from "../codex/run-capabilities.server";
 import { isMaintenance } from "../maintenance.server";
 import { insertRun } from "../runs/store.server";
 import { writeTransaction } from "../transaction.server";
@@ -429,7 +430,7 @@ export async function refreshFeedOnce(dependencies: Dependencies = {}) {
                 agentId: settings.agentId!,
                 prompt,
                 automation: {
-                  id: "7e9b3bf2-640d-427c-9d6e-e31f5fb614ef",
+                  id: FEED_EDITOR_AUTOMATION_ID,
                   agentId: settings.agentId!,
                   name: "Feed editor",
                   prompt,

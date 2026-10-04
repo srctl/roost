@@ -1,8 +1,11 @@
 import { execFile } from "node:child_process";
 import { Effect, JSONSchema, Schema } from "effect";
+import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import type { JsonValue } from "../codex/protocol/serde_json/JsonValue";
 import type { DynamicToolCallResponse } from "../codex/protocol/v2/DynamicToolCallResponse";
 import type { DynamicToolSpec } from "../codex/protocol/v2/DynamicToolSpec";
+import { allowsTool, runCapabilities } from "../codex/run-capabilities.server";
+import type { Run } from "../runs/store.server";
 import {
   beginComputerAction,
   computerStatus,
@@ -109,9 +112,35 @@ function command(program: string, args: string[], text?: string) {
   });
 }
 
-export function computerAction(agentId: string, input: unknown) {
+export function computerAction(
+  agentId: string,
+  input: unknown,
+  runId?: string,
+) {
   return Effect.scoped(
     Effect.gen(function* () {
+      // Direct user desktop controls have no run. Agent calls always supply one.
+      if (runId)
+        yield* withAgentStore((db) => {
+          const run = db
+            .prepare(
+              "SELECT kind,automationId FROM runs WHERE id=? AND agentId=? AND status='running' AND cancelRequested=0",
+            )
+            .get(runId, agentId);
+          if (
+            !run ||
+            !allowsTool(
+              runCapabilities(
+                run.kind as Run["kind"],
+                run.automationId as string | null,
+              ),
+              "roost_computer",
+            )
+          )
+            throw new AgentStoreError({
+              message: "This run cannot use the computer.",
+            });
+        });
       const action = yield* Schema.decodeUnknown(Input)(input);
       // Only a fresh screenshot may wait for another agent. Retrying a click
       // after ownership changes would act on a screen the caller has not seen.

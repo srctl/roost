@@ -291,6 +291,24 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
       method: "turn/started",
       params: { threadId: thread.id, turn: { ...turn, status: "inProgress" } },
     });
+    if (params.input[0].text.startsWith("capability-probe:")) {
+      acknowledged = true;
+      send({ id, result: { turn: { ...turn, status: "inProgress" } } });
+      const probes = JSON.parse(
+        params.input[0].text.slice("capability-probe:".length),
+      );
+      thread.capabilityResults = [];
+      for (const tool of probes) {
+        const response = await requestTool({
+          threadId: thread.id,
+          turnId: turn.id,
+          namespace: null,
+          tool,
+          arguments: {},
+        });
+        thread.capabilityResults.push({ tool, response });
+      }
+    }
     if (params.input[0].text.startsWith("approval:")) {
       acknowledged = true;
       send({ id, result: { turn: { ...turn, status: "inProgress" } } });

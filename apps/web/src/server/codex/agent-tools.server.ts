@@ -1,7 +1,7 @@
 import { Effect, JSONSchema, Schema } from "effect";
 import { AutomationInput } from "../../features/automations/schema";
 import { patchSoul, readSoul, SoulPatch } from "../agents/soul.server";
-import { listAgents } from "../agents/store.server";
+import { listAgents, withAgentStore } from "../agents/store.server";
 import { approvalTools } from "../approvals/tools.server";
 import {
   deleteAutomation,
@@ -40,18 +40,23 @@ import {
   notifyAgent,
 } from "../notifications/tools.server";
 import { paymentTools } from "../payments/tools.server";
-import { reflectionTools } from "../reflections/store.server";
 import {
   ReactToMessage,
   reactionTools,
   reactToMessage,
 } from "../runs/reaction-tools.server";
+import type { Run } from "../runs/store.server";
 import { runAutomationNow } from "../runs/store.server";
 import { ReadSharedContext, readSharedContext } from "../runs/threads.server";
 import { CodexError, getCodexConnection } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
 import type { DynamicToolCallResponse } from "./protocol/v2/DynamicToolCallResponse";
 import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
+import {
+  allowsTool,
+  type RunCapabilities,
+  runCapabilities,
+} from "./run-capabilities.server";
 
 const SaveAutomationTool = Schema.Struct({
   ...AutomationInput.omit("agentId").fields,
@@ -193,17 +198,49 @@ type AgentToolContext = {
   agentId: string;
   runId?: string;
   allowMutations: boolean | "reflection";
+  capabilities?: RunCapabilities;
 };
 
 export function handleAgentTool(
-  { agentId, runId, allowMutations }: AgentToolContext,
+  {
+    agentId,
+    runId,
+    allowMutations,
+    capabilities = runCapabilities(
+      allowMutations === "reflection"
+        ? "reflection"
+        : allowMutations
+          ? "chat"
+          : "automation",
+    ),
+  }: AgentToolContext,
   tool: string,
   arguments_: unknown,
 ) {
   const action = Effect.gen(function* () {
-    if (allowMutations === "reflection" && !reflectionTools.has(tool))
+    // Recheck stored run purpose for direct callers as well as runtime dispatch.
+    // Preview/test callers without a persisted run still use the supplied policy.
+    const storedCapabilities = runId
+      ? yield* withAgentStore((db) => {
+          const run = db
+            .prepare(
+              "SELECT kind,automationId FROM runs WHERE id=? AND agentId=?",
+            )
+            .get(runId, agentId);
+          return run
+            ? runCapabilities(
+                run.kind as Run["kind"],
+                run.automationId as string | null,
+              )
+            : capabilities;
+        })
+      : capabilities;
+    if (
+      !allowsTool(capabilities, tool) ||
+      !allowsTool(storedCapabilities, tool)
+    )
       return yield* new CodexError({
-        message: "Reflection can only read and update its own soul.",
+        message: "This run cannot use that tool.",
       });
     if (noteTools.some((spec) => spec.name === tool))
       return yield* handleNoteTool(
