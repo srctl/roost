@@ -572,7 +572,7 @@ test("worker runs without an HTTP subscriber, supports explicit stop, and isolat
   }
 });
 
-test("dynamic delegation runs a specialist independently and wakes the parent's existing conversation", async () => {
+test("dynamic delegation runs a specialist independently and reports through an isolated handoff", async () => {
   const directory = mkdtempSync("/tmp/roost-agent-team-");
   const old = {
     data: process.env.ROOST_DATA_DIR,
@@ -658,7 +658,21 @@ test("dynamic delegation runs a specialist independently and wakes the parent's 
       (r) => r.kind === "handoff",
     );
     assert.equal(returns.length, 1);
-    assert.equal(returns[0]!.threadId, parent.threadId);
+    assert.notEqual(returns[0]!.threadId, parent.threadId);
+    const handoff = JSON.parse(
+      readFileSync(
+        join(
+          directory,
+          "agents",
+          guy.id,
+          "codex",
+          `fake-${returns[0]!.threadId}.json`,
+        ),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(handoff.options.dynamicTools, []);
+    assert.equal(handoff.options.approvalPolicy, "never");
     assert.equal(
       (await run(readTimeline(guy.id))).find((m) => m.id === returns[0]!.id)
         ?.role,

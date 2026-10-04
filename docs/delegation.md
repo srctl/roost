@@ -44,3 +44,9 @@ the user can answer there or follow its push notification. An agent's brief or
 webpage never counts as user approval. Souls and automations cannot be changed by
 delegated tasks or result updates. Separate desktops and browser profiles are
 not part of this release.
+
+Result handoff turns run in isolated read-only threads with no dynamic tools.
+They cannot request permissions, use native apps, shell tools, web search, or the
+shared desktop. The server rejects forged calls before dispatch. A result can
+report an outcome; further actions require a fresh user chat or separately
+authorized run. User chats continue in their original interactive thread.

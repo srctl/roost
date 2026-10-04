@@ -23,7 +23,9 @@ import {
 } from "../../features/feed/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
 import { requireAgent } from "../automations/store.server";
+import { allowsTool, runCapabilities } from "../codex/run-capabilities.server";
 import { assertAvailable } from "../maintenance.server";
+import type { Run } from "../runs/store.server";
 import { writeTransaction } from "../transaction.server";
 import { safeFeedUrl } from "./sources.server";
 
@@ -441,6 +443,18 @@ export const publishFeedItem = (
       if (!run)
         throw new AgentStoreError({
           message: "Publishing requires an active agent run.",
+        });
+      if (
+        !allowsTool(
+          runCapabilities(
+            run.kind as Run["kind"],
+            run.automationId as string | null,
+          ),
+          "roost_publish_feed_item",
+        )
+      )
+        throw new AgentStoreError({
+          message: "This run cannot publish Feed items.",
         });
       if (data.kind === "story" && data.citations.length === 0)
         throw new AgentStoreError({

@@ -18,12 +18,17 @@ import { releaseComputer } from "../computer/session.server";
 import { computerAction } from "../computer/tools.server";
 import { PublishArtifact, publishArtifact } from "../files/tools.server";
 import { handlePaymentTool, paymentTools } from "../payments/tools.server";
-import { reflectionTools } from "../reflections/store.server";
 import { handleAgentTool } from "./agent-tools.server";
 import { CodexError, openAppServer, openHostServer } from "./app-server.server";
 import type { JsonValue } from "./protocol/serde_json/JsonValue";
 import type { LoginAccountParams } from "./protocol/v2/LoginAccountParams";
 import type { ReplyActivity } from "./reply-timeout.server";
+import {
+  allowsTool,
+  deniedToolResponse,
+  type RunCapabilities,
+  runCapabilities,
+} from "./run-capabilities.server";
 
 const hostHome = () =>
   resolve(process.env.CODEX_HOME ?? join(homedir(), ".codex"));
@@ -175,6 +180,7 @@ const makeAgentServer = (
     );
     let threadId: string | undefined;
     let allowMutations: boolean | "reflection" = false;
+    let capabilities = runCapabilities("handoff");
     let runId: string | undefined;
     let toolSignal: AbortSignal | undefined;
     let replyActivity: ReplyActivity | undefined;
@@ -221,6 +227,7 @@ const makeAgentServer = (
         turnId,
         toolSignal,
         allowMutations,
+        capabilities,
         replyActivity,
       };
       if (method === "account/chatgptAuthTokens/refresh") {
@@ -246,8 +253,8 @@ const makeAgentServer = (
               requestKey: JSON.stringify(requestId),
             }
           : undefined;
-      if (isNativeApproval(method) && bound.allowMutations === "reflection")
-        throw new Error("Reflection cannot request additional permissions.");
+      if (isNativeApproval(method) && !bound.capabilities.nativeTools)
+        throw new Error("This run cannot request additional permissions.");
       if (isNativeApproval(method)) {
         if (!context || !bound.toolSignal) throw new Error("No active run.");
         releaseComputer(agentId);
@@ -282,20 +289,8 @@ const makeAgentServer = (
         throw new Error();
       }
 
-      if (
-        bound.allowMutations === "reflection" &&
-        !reflectionTools.has(call.tool)
-      ) {
-        return {
-          success: false,
-          contentItems: [
-            {
-              type: "inputText",
-              text: "Reflection can only read and update its own soul.",
-            },
-          ],
-        };
-      }
+      if (!allowsTool(bound.capabilities, call.tool))
+        return deniedToolResponse();
       if (paymentTools.some((tool) => tool.name === call.tool)) {
         if (!bound.runId) throw new Error("No active run.");
         return handlePaymentTool(
@@ -305,9 +300,12 @@ const makeAgentServer = (
         );
       }
       if (call.tool === "roost_computer") {
-        return Effect.runPromise(computerAction(agentId, call.arguments), {
-          signal: bound.toolSignal,
-        });
+        return Effect.runPromise(
+          computerAction(agentId, call.arguments, bound.runId),
+          {
+            signal: bound.toolSignal,
+          },
+        );
       }
 
       if (call.tool === "roost_request_approval") {
@@ -348,7 +346,12 @@ const makeAgentServer = (
       }
 
       return handleAgentTool(
-        { agentId, runId: bound.runId, allowMutations: bound.allowMutations },
+        {
+          agentId,
+          runId: bound.runId,
+          allowMutations: bound.allowMutations,
+          capabilities: bound.capabilities,
+        },
         call.tool,
         call.arguments,
       );
@@ -364,6 +367,7 @@ const makeAgentServer = (
         activeRunId?: string,
         signal?: AbortSignal,
         activity?: ReplyActivity,
+        runPolicy: RunCapabilities = runCapabilities("handoff"),
       ) => {
         toolSignal = signal;
         replyActivity = activity;
@@ -372,6 +376,7 @@ const makeAgentServer = (
         runId = activeRunId;
         threadId = id;
         allowMutations = mutations;
+        capabilities = runPolicy;
       },
       bindTurn: (id: string) => {
         turnId = id;

@@ -18,8 +18,8 @@ Photo: [Joe Mabel](https://commons.wikimedia.org/wiki/File:Seattle_-_Volunteer_P
    topics, or projects you want the feed to follow.
 3. Add public RSS or Atom feeds and choose how often to check them. Capitol Hill
    Seattle Blog and The Seattle Times local feeds are editable presets.
-4. Optionally choose a contributing agent to automatically add sourced context and original
-   stories. Enable email updates separately if that agent has a connected email source.
+4. Optionally choose a contributing agent to add sourced context and original
+   stories. Email updates require a dedicated read-only source tool; automatic connected-email access is currently unavailable.
 
 Any agent can publish user-requested stories and personal updates while the Feed is enabled,
 including updates from conversations and automations. The selected agent and email
@@ -58,7 +58,7 @@ Roost uses the Jev HTTP API directly; installing the Jevi CLI is unnecessary. En
 
 The pinned `jev-1.13.0` model scores relevance, importance, actionability, and novelty before an agent spends tokens writing. Requests use bounded public article excerpts, the configured interests/priorities, and public-story feedback/history. Scores are cached. Basic local matching keeps public sources useful without a key or during provider failures. Score confidence is not a factual-verification guarantee.
 
-Private update snippets are excluded from public scoring. **Score private updates with Jev** is a separate opt-in; only then can a published personal update's short summary be sent to Jev. Important private updates remain visible even with a low or failed score. Email retrieval uses the editor agent's existing connected sources and permissions. It is read-only and bounded; Roost does not send, archive, delete, or mark email read as part of feed curation.
+Private update snippets are excluded from public scoring. **Score private updates with Jev** is a separate opt-in; only then can a published personal update's short summary be sent to Jev. Important private updates remain visible even with a low or failed score. Automatic editor runs cannot use the general connector catalog. Email retrieval requires a dedicated bounded read-only tool; until one is available, the editor reports unavailable access. Roost does not send, archive, delete, or mark email read as part of feed curation.
 
 ## Runtime and validation
 
@@ -67,3 +67,18 @@ The feed is disabled by default. When enabled, the server worker polls on the co
 Data lives in additive `feed_*` tables in the existing agent database. Agent deletion removes publication/discussion receipts and detaches the editor while preserving shared feed history. Settings use revision checks so simultaneous web and mobile edits cannot silently overwrite one another.
 
 Tests cover source parsing and network boundaries, mocked Jev protocol and consent, real SQLite persistence and migration, refresh leases and fallbacks, publication ownership and retries, and the authenticated mobile API. Browser and simulator flows cover the visible reading, preferences, saving, dismissal, and discussion paths. Live Jev scoring and a real connected-email run require configuring those services locally; the test fixtures use no real inbox or provider key.
+
+## Curation security boundary
+
+Internal Feed editor runs receive only `roost_read_feed` and
+`roost_publish_feed_item`. The server checks the same immutable allowlist before
+every dispatch. Native apps, shell tools, web search, network access, and approval
+escalations are disabled, even when the host allows full-access interactive runs.
+The RSS/Atom collector still fetches public candidates on the server.
+
+Automatic curation currently works from those collected candidates. Connected
+email retrieval and independent research are unavailable in this restricted run;
+the editor must report unavailable access instead of claiming an inbox check.
+The email setting does not grant access to the general connector catalog.
+Restoring automatic email updates requires a dedicated bounded read-only tool.
+A fresh user chat or separately authorized run is required for follow-up actions.
