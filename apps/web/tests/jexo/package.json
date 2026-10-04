@@ -1,0 +1,10 @@
+{
+  "name": "roost-jexo-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --import tsx run.ts",
+    "test:live": "node --import tsx run.ts --live",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
