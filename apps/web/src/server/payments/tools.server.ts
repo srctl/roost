@@ -9,6 +9,7 @@ import { withAgentStore } from "../agents/store.server";
 import type { JsonValue } from "../codex/protocol/serde_json/JsonValue";
 import type { DynamicToolCallResponse } from "../codex/protocol/v2/DynamicToolCallResponse";
 import type { DynamicToolSpec } from "../codex/protocol/v2/DynamicToolSpec";
+import { allowsTool, runCapabilities } from "../codex/run-capabilities.server";
 import {
   beginComputerAction,
   computerStatus,
@@ -16,6 +17,7 @@ import {
   releaseComputer,
 } from "../computer/session.server";
 import { notifyAttention } from "../notifications/push.server";
+import type { Run } from "../runs/store.server";
 import { putMessage } from "../runs/timeline.server";
 import { PaymentError, PaymentStore, paymentError } from "./store.server";
 
@@ -102,10 +104,20 @@ async function live(context: Context) {
     withAgentStore((db) => {
       const row = db
         .prepare(
-          "SELECT conversationId FROM runs WHERE id=? AND agentId=? AND status='running' AND cancelRequested=0",
+          "SELECT conversationId,kind,automationId FROM runs WHERE id=? AND agentId=? AND status='running' AND cancelRequested=0",
         )
         .get(context.runId, context.agentId);
       if (!row) throw new PaymentError("This run is no longer active.");
+      if (
+        !allowsTool(
+          runCapabilities(
+            row.kind as Run["kind"],
+            row.automationId as string | null,
+          ),
+          "roost_request_purchase",
+        )
+      )
+        throw new PaymentError("This run cannot use payment tools.");
       return String(row.conversationId);
     }),
   );
