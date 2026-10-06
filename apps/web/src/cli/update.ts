@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { activate, readRelease } from "./releases";
 import { activeRuns, maintenance } from "./state";
+import { applyStorage, registerBackup } from "./storage";
 
 export type ServerControl = {
   isActive(): Promise<boolean>;
@@ -85,5 +86,17 @@ export async function applyUpdate(
     throw error;
   } finally {
     if (recovered) maintenance(root, false);
+  }
+  // Retention is outside the rollback block: cleanup failure cannot undo a
+  // healthy update. The complete snapshot is registered only after success.
+  try {
+    if (backup)
+      await registerBackup(root, backup.split("/").at(-1)!, next.version);
+    await applyStorage(root);
+  } catch (error) {
+    console.warn(
+      "Update succeeded; storage retention deferred:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

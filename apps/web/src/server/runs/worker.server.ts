@@ -1,5 +1,7 @@
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Effect } from "effect";
 import type { ChatEvent, Message } from "../../features/chat/schema";
 import { AgentStoreError, withAgentStore } from "../agents/store.server";
@@ -236,6 +238,8 @@ type Worker = {
   tasks: Set<Promise<void>>;
   codingController?: AbortController;
   lastCodingTick?: number;
+  lastStorageTick?: number;
+  storageRunning?: boolean;
 };
 
 const globalState = globalThis as typeof globalThis & {
@@ -268,6 +272,30 @@ export function startWorker() {
     if (current.ticking || current.stopped) return;
     current.ticking = true;
     try {
+      const home = process.env.ROOST_HOME;
+      if (
+        home &&
+        !current.storageRunning &&
+        Date.now() - (current.lastStorageTick ?? 0) >= 3600000 &&
+        existsSync(join(home, "storage-policy.json")) &&
+        !existsSync(join(home, "operation.lock"))
+      ) {
+        current.lastStorageTick = Date.now();
+        current.storageRunning = true;
+        // SQLite pruning runs in a separate process so the scheduler and chat
+        // remain responsive. The CLI checks idle work and takes operation.lock.
+        const child = spawn(
+          join(home, "current/runtime/node"),
+          [join(home, "current/cli/roost.mjs"), "storage", "apply"],
+          { stdio: "ignore", env: process.env },
+        );
+        child.once("error", () => {
+          current.storageRunning = false;
+        });
+        child.once("exit", () => {
+          current.storageRunning = false;
+        });
+      }
       const owns = await Effect.runPromise(schedulerTick(current.owner));
       if (!owns) {
         current.codingController?.abort();

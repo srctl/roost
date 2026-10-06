@@ -32,6 +32,7 @@ import {
   waitForServer,
 } from "./service";
 import { readJson, withLock } from "./state";
+import { storageCommand } from "./storage";
 import { applyUpdate } from "./update";
 
 const root = resolve(
@@ -51,6 +52,10 @@ const help = `Roost
   roost mobile create --name iPhone --output <new-file>
   roost mobile list
   roost mobile revoke <device-id>
+  roost storage enable                One verified backup, two releases, bounded logs
+  roost storage plan                  Inspect retention without deleting
+  roost storage apply                 Apply during idle periods
+  roost storage register-backup <completed-snapshot> <healthy-successor-version>
   roost server start
   roost server stop
   roost server logs [--follow]
@@ -290,6 +295,14 @@ async function main() {
     );
     return;
   }
+  if (action === "storage") {
+    const result =
+      args[0] === "plan"
+        ? await storageCommand(root, args)
+        : await withLock(root, () => storageCommand(root, args));
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
   if (process.platform !== "linux" || process.arch !== "x64")
     throw new Error("This first release supports Linux x64 with systemd.");
   if (userInfo().uid === 0)
@@ -327,6 +340,7 @@ async function main() {
     process.env.NITRO_HOST = "127.0.0.1";
     process.env.PORT = String(c.port);
     process.env.NITRO_PORT = String(c.port);
+    process.env.ROOST_HOME = root;
     process.env.ROOST_DATA_DIR = join(root, "data");
     process.env.ROOST_CODEX_BINARY = join(bundle, "runtime/codex/bin/codex");
     process.env.CODEX_HOME = join(c.home, ".codex");

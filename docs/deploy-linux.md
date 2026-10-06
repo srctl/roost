@@ -98,3 +98,5 @@ Run stop/start only when intended; stopping interrupts active work. See
 schedules, maintain OS/browser security updates, and back up the entire app data
 directory plus the host's Codex configuration securely. Rebooting is different
 from deleting/recreating a server and its disk.
+
+For automatic backup, release and diagnostic log cleanup, see [storage retention](storage-retention.md). Enable it explicitly after reviewing its rollback and history preservation rules.
