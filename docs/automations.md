@@ -111,7 +111,9 @@ change ordinary chat, periodic reflection, identity, memory, or permissions.
 In chat, agents can call `roost_list_models` for supported identifiers and pass
 `model` to `roost_save_automation`. Omitting it on creation inherits the agent
 model; omitting it on an edit preserves the saved choice for older callers.
-Set `model: null` to restore inheritance. Existing automations migrate with no
+Set `model: null` to restore inheritance. The **Reasoning effort** selector supports
+values from the same catalog. `reasoningEffort: null` restores the agent/model
+default; omitting it on edits preserves the saved effort. Existing automations migrate with no
 override. Model edits use the usual revision checks and cancel queued work;
 each new run snapshots the saved selection.
 

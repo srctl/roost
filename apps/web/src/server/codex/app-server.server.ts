@@ -274,6 +274,15 @@ const ModelPage = Schema.Struct({
       displayName: Schema.String,
       isDefault: Schema.Boolean,
       hidden: Schema.Boolean,
+      defaultReasoningEffort: Schema.optional(Schema.String),
+      supportedReasoningEfforts: Schema.optional(
+        Schema.Array(
+          Schema.Struct({
+            reasoningEffort: Schema.String,
+            description: Schema.String,
+          }),
+        ),
+      ),
     }),
   ),
   nextCursor: Schema.NullOr(Schema.String),
@@ -306,13 +315,20 @@ export const getCodexConnection = Effect.scoped(
   }),
 );
 
+export type CodexModel = {
+  model: string;
+  displayName: string;
+  isDefault: boolean;
+  defaultReasoningEffort?: string;
+  supportedReasoningEfforts?: readonly {
+    reasoningEffort: string;
+    description: string;
+  }[];
+};
+
 export const getCodexModels = (client: AppServer) =>
   Effect.gen(function* () {
-    const models: Array<{
-      model: string;
-      displayName: string;
-      isDefault: boolean;
-    }> = [];
+    const models: CodexModel[] = [];
     let cursor: string | null = null;
     const seen = new Set<string>();
     do {
@@ -331,11 +347,7 @@ export const getCodexModels = (client: AppServer) =>
       models.push(
         ...page.data
           .filter((model) => !model.hidden)
-          .map(({ model, displayName, isDefault }) => ({
-            model,
-            displayName,
-            isDefault,
-          })),
+          .map(({ hidden: _hidden, ...model }) => model),
       );
       cursor = page.nextCursor;
       if (cursor && seen.has(cursor))

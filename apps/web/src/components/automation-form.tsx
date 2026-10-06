@@ -4,6 +4,7 @@ import { getConnection } from "../features/agents/functions";
 import { saveAgentAutomation } from "../features/automations/functions";
 import type { Automation, Schedule } from "../features/automations/schema";
 import { nextOccurrence } from "../server/automations/schedule";
+import type { CodexModel } from "../server/codex/app-server.server";
 import { colors } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 
@@ -71,9 +72,10 @@ export function AutomationForm({
     automation?.notification ?? "when-needed",
   );
   const [model, setModel] = useState(automation?.model ?? "");
-  const [models, setModels] = useState<
-    Array<{ model: string; displayName: string }>
-  >([]);
+  const [reasoningEffort, setReasoningEffort] = useState(
+    automation?.reasoningEffort ?? "",
+  );
+  const [models, setModels] = useState<CodexModel[]>([]);
   const [modelError, setModelError] = useState("");
   const [modelsLoading, setModelsLoading] = useState(true);
   useEffect(() => {
@@ -154,6 +156,7 @@ export function AutomationForm({
           schedule: preview.schedule,
           notification,
           model: model || null,
+          reasoningEffort: reasoningEffort || null,
           expectedRevision: automation?.revision,
         },
       });
@@ -202,7 +205,10 @@ export function AutomationForm({
         Model
         <select
           value={model}
-          onChange={(event) => setModel(event.target.value)}
+          onChange={(event) => {
+            setModel(event.target.value);
+            setReasoningEffort("");
+          }}
           {...stylex.props(styles.input)}
         >
           <option value="">Use agent default</option>
@@ -244,6 +250,49 @@ export function AutomationForm({
             available model or the agent default.
           </p>
         )}
+      <label {...stylex.props(styles.label)}>
+        Reasoning effort
+        <select
+          value={reasoningEffort}
+          onChange={(event) => setReasoningEffort(event.target.value)}
+          {...stylex.props(styles.input)}
+        >
+          <option value="">Use agent/model default</option>
+          {(() => {
+            // Inherited-model efforts are checked against the agent at save time.
+            const efforts = model
+              ? (models.find((entry) => entry.model === model)
+                  ?.supportedReasoningEfforts ?? [])
+              : models
+                  .flatMap((entry) => entry.supportedReasoningEfforts ?? [])
+                  .filter(
+                    (entry, index, all) =>
+                      all.findIndex(
+                        (other) =>
+                          other.reasoningEffort === entry.reasoningEffort,
+                      ) === index,
+                  );
+            return (
+              <>
+                {reasoningEffort &&
+                  !efforts.some(
+                    (entry) => entry.reasoningEffort === reasoningEffort,
+                  ) && (
+                    <option value={reasoningEffort}>{reasoningEffort}</option>
+                  )}
+                {efforts.map((entry) => (
+                  <option
+                    key={entry.reasoningEffort}
+                    value={entry.reasoningEffort}
+                  >
+                    {entry.reasoningEffort}
+                  </option>
+                ))}
+              </>
+            );
+          })()}
+        </select>
+      </label>
       <label {...stylex.props(styles.label)}>
         Schedule
         <select

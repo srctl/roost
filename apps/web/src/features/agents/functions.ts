@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 import { readAgentActivity } from "../../server/agents/activity.server";
 import { DeleteAgentInput } from "../../server/agents/delete.server";
+import { validateModelEffort } from "../../server/agents/model.server";
 import {
   listSoulChanges,
   readAgentMemory,
@@ -10,7 +11,11 @@ import {
   undoSoulChange,
   updateSoul,
 } from "../../server/agents/soul.server";
-import { listAgents, saveAgent } from "../../server/agents/store.server";
+import {
+  type AgentStoreError,
+  listAgents,
+  saveAgent,
+} from "../../server/agents/store.server";
 import { available } from "../../server/available";
 import { deleteAgent } from "../../server/codex/agent-runtime.server";
 import {
@@ -59,6 +64,11 @@ export const createAgent = createServerFn({ method: "POST" })
               "That model is no longer available. Reload the form to choose another.",
           });
         }
+        yield* Effect.try({
+          try: () =>
+            validateModelEffort(models, data.model, data.reasoningEffort),
+          catch: (error) => error as AgentStoreError,
+        });
         const agent = yield* saveAgent(data);
         yield* readSoul(agent.id);
 

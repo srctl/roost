@@ -48,7 +48,7 @@ minutes so native background work has time to finish. Finished threads are
 unsubscribed. No network listener is exposed by the app-server.
 
 Connection request types were generated with codex-cli 0.152.1, and conversation
-request types with 0.153.4. Soul tools and external token authentication use its
+request types with 0.160.0. Soul tools and external token authentication use its
 experimental protocol:
 
 ```sh

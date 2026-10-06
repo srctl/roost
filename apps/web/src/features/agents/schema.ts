@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { ReasoningEffort } from "./model-schema";
 
 export const Character = Schema.Literal(
   "moss",
@@ -31,6 +32,7 @@ export const CreateAgentInput = Schema.Struct({
   instructions: Instructions,
   character: Character,
   model: Model,
+  reasoningEffort: Schema.optional(Schema.NullOr(ReasoningEffort)),
   kind: Schema.optional(AgentKind),
 });
 

@@ -51,12 +51,19 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
       result: {
         data: (unavailable
           ? ["fake"]
-          : ["fake", "gpt-6-astra", "gpt-5.6-luna"]
+          : ["fake", "gpt-6-astra", "gpt-5.6-luna", "gpt-6.1-sol"]
         ).map((model) => ({
           model,
           displayName: model,
           isDefault: model === "fake",
           hidden: false,
+          defaultReasoningEffort: model === "gpt-6.1-sol" ? "low" : "medium",
+          supportedReasoningEfforts: ["low", "medium", "high"].map(
+            (reasoningEffort) => ({
+              reasoningEffort,
+              description: reasoningEffort,
+            }),
+          ),
         })),
         nextCursor: null,
       },
@@ -122,6 +129,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     return;
   }
   if (method === "turn/start") {
+    thread.lastTurnOptions = params;
     if (params.input[0].text === "steer-completion-race") {
       const turn = {
         id: "race-old-turn",

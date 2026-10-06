@@ -4,6 +4,7 @@ import type { Agent } from "../features/agents/schema";
 import { useOpenAfterMount } from "../features/motion";
 import { colors } from "../styles/tokens.stylex";
 import { AgentDeletion } from "./agent-deletion";
+import { AgentModelSettings } from "./agent-model-settings";
 import { AgentNameSettings } from "./agent-name-settings";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -51,6 +52,7 @@ export function AgentSettingsDialog({
           </SheetClose>
         </header>
         <AgentNameSettings key={agent.id} agent={agent} />
+        <AgentModelSettings key={agent.id} agent={agent} />
         <Suspense
           fallback={<p {...stylex.props(styles.loading)}>Loading settings…</p>}
         >

@@ -115,3 +115,23 @@ The **Note** view is a persistent user-visible document for each agent, separate
 from soul, private memory, and message threads. Its maintenance instructions
 guide note upkeep without authorizing external actions. See
 [Shared agent note](shared-note.md) for editing, autosave, revisions, and recovery.
+
+## Model and reasoning settings
+
+Open an agent’s Settings to choose an available Codex model and reasoning effort.
+Saving applies to future turns in all its existing conversations, preserving
+thread IDs, history, soul, and memory. Wait for active work to finish before saving.
+The form checks available models and effort values with the connected Codex
+catalog. A stale edit requires reloading.
+
+Background delegations, handoff reports, reflections, and the Feed editor inherit
+the current agent model rather than the main conversation’s saved model.
+Automation model/effort overrides retain their own choices. An explicit automation
+effort wins, followed by the agent effort when the selected model matches the
+agent, then the selected model’s catalog default. Ordinary conversations keep
+their saved model until the user changes the agent’s settings.
+
+Choose a lower effort for focused tasks and increase it when deeper planning or
+checking is needed. Lower effort can reduce reasoning work but does not guarantee
+lower total usage: retries, tool calls, and answer length also matter. Jev Feed
+scoring and Herdr worker configuration are separate from these controls.

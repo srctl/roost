@@ -585,7 +585,7 @@ test("combined deletion removes Notes/history, threads, job conversations and me
         db.prepare("SELECT name FROM agent_navigation_sections").get()?.name,
         "Projects",
       );
-      assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 14);
+      assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 15);
     });
   }));
 

@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Effect, Schema } from "effect";
 import { Automation, AutomationInput } from "../../features/automations/schema";
-import { AgentStoreError, withAgentStore } from "../agents/store.server";
+import { validateModelEffort } from "../agents/model.server";
+import {
+  AgentStoreError,
+  getAgentConversation,
+  withAgentStore,
+} from "../agents/store.server";
 import { CodexError, getCodexConnection } from "../codex/app-server.server";
 import { putMessage } from "../runs/timeline.server";
 import { writeTransaction } from "../transaction.server";
@@ -84,13 +89,31 @@ export const saveAutomation = (
     const current = (yield* listAutomations(decoded.agentId)).find(
       (automation) => automation.id === decoded.id,
     );
-    if (decoded.model && decoded.model !== current?.model) {
+    const requestedModel =
+      decoded.model === undefined ? current?.model : decoded.model;
+    const requestedEffort =
+      decoded.reasoningEffort === undefined
+        ? current?.reasoningEffort
+        : decoded.reasoningEffort;
+    if (
+      (requestedModel && requestedModel !== current?.model) ||
+      (requestedEffort &&
+        (requestedEffort !== current?.reasoningEffort ||
+          (requestedModel ?? null) !== (current?.model ?? null)))
+    ) {
       const { models } = yield* getCodexConnection;
-      if (!models.some((entry) => entry.model === decoded.model))
+      const model =
+        requestedModel ??
+        (yield* getAgentConversation(decoded.agentId)).agent.model;
+      if (!models.some((entry) => entry.model === model))
         return yield* new CodexError({
           message:
             "That automation model is unavailable. Reload the form and choose another model or use the agent default.",
         });
+      yield* Effect.try({
+        try: () => validateModelEffort(models, model, requestedEffort),
+        catch: (error) => error as AgentStoreError,
+      });
     }
     return yield* withAgentStore((db) => {
       const data = {
@@ -124,10 +147,15 @@ export const saveAutomation = (
           decoded.model === undefined
             ? (current?.model ?? null)
             : decoded.model;
+        const reasoningEffort =
+          decoded.reasoningEffort === undefined
+            ? (current?.reasoningEffort ?? null)
+            : decoded.reasoningEffort;
 
         if (current && expectedRevision === undefined) {
           if (
             (current.model ?? null) === model &&
+            (current.reasoningEffort ?? null) === reasoningEffort &&
             current.name === data.name &&
             current.prompt === data.prompt &&
             current.notification === data.notification &&
@@ -175,10 +203,11 @@ export const saveAutomation = (
         const revision = (current?.revision ?? 0) + 1;
         db.prepare(
           `INSERT INTO automations (
-           id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt, model
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           id, agentId, name, prompt, schedule, notification, revision, enabled, nextRunAt, model, reasoningEffort
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            model = excluded.model,
+           reasoningEffort = excluded.reasoningEffort,
            name = excluded.name,
            prompt = excluded.prompt,
            schedule = excluded.schedule,
@@ -197,6 +226,7 @@ export const saveAutomation = (
           current ? Number(current.enabled) : 1,
           current?.enabled === false ? null : next,
           model,
+          reasoningEffort,
         );
         // Queued work uses the old saved prompt; cancel it when the commitment changes.
         db.prepare(
@@ -214,6 +244,7 @@ export const saveAutomation = (
         return {
           ...data,
           model,
+          reasoningEffort,
           revision,
           enabled: current?.enabled ?? true,
           nextRunAt: current?.enabled === false ? null : next,

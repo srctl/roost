@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { AgentModelInput } from "../../features/agents/model-schema";
 import {
   NavigationChange,
   RenameAgentInput,
@@ -11,6 +12,7 @@ import {
 import { CodingSettings, ExecutionProfile } from "../../features/coding/schema";
 import { readAgentActivity } from "../agents/activity.server";
 import { DeleteAgentInput } from "../agents/delete.server";
+import { saveAgentModel, validateModelEffort } from "../agents/model.server";
 import {
   changeAgentNavigation,
   readAgentNavigation,
@@ -82,7 +84,7 @@ export function createMobileAgentManagementRequest(
       /^agents\/([^/]+)\/(identity|soul|soul-undo|reflection|reflect)$/.exec(
         path,
       );
-    const match = /^agents\/([^/]+)(?:\/(name))?$/.exec(path);
+    const match = /^agents\/([^/]+)(?:\/(name|model))?$/.exec(path);
     if (
       ![
         "agent-options",
@@ -204,12 +206,21 @@ export function createMobileAgentManagementRequest(
         throw new MobileAgentManagementError(
           "That model is no longer available. Reload the form to choose another.",
         );
+      validateModelEffort(models, input.model, input.reasoningEffort);
       const agent = await run(saveAgent(input));
       await run(readSoul(agent.id));
       return { value: agent, status: 201 };
     }
     if (match) {
       const agentId = Schema.decodeUnknownSync(Schema.UUID)(match[1]);
+      if (match[2] === "model" && request.method === "POST") {
+        const data = (await body(request)) as Record<string, unknown>;
+        const input = Schema.decodeUnknownSync(AgentModelInput)({
+          ...data,
+          agentId,
+        });
+        return { value: await run(saveAgentModel(input, connection)) };
+      }
       if (match[2] === "name" && request.method === "POST") {
         const { name } = Schema.decodeUnknownSync(
           Schema.Struct({ name: Name }),

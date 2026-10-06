@@ -38,7 +38,7 @@ export function withAgentStore<A>(
         const version = Number(
           db.prepare("PRAGMA user_version").get()?.user_version,
         );
-        if (version > 14)
+        if (version > 15)
           throw new AgentStoreError({
             message: "This database needs a newer version of Roost.",
           });
@@ -339,7 +339,19 @@ export function withAgentStore<A>(
               WHEN EXISTS (SELECT 1 FROM deleted_agents WHERE id=NEW.agentId)
               BEGIN SELECT RAISE(ABORT, 'Agent was deleted.'); END`);
           }
-          db.exec("PRAGMA user_version=14; COMMIT");
+          for (const table of ["agents", "automations"]) {
+            const hasEffort = db
+              .prepare(`PRAGMA table_info(${table})`)
+              .all()
+              .some((column) => column.name === "reasoningEffort");
+            if (version >= 15 && !hasEffort)
+              throw new FeatureMigrationError(
+                "Model settings storage is incomplete. Storage was left unchanged.",
+              );
+            if (!hasEffort)
+              db.exec(`ALTER TABLE ${table} ADD COLUMN reasoningEffort TEXT`);
+          }
+          db.exec("PRAGMA user_version=15; COMMIT");
         } catch (error) {
           db.exec("ROLLBACK");
           throw error;
@@ -391,6 +403,7 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
           agent.instructions !== data.instructions ||
           agent.character !== data.character ||
           agent.model !== data.model ||
+          (agent.reasoningEffort ?? null) !== (data.reasoningEffort ?? null) ||
           agent.kind !== (data.kind ?? "assistant")
         ) {
           throw new AgentStoreError({
@@ -405,11 +418,12 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
       const agent = {
         ...data,
         kind: data.kind ?? "assistant",
+        reasoningEffort: data.reasoningEffort ?? null,
         createdAt: new Date().toISOString(),
       };
       mkdirSync(join(root, "workspaces", agent.id), { recursive: true });
       db.prepare(
-        "INSERT INTO agents (id, name, instructions, character, model, createdAt, kind) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO agents (id, name, instructions, character, model, createdAt, kind, reasoningEffort) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       ).run(
         agent.id,
         agent.name,
@@ -418,6 +432,7 @@ export const saveAgent = (input: CreateAgentInput, directory?: string) =>
         agent.model,
         agent.createdAt,
         agent.kind,
+        agent.reasoningEffort,
       );
       db.prepare(
         "INSERT INTO conversation_records(id,agentId,createdAt) VALUES (?,?,?)",

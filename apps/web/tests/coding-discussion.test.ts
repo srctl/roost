@@ -383,7 +383,7 @@ for (const core of [10, 13])
           withAgentStore((db) => {
             assert.equal(
               db.prepare("PRAGMA user_version").get()!.user_version,
-              14,
+              15,
             );
             assert.equal(
               db

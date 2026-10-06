@@ -73,10 +73,19 @@ export async function mobileAutomationRequest(
       const connection = await run(getCodexConnection);
       return {
         value: {
-          models: connection.models.map(({ model, displayName }) => ({
-            model,
-            displayName,
-          })),
+          models: connection.models.map(
+            ({
+              model,
+              displayName,
+              defaultReasoningEffort,
+              supportedReasoningEfforts,
+            }) => ({
+              model,
+              displayName,
+              defaultReasoningEffort,
+              supportedReasoningEfforts,
+            }),
+          ),
         },
       };
     }

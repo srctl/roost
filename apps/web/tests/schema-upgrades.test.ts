@@ -64,7 +64,7 @@ for (const shape of [
             withAgentStore((upgraded) => {
               assert.equal(
                 upgraded.prepare("PRAGMA user_version").get()?.user_version,
-                14,
+                15,
               );
               for (const { name, columns, rows } of snapshots) {
                 assert.deepEqual(
@@ -188,7 +188,7 @@ for (const [threads, notes] of [
           withAgentStore((upgraded) => {
             assert.equal(
               upgraded.prepare("PRAGMA user_version").get()?.user_version,
-              14,
+              15,
             );
             for (const { name, rows } of before.tables) {
               if (name === "sqlite_sequence" || rows.length === 0) continue;
@@ -320,7 +320,7 @@ for (const legacy of [
           withAgentStore((db) => {
             assert.equal(
               db.prepare("PRAGMA user_version").get()?.user_version,
-              14,
+              15,
             );
             for (const [table, version] of [
               ["agent_deletion_versions", 1],

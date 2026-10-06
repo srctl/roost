@@ -178,7 +178,7 @@ test("core14 navigation installation, rename and sections preserve actual Notes,
           ]),
       );
     const coreVersion = db.prepare("PRAGMA user_version").get()?.user_version;
-    assert.equal(coreVersion, 14);
+    assert.equal(coreVersion, 15);
     for (const table of noteTables)
       assert.ok(
         Number(db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get()?.n) > 0,
@@ -391,7 +391,7 @@ test("feature migration upgrades legacy core13, composes with outer core14 trans
       agentOrder: [legacyAgent.id],
       ungroupedPosition: 0,
     });
-    assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 14);
+    assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 15);
     for (const table of noteTables)
       assert.equal(db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get()?.n, 0);
     assert.deepEqual(db.prepare("SELECT * FROM agents").all(), legacyRows);

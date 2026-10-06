@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { ReasoningEffort } from "../agents/model-schema";
 
 const Short = Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(200));
 const DateOnly = Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/));
@@ -45,6 +46,7 @@ export const AutomationInput = Schema.Struct({
   name: Short,
   prompt: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(16000)),
   model: Schema.optional(Schema.NullOr(Short)),
+  reasoningEffort: Schema.optional(Schema.NullOr(ReasoningEffort)),
   schedule: Schedule,
   notification: Schema.Literal("always", "when-needed"),
 });
