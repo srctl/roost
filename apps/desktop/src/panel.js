@@ -43,18 +43,24 @@ function render(value) {
     agent.dataset.signature = signature;
   }
   agent.value = value.grants.agentId || "";
+  const computerActive = value.grants.computerUntil > Date.now();
+  agent.disabled = computerActive;
+  for (const kind of ["screen", "accessibility", "messages"])
+    byId(`${kind}-permission`).disabled = computerActive;
   byId("start-computer").disabled =
     !value.grants.agentId ||
     value.status !== "Connected" ||
     value.grants.computerUntil > Date.now();
   byId("load-chats").disabled =
-    !value.grants.agentId || value.status !== "Connected";
+    !value.grants.agentId || value.status !== "Connected" || computerActive;
   byId("permission-status").textContent =
     `Screen recording: ${value.permissions.screen}. Computer control: ${value.permissions.accessibility ? "allowed" : "not enabled"}. Messages helper: ${value.permissions.messagesInstalled ? "installed" : "install imsg to enable reading"}.`;
-  for (const checkbox of byId("chats").querySelectorAll("input"))
+  for (const checkbox of byId("chats").querySelectorAll("input")) {
+    checkbox.disabled = computerActive;
     checkbox.checked = value.grants.chats.some(
       (chat) => chat.id === Number(checkbox.value),
     );
+  }
 }
 byId("connect-form").addEventListener("submit", async (event) => {
   event.preventDefault();

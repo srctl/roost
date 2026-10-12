@@ -78,6 +78,7 @@ Roost approvals still govern consequential actions, including sending messages;
 the capture/input helper does not recognize or block particular app buttons.
 
 Stop with the visible toolbar button, menu-bar item, or **Command–Shift–Escape**.
+While a session is active, local permission edits and session renewal are locked.
 Expiry, disconnect, revocation, and connection loss abort in-flight helpers.
 Stopped runs are checked on the server and propagated on the next poll. Local
 tools are unavailable while the Mac sleeps. Input requests are never replayed
@@ -123,12 +124,13 @@ corepack pnpm typecheck
 
 The Electron test uses a disposable local server, fake device token, and isolated
 user-data directory. It tests connection, agent selection, sandbox isolation,
-the companion panel, and disconnect. It does not read personal Messages or
-activate desktop control. Local-tool tests exercise scope checks, coordinate
+the companion panel, and disconnect. It does not read personal Messages, change macOS permissions, or execute
+desktop input. OS consent and credential encryption are simulated in the disposable process;
+this test does not exercise the system Keychain. Local-tool tests exercise scope checks, coordinate
 mapping, cancellation, and command construction using fixtures. The server
 integration test uses real stores, device authentication, and run policies.
 
-Live Messages reads, macOS permission prompts, and real input injection require
+Live Messages reads, macOS permission/Keychain prompts, and real input injection require
 explicitly enabling access in the installed app; they are not verified by these
 fixture tests. The native helper is compiled and its shortcut self-check runs
 during every Mac build.

@@ -276,6 +276,10 @@ function registerIPC() {
     },
     "desktop:chats": async () => tools.chats(),
     "desktop:grants": (agentId: string | null, chats: Grants["chats"]) => {
+      if (grants.computerUntil > Date.now())
+        throw new Error(
+          "Stop computer access before changing local permissions.",
+        );
       if (!companion || status !== "Connected")
         throw new Error("Connect to Roost first.");
       if (agentId && !agents.some((agent) => agent.id === agentId))
@@ -284,6 +288,10 @@ function registerIPC() {
       return state();
     },
     "desktop:start-computer": () => {
+      if (grants.computerUntil > Date.now())
+        throw new Error(
+          "Computer access is already enabled. Stop it before starting another session.",
+        );
       if (!grants.agentId || status !== "Connected")
         throw new Error("Choose a connected agent first.");
       if (process.platform !== "darwin")
@@ -309,6 +317,10 @@ function registerIPC() {
       return state();
     },
     "desktop:permission": async (kind: string) => {
+      if (grants.computerUntil > Date.now())
+        throw new Error(
+          "Stop computer access before changing macOS permissions.",
+        );
       const links: Record<string, string> = {
         screen:
           "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
@@ -421,7 +433,7 @@ else {
           label: "View",
           submenu: [
             { role: "reload" },
-            { role: "toggleDevTools" },
+            ...(!app.isPackaged ? [{ role: "toggleDevTools" as const }] : []),
             { role: "togglefullscreen" },
           ],
         },

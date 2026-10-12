@@ -38,6 +38,13 @@ try {
     env: { ...process.env, ROOST_DESKTOP_TEST_DATA_DIR: root },
     timeout: 30000,
   });
+  // Fake credentials use an isolated test store. Avoid real Keychain prompts
+  // when exercising ad-hoc signed packages with changing code identities.
+  await application.evaluate(({ safeStorage }) => {
+    safeStorage.isEncryptionAvailable = () => true;
+    safeStorage.encryptString = (value) => Buffer.from(`fixture:${value}`);
+    safeStorage.decryptString = (value) => value.toString().slice(8);
+  });
   const page = await application.firstWindow();
   assert.equal(
     await application.evaluate(({ app, nativeImage }) =>
@@ -78,6 +85,35 @@ try {
     .waitFor({ state: "visible" });
   assert.equal(await page.locator("#start-computer").isEnabled(), true);
   assert.equal(await page.locator("#stop").isVisible(), false);
+  // Simulate OS consent only inside this disposable Electron process. The
+  // fixture never sends capture/input requests and no real permission changes.
+  await application.evaluate(({ systemPreferences, Notification }) => {
+    systemPreferences.isTrustedAccessibilityClient = () => true;
+    Notification.prototype.show = () => {};
+  });
+  await page.getByRole("button", { name: "Enable computer access" }).click();
+  await page.locator("#stop").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#agent").isEnabled(), false);
+  const deniedGrant = await page.evaluate(async (id) => {
+    const bridge = (
+      window as unknown as {
+        roostDesktop: {
+          grants: (id: string, chats: unknown[]) => Promise<{ ok: boolean }>;
+          startComputer: () => Promise<{ ok: boolean }>;
+        };
+      }
+    ).roostDesktop;
+    return [await bridge.grants(id, []), await bridge.startComputer()];
+  }, agentId);
+  assert.deepEqual(
+    deniedGrant.map((result) => result.ok),
+    [false, false],
+  );
+  await page
+    .getByRole("button", { name: "Stop computer access", exact: true })
+    .click();
+  await page.locator("#stop").waitFor({ state: "hidden" });
+  assert.equal(await page.locator("#agent").isEnabled(), true);
   const remote = application.windows().find((window) => window !== page);
   assert.ok(remote);
   assert.equal(
