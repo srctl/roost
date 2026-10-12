@@ -21,24 +21,44 @@ updates, and Windows/Linux local adapters are not included in this first build.
 
 ## Connect
 
-Update the Roost server to a build containing the companion API. Create a
-dedicated device credential on that server, using its active data directory:
+For exe.dev, click **Connect to exe.dev**, choose a running VM, and click
+**Connect to Roost**. The app uses your existing SSH login to discover VMs and
+provision a dedicated Roost-Mac device credential and a VM-scoped HTTPS token.
+Roost must be installed through its packaged installer on that VM, and the server
+must include the companion API and JSON pairing commands. The app does not
+install or upgrade the server. SSH setup is noninteractive and requires the
+VM's host key to be trusted already.
+
+Requests connect directly to the VM's HTTPS address. There is no persistent SSH
+tunnel. Native requests send the VM token in `X-Exedev-Authorization` and the
+Roost device token in `Authorization`. The remote workspace receives proxy
+authentication only for that exact origin and its secure WebSocket connections;
+it receives no Roost device credential or local IPC bridge.
+
+Both credentials are encrypted with Electron safeStorage. The app renews them
+through SSH one day before expiry. Explicit reconnect refreshes the proxy key;
+renewal preserves the Roost device ID and fails if that device was revoked.
+Disconnect clears local access immediately and attempts to revoke both managed
+credentials. If SSH is unavailable, the app reports that server revocation
+could not complete. A failed setup also cleans up its generated credentials.
+Replacing an exe.dev pairing retires the previous managed credentials.
+
+For another host, expand **Connect another server** and enter its HTTPS origin
+and a dedicated device token created on that server:
 
 ```sh
 roost mobile create --name Mac --output /private/path/mac-token.txt
 ```
 
-Enter the server's HTTPS origin and token in the app. Loopback HTTP is accepted
-for development. The credential uses the existing revocable device-token system
-and expires after 90 days. The API must be directly reachable without an
-interactive authentication proxy. Browser sign-in remains separate: signing in
-to the workspace never exposes the device token to that page.
+Loopback HTTP is accepted for development. Manual device tokens expire after
+90 days and must reach the device API without an interactive browser-login
+proxy. Disconnect removes the manual connection but does not revoke its token;
+use `roost mobile revoke <device-id>` on the server. Web cookies remain until
+browser sign-out or removal of app data.
 
-Credentials are encrypted with Electron safeStorage on the Mac. Disconnect
-removes the saved connection and local grants; it does not revoke the server
-credential. Revoke it explicitly with `roost mobile revoke <device-id>` if needed.
-Web cookies remain in the app's per-server browser partition until cleared by
-the browser sign-out flow or removal of the app's user data.
+The Mac window controls share the app's draggable header. Buttons remain
+clickable and computer access can still be stopped from the toolbar, menu bar,
+or keyboard shortcut.
 
 ## Local access
 

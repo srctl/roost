@@ -40,15 +40,24 @@ export class MobileTokens {
   close() {
     this.db.close();
   }
-  create(name: string) {
+  create(name: string, id: string = randomUUID()) {
     if (!name.trim() || name.length > 80)
       throw new Error("Choose a device name of 1–80 characters.");
-    const id = randomUUID();
     const secret = `roost_mobile_${randomBytes(32).toString("base64url")}`;
     const expires = Date.now() + 90 * 24 * 60 * 60 * 1000;
     this.db
       .prepare("INSERT INTO devices VALUES (?,?,?,?,?)")
       .run(id, name.trim(), hash(secret), Date.now(), expires);
+    return { id, secret, expires };
+  }
+  renew(id: string) {
+    const secret = `roost_mobile_${randomBytes(32).toString("base64url")}`;
+    const expires = Date.now() + 90 * 24 * 60 * 60 * 1000;
+    const result = this.db
+      .prepare("UPDATE devices SET hash=?,expires=? WHERE id=?")
+      .run(hash(secret), expires, id);
+    if (!result.changes)
+      throw new Error("Device was revoked or does not exist.");
     return { id, secret, expires };
   }
   list() {

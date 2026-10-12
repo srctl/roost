@@ -1,4 +1,5 @@
 const api = window.roostDesktop;
+document.body.classList.toggle("mac", api.platform === "darwin");
 const byId = (id) => document.getElementById(id);
 let current;
 let conversations = [];
@@ -27,6 +28,8 @@ function render(value) {
   byId("connection-summary").hidden = !value.origin;
   byId("connection-origin").textContent = value.origin;
   byId("connect-form").hidden = value.status === "Connected";
+  byId("exe-connection").hidden = value.status === "Connected";
+  byId("manual-connection").hidden = value.status === "Connected";
   byId("intro").hidden = Boolean(value.origin);
   byId("token").required = !value.origin;
   if (value.origin && !byId("origin").value)
@@ -62,6 +65,40 @@ function render(value) {
     );
   }
 }
+byId("exe-discover").addEventListener("click", async () => {
+  const button = byId("exe-discover");
+  button.disabled = true;
+  button.textContent = "Finding your instances…";
+  try {
+    const vms = await call(api.exeVMs());
+    byId("exe-vm").replaceChildren(
+      new Option("Choose an instance", ""),
+      ...vms.map((vm) => new Option(vm.name, vm.name)),
+    );
+    byId("exe-form").hidden = false;
+    if (vms.length === 1) byId("exe-vm").value = vms[0].name;
+    if (!vms.length)
+      throw new Error("No running VMs with SSH access were found.");
+  } catch (error) {
+    byId("error").textContent = error.message;
+    byId("error").hidden = false;
+  } finally {
+    button.textContent = "Refresh instances";
+    button.disabled = false;
+  }
+});
+byId("exe-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  byId("exe-connect").disabled = true;
+  byId("exe-connect").textContent = "Connecting…";
+  try {
+    render(await call(api.connectExe(byId("exe-vm").value)));
+  } catch {
+  } finally {
+    byId("exe-connect").disabled = false;
+    byId("exe-connect").textContent = "Connect to Roost";
+  }
+});
 byId("connect-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   byId("connect").disabled = true;

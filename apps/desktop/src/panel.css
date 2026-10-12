@@ -274,3 +274,25 @@ footer {
     display: none;
   }
 }
+
+.toolbar {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.toolbar button {
+  -webkit-app-region: no-drag;
+}
+.mac .toolbar {
+  padding-left: 100px;
+}
+#exe-vm {
+  max-width: 340px;
+}
+#manual-connection {
+  margin-top: 25px;
+}
+#manual-connection summary {
+  color: #a4ada0;
+  cursor: pointer;
+  font-size: 12px;
+}

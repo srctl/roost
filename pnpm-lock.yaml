@@ -19,6 +19,9 @@ importers:
       '@roost/desktop-protocol':
         specifier: workspace:*
         version: link:../../packages/desktop-protocol
+      zod:
+        specifier: ^4.0.0
+        version: 4.5.4
     devDependencies:
       '@roost/typescript-config':
         specifier: workspace:*

@@ -61,6 +61,7 @@ try {
     ),
     "undefined",
   );
+  await page.locator("#manual-connection summary").click();
   await page.locator("#origin").fill(`http://127.0.0.1:${address.port}`);
   await page.locator("#token").fill(token);
   await page.getByRole("button", { name: "Connect", exact: true }).click();
@@ -141,8 +142,102 @@ try {
   await page.getByRole("button", { name: "Disconnect this Mac" }).click();
   await page.locator("#status").filter({ hasText: "Disconnected" }).waitFor();
   assert.equal(await page.locator("#access").isVisible(), false);
+  // tsx names nested functions with this helper when serializing callbacks.
+  await application.evaluate("globalThis.__name = (value) => value");
+  // Emulate only the external SSH/proxy services. Native API traffic still
+  // reaches the disposable HTTP fixture, and no personal credential is used.
+  await application.evaluate(({ BrowserWindow }, origin) => {
+    const child = process.getBuiltinModule("child_process");
+    const token = `roost_mobile_${"a".repeat(43)}`;
+    const proxy = `exe_fixture_${"b".repeat(40)}`;
+    Object.defineProperty(child, "execFile", {
+      value: (
+        _file: string,
+        args: string[],
+        _options: unknown,
+        done: (error: Error | null, stdout: string) => void,
+      ) => {
+        const command = args.slice(7);
+        let response: object = {};
+        if (command[0] === "ls")
+          response = {
+            vms: [
+              {
+                vm_name: "roost-fixture",
+                status: "running",
+                access: { shell: true },
+              },
+            ],
+          };
+        else if (command.includes("generate-api-key"))
+          response = {
+            token: proxy,
+            fingerprint: "SHA256:fixturekey",
+            namespace: "v0@roost-fixture.exe.xyz",
+            expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+          };
+        else if (command[0]?.includes("mobile create"))
+          response = {
+            id: /--id ([a-z0-9-]+)/.exec(command[0])?.[1],
+            token,
+            expires: Date.now() + 90 * 86400000,
+          };
+        queueMicrotask(() => done(null, JSON.stringify(response)));
+        return {};
+      },
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (input, options) => {
+      if (
+        typeof input === "string" &&
+        input.startsWith("https://roost-fixture.exe.xyz/")
+      ) {
+        if (
+          options?.headers &&
+          new Headers(options.headers).get("X-Exedev-Authorization") !==
+            `Bearer ${proxy}`
+        )
+          throw new Error("Missing fixture proxy credential");
+        return originalFetch(`${origin}${new URL(input).pathname}`, options);
+      }
+      return originalFetch(input, options);
+    };
+    const local = BrowserWindow.getAllWindows()[0];
+    if (!local) throw new Error("Fixture window missing");
+    const prototype = Object.getPrototypeOf(local.webContents);
+    const loadURL = prototype.loadURL;
+    Object.defineProperty(prototype, "loadURL", {
+      value: function (url: string, options: unknown) {
+        return Reflect.apply(loadURL, this, [
+          url === "https://roost-fixture.exe.xyz" ? origin : url,
+          options,
+        ]);
+      },
+    });
+  }, `http://127.0.0.1:${address.port}`);
+  await page
+    .getByRole("button", { name: "Connect to exe.dev", exact: true })
+    .click();
+  await page.locator("#exe-vm").selectOption("roost-fixture");
+  await page
+    .getByRole("button", { name: "Connect to Roost", exact: true })
+    .click();
+  await page.locator("#panel").waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "Companion", exact: true }).click();
+  assert.equal(
+    await page.locator("#connection-origin").textContent(),
+    "https://roost-fixture.exe.xyz",
+  );
+  assert.equal(await page.locator("#token").inputValue(), "");
+  await page.getByRole("button", { name: "Reconnect", exact: true }).click();
+  await page.locator("#panel").waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "Companion", exact: true }).click();
+  assert.equal(await page.locator("#agent").inputValue(), "");
+  await page.getByRole("button", { name: "Disconnect this Mac" }).click();
+  await page.locator("#status").filter({ hasText: "Disconnected" }).waitFor();
+  await page.screenshot({ path: join(output, "desktop-exedev.png") });
   console.log(
-    "Electron e2e passed: connect, agent selection, isolated workspace, permissions panel, disconnect.",
+    "Electron e2e passed: manual and exe.dev connections, agent selection, isolated workspace, permissions panel, disconnect.",
   );
 } finally {
   await application?.close();

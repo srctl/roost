@@ -42,6 +42,8 @@ function fixture({
   agents,
   poll,
   load,
+  ssh,
+  authentication,
 } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "roost-main-test-"));
   const handlers = new Map();
@@ -54,6 +56,7 @@ function fixture({
       session: {
         setPermissionRequestHandler() {},
         setPermissionCheckHandler() {},
+        webRequest: { onBeforeSendHeaders() {} },
       },
       send() {},
       close() {},
@@ -129,8 +132,26 @@ function fixture({
     __dirname: directory,
     module: { exports: {} },
     exports: {},
-    require: (name) => (name === "electron" ? electron : require(name)),
+    require: (name) => {
+      if (name === "electron") return electron;
+      const actual = require(name);
+      if (name !== "node:child_process") return actual;
+      return {
+        ...actual,
+        execFile(file, args, options, callback) {
+          assert.equal(file, "/usr/bin/ssh");
+          Promise.resolve()
+            .then(() => ssh?.(args[6], args.slice(7), options.signal))
+            .then(
+              (result) => callback(null, result || "{}"),
+              (error) => callback(error, ""),
+            );
+          return {};
+        },
+      };
+    },
     async fetch(input, options) {
+      authentication?.(options.headers);
       const url = new URL(input);
       const body = options.body ? JSON.parse(options.body) : {};
       if (url.pathname.endsWith("/agents")) {
@@ -307,6 +328,125 @@ test("an older connection finishing cleanup cannot revoke a newer connection's g
   } finally {
     release.resolve();
     await app.call("disconnect");
+    app.close();
+  }
+});
+
+test("managed connection IPC shows VM names and status while credentials stay in native requests", async () => {
+  const deviceToken = `roost_mobile_${"z".repeat(43)}`;
+  const proxyToken = `exe_fixture_${"x".repeat(40)}`;
+  const outgoing = [];
+  const app = fixture({
+    authentication: (headers) => outgoing.push(headers),
+    ssh: async (_host, args, signal) => {
+      signal?.throwIfAborted();
+      if (args[0] === "ls")
+        return JSON.stringify({
+          vms: [
+            {
+              vm_name: "roost-dev",
+              status: "running",
+              access: { shell: true },
+            },
+          ],
+        });
+      if (args.includes("generate-api-key"))
+        return JSON.stringify({
+          token: proxyToken,
+          fingerprint: "SHA256:fixturekey",
+          namespace: "v0@roost-dev.exe.xyz",
+          expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+        });
+      if (args[0].includes("mobile create"))
+        return JSON.stringify({
+          id: /--id ([a-z0-9-]+)/.exec(args[0])[1],
+          token: deviceToken,
+          expires: Date.now() + 90 * 86400000,
+        });
+      return "{}";
+    },
+  });
+  try {
+    await until(app.ready);
+    const found = await app.call("exe-vms");
+    assert.equal(found.value[0].name, "roost-dev");
+    const connected = await app.call("exe-connect", "roost-dev");
+    assert.equal(connected.ok, true);
+    assert.equal(connected.value.status, "Connected");
+    assert.ok(
+      outgoing.some(
+        (headers) =>
+          headers.Authorization === `Bearer ${deviceToken}` &&
+          headers["X-Exedev-Authorization"] === `Bearer ${proxyToken}`,
+      ),
+    );
+    assert.equal(JSON.stringify(connected).includes(deviceToken), false);
+    assert.equal(JSON.stringify(connected).includes(proxyToken), false);
+  } finally {
+    await app.call("disconnect");
+    await delay(30);
+    app.close();
+  }
+});
+
+test("an unfinished managed setup is not saved for a second reconnect to reuse", async () => {
+  const blocked = deferred(),
+    release = deferred();
+  const token = `roost_mobile_${"a".repeat(43)}`;
+  const app = fixture({
+    load: async () => {
+      blocked.resolve();
+      await release.promise;
+    },
+    ssh: async (_host, args) => {
+      if (args[0] === "ls")
+        return JSON.stringify({
+          vms: [
+            {
+              vm_name: "roost-dev",
+              status: "running",
+              access: { shell: true },
+            },
+          ],
+        });
+      if (args.includes("generate-api-key"))
+        return JSON.stringify({
+          token: `exe_fixture_${"a".repeat(40)}`,
+          fingerprint: "SHA256:fixturekey",
+          namespace: "v0@roost-dev.exe.xyz",
+          expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+        });
+      if (args[0].includes("mobile create"))
+        return JSON.stringify({
+          id: /--id ([a-z0-9-]+)/.exec(args[0])[1],
+          token,
+          expires: Date.now() + 90 * 86400000,
+        });
+      return "{}";
+    },
+  });
+  let timer;
+  try {
+    await until(app.ready);
+    const connecting = app.call("exe-connect", "roost-dev");
+    await blocked.promise;
+    const reconnect = await Promise.race([
+      app.call("reconnect"),
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Pending setup was reused by reconnect")),
+          500,
+        );
+      }),
+    ]);
+    assert.equal(reconnect.ok, false);
+    release.resolve();
+    assert.equal((await connecting).ok, true);
+  } finally {
+    clearTimeout(timer);
+    release.resolve();
+    await app.call("disconnect");
+    await delay(30);
     app.close();
   }
 });

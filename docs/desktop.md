@@ -15,3 +15,11 @@ Messages access is limited to selected chats and reading. Computer control is
 a separate grant that operates the real main display. You can stop it from the
 toolbar, menu bar, or Command–Shift–Escape; each session expires after 10 minutes.
 Neither feature creates a separate Apple Messages identity or a virtual desktop.
+
+## Connect through exe.dev
+
+Use **Connect to exe.dev** in the Mac app to choose your VM. Setup uses your
+existing SSH login, and normal traffic uses HTTPS without a tunnel or pasted
+keys. Update the server first to include desktop pairing and the companion API.
+See the [app guide](https://github.com/srctl/roost/blob/main/apps/desktop/README.md#connect)
+for prerequisites, renewal, and disconnect behavior.

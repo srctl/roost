@@ -3,6 +3,9 @@ import { contextBridge, ipcRenderer } from "electron";
 // Only the bundled local companion panel gets this bridge. The remote Roost
 // page has no preload, Node access, device token, or general-purpose IPC.
 contextBridge.exposeInMainWorld("roostDesktop", {
+  exeVMs: () => ipcRenderer.invoke("desktop:exe-vms"),
+  connectExe: (vm: string) => ipcRenderer.invoke("desktop:exe-connect", vm),
+  platform: process.platform,
   state: () => ipcRenderer.invoke("desktop:state"),
   connect: (origin: string, token: string) =>
     ipcRenderer.invoke("desktop:connect", origin, token),

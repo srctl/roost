@@ -1,7 +1,7 @@
 {
   "name": "@roost/desktop",
   "productName": "Roost",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "main": "dist/main.cjs",
@@ -15,7 +15,8 @@
     "test:e2e": "pnpm build && node --import tsx tests/e2e.ts"
   },
   "dependencies": {
-    "@roost/desktop-protocol": "workspace:*"
+    "@roost/desktop-protocol": "workspace:*",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@roost/typescript-config": "workspace:*",

@@ -29,7 +29,16 @@ import {
 } from "electron";
 import { RoostAPI, serverOrigin } from "./api";
 import { DesktopCompanion } from "./companion";
+import {
+  type ConnectionSource,
+  type Credentials,
+  decodeConnection,
+  encodeConnection,
+  vmNameSchema,
+} from "./connection-settings";
+import { CredentialSession, ExeDev } from "./exedev";
 import { LocalTools } from "./local-tools";
+import { installWorkspaceAuthentication } from "./workspace-auth";
 
 const directory = __dirname;
 const panelURL = pathToFileURL(join(directory, "panel.html")).href;
@@ -39,6 +48,7 @@ let tray: Tray | null = null;
 let connection: {
   controller: AbortController;
   companion: DesktopCompanion;
+  credentials: CredentialSession;
 } | null = null;
 let tools: LocalTools;
 let grants: Grants = { ...emptyGrants };
@@ -51,6 +61,30 @@ let quitting = false;
 
 function configPath() {
   return join(app.getPath("userData"), "connection.json");
+}
+function saveConnection(value: Credentials) {
+  if (!safeStorage.isEncryptionAvailable())
+    throw new Error(
+      "Secure credential storage is unavailable on this computer.",
+    );
+  const path = configPath();
+  mkdirSync(app.getPath("userData"), { recursive: true, mode: 0o700 });
+  writeFileSync(
+    `${path}.tmp`,
+    JSON.stringify(
+      encodeConnection(value, (text) => safeStorage.encryptString(text)),
+    ),
+    { mode: 0o600 },
+  );
+  renameSync(`${path}.tmp`, path);
+}
+function savedConnection() {
+  if (!safeStorage.isEncryptionAvailable())
+    throw new Error("Secure credential storage is unavailable.");
+  return decodeConnection(
+    JSON.parse(readFileSync(configPath(), "utf8")),
+    (data) => safeStorage.decryptString(data),
+  );
 }
 function state() {
   return {
@@ -139,7 +173,10 @@ function closeWorkspace() {
     workspace = null;
   }
 }
-async function openWorkspace(workspaceOrigin: string) {
+async function openWorkspace(
+  workspaceOrigin: string,
+  credentials: CredentialSession,
+) {
   closeWorkspace();
   workspace = new WebContentsView({
     webPreferences: {
@@ -151,6 +188,11 @@ async function openWorkspace(workspaceOrigin: string) {
     },
   });
   const contents = workspace.webContents;
+  installWorkspaceAuthentication(
+    (handler) => contents.session.webRequest.onBeforeSendHeaders(handler),
+    workspaceOrigin,
+    () => credentials.authentication(),
+  );
   contents.session.setPermissionRequestHandler(
     (_contents, _permission, callback) => callback(false),
   );
@@ -174,10 +216,31 @@ async function openWorkspace(workspaceOrigin: string) {
   await contents.loadURL(workspaceOrigin);
 }
 
-async function connect(server: string, token: string, save = true) {
-  const nextOrigin = serverOrigin(server);
+async function connect(
+  source: ConnectionSource,
+  mode: "setup" | "resume" | "reconnect" = "setup",
+) {
   const controller = new AbortController();
-  const api = new RoostAPI(nextOrigin, token, controller.signal);
+  const credentials = new CredentialSession(
+    source,
+    controller.signal,
+    (value) => {
+      controller.signal.throwIfAborted();
+      if (connection !== attempt)
+        throw new Error("Connection attempt cancelled.");
+      saveConnection(value);
+    },
+  );
+  const nextOrigin = serverOrigin(credentials.origin);
+  if (mode === "reconnect") credentials.requireFreshProxy();
+  const api = new RoostAPI(
+    nextOrigin,
+    async (signal) =>
+      signal === null
+        ? credentials.cachedAuthentication()
+        : credentials.authentication(),
+    controller.signal,
+  );
   const nextTools = new LocalTools(join(directory, "roost-mac-helper"));
   let ready = false;
   const nextCompanion = new DesktopCompanion(
@@ -199,7 +262,7 @@ async function connect(server: string, token: string, save = true) {
       publish();
     },
   );
-  const attempt = { controller, companion: nextCompanion };
+  const attempt = { controller, companion: nextCompanion, credentials };
   const previous = connection;
   connection = attempt;
   previous?.controller.abort();
@@ -214,6 +277,10 @@ async function connect(server: string, token: string, save = true) {
   showSettings(true);
   publish();
   try {
+    if (!safeStorage.isEncryptionAvailable())
+      throw new Error(
+        "Secure credential storage is unavailable on this computer.",
+      );
     const list = await api.request("agents");
     if (!Array.isArray(list)) throw new Error("Invalid agent list.");
     const nextAgents = list.map((agent) => ({
@@ -222,30 +289,24 @@ async function connect(server: string, token: string, save = true) {
     }));
     await nextCompanion.start();
     controller.signal.throwIfAborted();
-    if (save) {
-      if (!safeStorage.isEncryptionAvailable()) {
-        throw new Error(
-          "Secure credential storage is unavailable on this computer.",
-        );
-      }
-      const path = configPath();
-      mkdirSync(app.getPath("userData"), { recursive: true, mode: 0o700 });
-      writeFileSync(
-        `${path}.tmp`,
-        JSON.stringify({
-          origin: nextOrigin,
-          token: safeStorage.encryptString(token).toString("base64"),
-        }),
-        { mode: 0o600 },
-      );
-      renameSync(`${path}.tmp`, path);
-    }
-    await openWorkspace(nextOrigin);
+    await openWorkspace(nextOrigin, credentials);
+    const readyCredentials = await credentials.get();
     controller.signal.throwIfAborted();
+    if (mode === "setup") saveConnection(readyCredentials);
+    credentials.commit();
     agents = nextAgents;
     ready = true;
     status = "Connected";
     showSettings(false);
+    if (source.kind === "new-exe") {
+      void previous?.credentials.revoke().catch(() => {
+        if (connection === attempt) {
+          activity =
+            "Connected. Previous server credentials could not all be revoked.";
+          publish();
+        }
+      });
+    }
   } catch (error) {
     controller.abort();
     if (connection === attempt) {
@@ -258,6 +319,7 @@ async function connect(server: string, token: string, save = true) {
       showSettings(true);
     }
     await nextCompanion.stop();
+    await credentials.rollback().catch(() => {});
     throw error;
   }
   publish();
@@ -267,18 +329,16 @@ function registerIPC() {
   const handlers: Record<string, (...args: never[]) => unknown> = {
     "desktop:state": () => state(),
     "desktop:connect": async (server: string, token: string) => {
-      await connect(server, token);
+      await connect({ kind: "manual", origin: serverOrigin(server), token });
+      return state();
+    },
+    "desktop:exe-vms": () => new ExeDev().list(),
+    "desktop:exe-connect": async (vm: string) => {
+      await connect({ kind: "new-exe", vm: vmNameSchema.parse(vm) });
       return state();
     },
     "desktop:reconnect": async () => {
-      if (!safeStorage.isEncryptionAvailable())
-        throw new Error("Secure credential storage is unavailable.");
-      const saved = JSON.parse(readFileSync(configPath(), "utf8"));
-      await connect(
-        saved.origin,
-        safeStorage.decryptString(Buffer.from(saved.token, "base64")),
-        false,
-      );
+      await connect(savedConnection(), "reconnect");
       return state();
     },
     "desktop:disconnect": async () => {
@@ -294,6 +354,15 @@ function registerIPC() {
       origin = "";
       activity = "Local access is off";
       showSettings(true);
+      void previous?.credentials.revoke().catch((error) => {
+        if (!connection) {
+          activity =
+            error instanceof Error
+              ? error.message
+              : "Some server credentials could not be revoked.";
+          publish();
+        }
+      });
       return state();
     },
     "desktop:chats": async () => tools.chats(),
@@ -401,6 +470,12 @@ else {
       minHeight: 540,
       title: "Roost",
       backgroundColor: "#101211",
+      ...(process.platform === "darwin"
+        ? {
+            titleBarStyle: "hiddenInset" as const,
+            trafficLightPosition: { x: 16, y: 25 },
+          }
+        : {}),
       webPreferences: {
         preload: join(directory, "preload.cjs"),
         nodeIntegration: false,
@@ -473,13 +548,7 @@ else {
         stopComputer();
     }, 500).unref();
     try {
-      const saved = JSON.parse(readFileSync(configPath(), "utf8"));
-      if (saved.origin && saved.token && safeStorage.isEncryptionAvailable())
-        await connect(
-          saved.origin,
-          safeStorage.decryptString(Buffer.from(saved.token, "base64")),
-          false,
-        );
+      await connect(savedConnection(), "resume");
     } catch {}
   });
   app.on("before-quit", () => {
