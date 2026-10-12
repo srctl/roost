@@ -3,6 +3,7 @@ import { ApprovalResponse } from "../../features/approvals/schema";
 import { SendMessage } from "../../features/chat/schema";
 import { listAgents, withAgentStore } from "../agents/store.server";
 import { answerApproval, readApprovals } from "../approvals/store.server";
+import { companionRequest } from "../companion/http.server";
 import { downloadFileRequest, uploadFileRequest } from "../files/http.server";
 import { assertAvailable } from "../maintenance.server";
 import { readConversationSnapshot } from "../runs/conversation-snapshot.server";
@@ -97,6 +98,10 @@ export function createMobileHandler(
       return json({ error: "Unsupported mobile API version." }, 404);
     const path = url.pathname.slice(prefix.length);
     try {
+      if (path.startsWith("companion/")) {
+        await Effect.runPromise(withAgentStore(assertAvailable));
+        return json(await companionRequest(path, request, identity));
+      }
       if (path === "session" && request.method === "GET")
         return json({ apiVersion: 1 });
       if (path === "session" && request.method === "DELETE") {

@@ -14,6 +14,7 @@ import {
   isNativeApproval,
   RequestApproval,
 } from "../approvals/tools.server";
+import { companionTools, handleCompanionTool } from "../companion/tools.server";
 import { releaseComputer } from "../computer/session.server";
 import { computerAction } from "../computer/tools.server";
 import { PublishArtifact, publishArtifact } from "../files/tools.server";
@@ -291,6 +292,16 @@ const makeAgentServer = (
 
       if (!allowsTool(bound.capabilities, call.tool))
         return deniedToolResponse();
+      if (companionTools.some((tool) => tool.name === call.tool)) {
+        if (!bound.runId) throw new Error("No active run.");
+        return handleCompanionTool(
+          agentId,
+          bound.runId,
+          call.tool,
+          call.arguments,
+          bound.toolSignal,
+        );
+      }
       if (paymentTools.some((tool) => tool.name === call.tool)) {
         if (!bound.runId) throw new Error("No active run.");
         return handlePaymentTool(

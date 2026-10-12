@@ -5,6 +5,8 @@ import type { DynamicToolSpec } from "./protocol/v2/DynamicToolSpec";
 export const FEED_EDITOR_AUTOMATION_ID = "7e9b3bf2-640d-427c-9d6e-e31f5fb614ef";
 
 const taskTools = [
+  "roost_desktop_messages",
+  "roost_desktop_computer",
   "roost_computer",
   "roost_request_approval",
   "roost_publish_artifact",

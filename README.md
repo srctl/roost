@@ -109,6 +109,7 @@ Roost is a pnpm workspace with a native Xcode app:
 | Path | Responsibility |
 | --- | --- |
 | `apps/web` | TanStack Start web/PWA, Node server, mobile API, CLI, and server tests |
+| `apps/desktop` | Electron Mac companion, selected Messages reads, and local computer sessions |
 | `apps/ios` | Native SwiftUI iPhone app, Xcode project, and native tests |
 | `apps/docs` | Static documentation website built from `docs/` |
 | `apps/marketing` | Public marketing website |
@@ -117,6 +118,8 @@ Roost is a pnpm workspace with a native Xcode app:
 
 Install once at the root with `corepack pnpm install --frozen-lockfile`.
 `pnpm dev` runs the web app; `pnpm dev:docs` and `pnpm dev:marketing` run the sites.
+`pnpm desktop:dev` opens the Electron companion; see the
+[desktop guide](docs/desktop.md) for setup, local permissions, and packaging.
 `pnpm check` verifies all JavaScript apps and the production web/mobile API.
 On macOS, `pnpm ios:build` builds the native app; see the
 [native app guide](apps/ios/README.md) for connection setup and simulator tests.
