@@ -1,0 +1,29 @@
+{
+  "name": "@roost/desktop",
+  "productName": "Roost Desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "pnpm build && electron .",
+    "start": "electron .",
+    "package": "pnpm build && node scripts/pack.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "pnpm build && node --import tsx tests/e2e.ts"
+  },
+  "dependencies": {
+    "@roost/desktop-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@roost/typescript-config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "electron": "44.7.0",
+    "esbuild": "0.28.2",
+    "playwright": "1.58.2",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  }
+}

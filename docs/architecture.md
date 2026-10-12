@@ -3,6 +3,11 @@
 Roost is a monorepo containing the web/PWA and Node server in `apps/web`, a
 native SwiftUI client in `apps/ios`, and separate public sites in `apps/docs` and
 `apps/marketing`. The server owns SQLite persistence and the agent work queue.
+`apps/desktop` is an Electron companion for macOS. Its sandboxed web workspace
+shares the existing server UI, while a separate local panel controls Messages
+grants and short computer sessions. The companion polls the device-authenticated
+API for ephemeral, run-bound tool requests; local helpers enforce the grants
+again before execution. See [Roost Desktop](desktop.md).
 Codex runs locally through its app-server protocol. The iPhone client connects
 through the authenticated mobile API; it shares the existing server stores.
 
