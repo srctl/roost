@@ -1,4 +1,4 @@
-# Roost Desktop
+# Roost
 
 An Electron companion for an existing Roost server. The first release targets
 macOS 14 or later and packages for the architecture of the build machine.
@@ -14,7 +14,7 @@ corepack pnpm desktop:dev
 
 Building the native capture/input helper requires Xcode command line tools and Python 3.
 `corepack pnpm desktop:pack` creates an ad-hoc signed app in
-`apps/desktop/output/desktop/Roost Desktop.app` and a ZIP archive alongside it. Set
+`apps/desktop/output/desktop/Roost.app` and a ZIP archive alongside it. Set
 `ROOST_DESKTOP_OUTPUT_DIR` to choose another output directory. Packaging refuses
 to overwrite an existing app. Developer ID signing, notarization, automatic
 updates, and Windows/Linux local adapters are not included in this first build.
@@ -47,8 +47,7 @@ reconnection, and is enforced on the Mac as well as the server.
 
 ### Messages
 
-Install [imsg](https://github.com/openclaw/imsg) separately, then allow Roost
-Desktop Full Disk Access in System Settings. The app finds imsg in
+Install [imsg](https://github.com/openclaw/imsg) separately, then allow Roost Full Disk Access in System Settings. The app finds imsg in
 `~/.local/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`.
 
 Choose conversations from a local list of up to 100 recent chats. Only the

@@ -1,6 +1,6 @@
-# Roost Desktop
+# Roost
 
-Roost Desktop connects an existing Roost server to your Mac. Use the same web
+Roost connects an existing Roost server to your Mac. Use the same web
 workspace in a dedicated window, choose an agent and the Messages conversations
 it may read, or enable a short computer-control session. Agents continue running
 on the server when you close the window; local tools require the companion to

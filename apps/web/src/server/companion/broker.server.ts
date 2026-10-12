@@ -178,7 +178,7 @@ export class CompanionBroker {
       throw new Error(
         matches.length
           ? "Choose only one desktop for this agent."
-          : "Open Roost Desktop and enable access for this agent.",
+          : "Open Roost and enable access for this agent.",
       );
     const companion = matches[0]![1];
     if (companion.pending.size)

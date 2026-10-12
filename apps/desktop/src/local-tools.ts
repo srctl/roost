@@ -29,8 +29,8 @@ export const execute: Execute = (program, args, input, signal) =>
           reject(
             new Error(
               program.endsWith("imsg")
-                ? "Messages access failed. Install imsg and allow Roost Desktop Full Disk Access in System Settings."
-                : "Computer access failed. Allow Roost Desktop screen recording and Accessibility in System Settings.",
+                ? "Messages access failed. Install imsg and allow Roost Full Disk Access in System Settings."
+                : "Computer access failed. Allow Roost screen recording and Accessibility in System Settings.",
             ),
           );
         else resolve(stdout);

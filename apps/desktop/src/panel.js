@@ -18,7 +18,7 @@ function render(value) {
   current = value;
   byId("host").textContent = value.origin
     ? new URL(value.origin).host
-    : "Desktop";
+    : "This Mac";
   byId("status").textContent = value.status;
   byId("activity").textContent = value.activity;
   byId("panel").hidden = !value.settingsVisible;

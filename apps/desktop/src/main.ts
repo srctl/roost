@@ -320,7 +320,7 @@ function registerIPC() {
         throw new Error("Local computer access currently supports macOS.");
       if (!systemPreferences.isTrustedAccessibilityClient(true))
         throw new Error(
-          "Enable Roost Desktop Accessibility in System Settings, then try again.",
+          "Enable Roost Accessibility in System Settings, then try again.",
         );
       applyGrants({ ...grants, computerUntil: Date.now() + 10 * 60 * 1000 });
       activity = "Computer access enabled for 10 minutes";
@@ -381,6 +381,12 @@ function registerIPC() {
 
 if (process.env.ROOST_DESKTOP_TEST_DATA_DIR)
   app.setPath("userData", process.env.ROOST_DESKTOP_TEST_DATA_DIR);
+else {
+  // Keep saved connections when the product's display name changes.
+  const dataDirectory = join(app.getPath("appData"), "Roost Desktop");
+  mkdirSync(dataDirectory, { recursive: true, mode: 0o700 });
+  app.setPath("userData", dataDirectory);
+}
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {

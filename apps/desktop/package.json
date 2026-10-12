@@ -1,7 +1,7 @@
 {
   "name": "@roost/desktop",
-  "productName": "Roost Desktop",
-  "version": "0.1.1",
+  "productName": "Roost",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "main": "dist/main.cjs",

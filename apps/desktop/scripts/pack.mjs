@@ -21,8 +21,8 @@ const electron = dirname(require.resolve("electron/package.json"));
 const output = resolve(
   process.env.ROOST_DESKTOP_OUTPUT_DIR || "output/desktop",
 );
-const finalBundle = join(output, "Roost Desktop.app");
-const archive = join(output, "Roost Desktop-macOS.zip");
+const finalBundle = join(output, "Roost.app");
+const archive = join(output, "Roost-macOS.zip");
 if (existsSync(finalBundle) || existsSync(archive))
   throw new Error(
     `A package already exists at ${finalBundle}. Choose a new output directory.`,
@@ -31,7 +31,7 @@ mkdirSync(output, { recursive: true });
 const staging = mkdtempSync(join(tmpdir(), "roost-desktop-package-"));
 // Leave the app suffix off while signing so Finder does not attach folder
 // metadata during verification. The final bundle and archive use .app.
-const bundle = join(staging, "Roost Desktop");
+const bundle = join(staging, "Roost");
 try {
   cpSync(join(electron, "dist/Electron.app"), bundle, {
     recursive: true,
@@ -50,7 +50,7 @@ try {
     join(appDirectory, "package.json"),
     JSON.stringify({
       name: "roost-desktop",
-      productName: "Roost Desktop",
+      productName: "Roost",
       version: manifest.version,
       main: "dist/main.cjs",
     }),
@@ -73,8 +73,8 @@ try {
   }
   for (const [key, value] of Object.entries({
     CFBundleIconFile: "Roost.icns",
-    CFBundleName: "Roost Desktop",
-    CFBundleDisplayName: "Roost Desktop",
+    CFBundleName: "Roost",
+    CFBundleDisplayName: "Roost",
     CFBundleIdentifier: "dev.roost.desktop",
     CFBundleShortVersionString: manifest.version,
   })) {

@@ -7,7 +7,7 @@ native SwiftUI client in `apps/ios`, and separate public sites in `apps/docs` an
 shares the existing server UI, while a separate local panel controls Messages
 grants and short computer sessions. The companion polls the device-authenticated
 API for ephemeral, run-bound tool requests; local helpers enforce the grants
-again before execution. See [Roost Desktop](desktop.md).
+again before execution. See [Roost](desktop.md).
 Codex runs locally through its app-server protocol. The iPhone client connects
 through the authenticated mobile API; it shares the existing server stores.
 
