@@ -21,9 +21,11 @@ export class DesktopCompanion {
 
   async start() {
     const session = await this.api.request("session");
+    if (this.stopped) throw new Error("Connection attempt cancelled.");
     if (session.apiVersion !== 1)
       throw new Error("Unsupported Roost API version.");
     const connection = await this.api.request("companion/connect", {});
+    if (this.stopped) throw new Error("Connection attempt cancelled.");
     if (
       connection.protocolVersion !== 1 ||
       typeof connection.lease !== "string"
@@ -94,7 +96,7 @@ export class DesktopCompanion {
     } catch {
       this.activity("Request ended before its result was accepted");
     } finally {
-      this.activeRequest = null;
+      if (this.activeRequest === request.id) this.activeRequest = null;
     }
   }
   async stop() {
@@ -103,7 +105,7 @@ export class DesktopCompanion {
     this.tools.stop();
     if (this.lease)
       await this.api
-        .request("companion/disconnect", { lease: this.lease })
+        .request("companion/disconnect", { lease: this.lease }, null)
         .catch(() => {});
   }
 }

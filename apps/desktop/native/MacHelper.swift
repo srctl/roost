@@ -14,6 +14,25 @@ let keyCodes: [String: CGKeyCode] = [
     "left": 123, "right": 124, "down": 125, "up": 126,
 ]
 
+func typingEvents(_ text: String) throws -> [CGEvent] {
+    var batches: [[UniChar]] = []
+    var batch: [UniChar] = []
+    for scalar in text.unicodeScalars {
+        let units = Array(String(scalar).utf16)
+        if batch.count + units.count > 20 {
+            batches.append(batch)
+            batch = []
+        }
+        batch.append(contentsOf: units)
+    }
+    if !batch.isEmpty { batches.append(batch) }
+    return try batches.map { units in
+        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) else { throw HelperError.invalidInput }
+        units.withUnsafeBufferPointer { event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: $0.baseAddress!) }
+        return event
+    }
+}
+
 func shortcut(_ key: String) throws -> (CGKeyCode, CGEventFlags) {
     let parts = key.lowercased().split(separator: "+").map(String.init)
     guard let last = parts.last, let code = keyCodes[last], parts.count <= 5 else { throw HelperError.invalidInput }
@@ -91,11 +110,7 @@ func input(_ value: [String: Any], action: String) throws {
         guard let text = value["text"] as? String, text.utf16.count <= 10000 else { throw HelperError.invalidInput }
         // Small Unicode batches preserve non-ASCII text without changing the
         // user's clipboard or relying on their keyboard layout.
-        let characters = Array(text.utf16)
-        for start in stride(from: 0, to: characters.count, by: 20) {
-            let batch = Array(characters[start..<min(start + 20, characters.count)])
-            guard let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) else { throw HelperError.invalidInput }
-            batch.withUnsafeBufferPointer { event.keyboardSetUnicodeString(stringLength: batch.count, unicodeString: $0.baseAddress!) }
+        for event in try typingEvents(text) {
             event.post(tap: .cghidEventTap)
             event.type = .keyUp
             event.post(tap: .cghidEventTap)
@@ -108,6 +123,11 @@ func input(_ value: [String: Any], action: String) throws {
         do {
             if CommandLine.arguments.contains("--self-test") {
                 guard try shortcut("cmd+shift+l").0 == 37, try shortcut("Return").0 == 36 else { throw HelperError.invalidInput }
+                for text in ["", "hello", String(repeating: "a", count: 19) + "😀z", String(repeating: "😀", count: 21), "中文 e\u{301} 👨‍👩‍👧‍👦"] {
+                    let events = try typingEvents(text)
+                    let payload = events.compactMap { NSEvent(cgEvent: $0)?.characters }.joined()
+                    guard payload == text else { throw HelperError.invalidInput }
+                }
                 try output(["ok": true]); return
             }
             let data = FileHandle.standardInput.readDataToEndOfFile()

@@ -21,12 +21,17 @@ export class RoostAPI {
   constructor(
     origin: string,
     private token: string,
+    private signal?: AbortSignal,
   ) {
     this.origin = serverOrigin(origin);
     if (!/^roost_mobile_[A-Za-z0-9_-]{43}$/.test(token))
       throw new Error("Enter a valid Roost device token.");
   }
-  async request(path: string, data?: unknown) {
+  async request(
+    path: string,
+    data?: unknown,
+    signal: AbortSignal | null | undefined = this.signal,
+  ) {
     // Credentials are only sent to this exact API origin, never a redirect or
     // a renderer. Browser login and device authentication remain independent.
     const response = await fetch(`${this.origin}/api/mobile/v1/${path}`, {
@@ -37,8 +42,11 @@ export class RoostAPI {
         ...(data === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: data === undefined ? undefined : JSON.stringify(data),
-      signal: AbortSignal.timeout(6000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(6000)])
+        : AbortSignal.timeout(6000),
     });
+    signal?.throwIfAborted();
     if (response.status === 401)
       throw new Error(
         "The device token expired or was revoked. Reconnect with a new token.",

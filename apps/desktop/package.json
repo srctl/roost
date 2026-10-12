@@ -1,7 +1,7 @@
 {
   "name": "@roost/desktop",
   "productName": "Roost Desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "main": "dist/main.cjs",
@@ -11,7 +11,7 @@
     "start": "electron .",
     "package": "pnpm build && node scripts/pack.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.*",
     "test:e2e": "pnpm build && node --import tsx tests/e2e.ts"
   },
   "dependencies": {

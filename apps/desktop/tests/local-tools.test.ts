@@ -142,3 +142,42 @@ test("computer input requires a fresh screenshot, maps Retina coordinates, and a
   waiting.stop();
   await assert.rejects(pending, /Stopped/);
 });
+
+test("input consumes its screenshot even when the following capture fails", async () => {
+  let captures = 0;
+  let clicks = 0;
+  const tools = new LocalTools("helper", async (_program, _args, input) => {
+    if (JSON.parse(input!).action === "click") {
+      clicks++;
+      return "{}";
+    }
+    if (++captures === 2) throw new Error("Fixture capture failure");
+    return JSON.stringify({
+      dataURL: "data:image/jpeg;base64,AA==",
+      width: 100,
+      height: 100,
+      bounds: { x: 0, y: 0, width: 100, height: 100 },
+    });
+  });
+  tools.setGrants({ agentId, chats: [], computerUntil: Date.now() + 60000 });
+  const screenshot = () =>
+    request({
+      tool: "roost_desktop_computer",
+      input: { action: "screenshot" },
+    });
+  const click = () =>
+    request({
+      tool: "roost_desktop_computer",
+      input: { action: "click", x: 10, y: 10, button: "left", clicks: 1 },
+    });
+  await tools.handle(screenshot());
+  await assert.rejects(
+    tools.handle(click()),
+    /input may already have been applied/i,
+  );
+  await assert.rejects(tools.handle(click()), /fresh screenshot/);
+  assert.equal(clicks, 1);
+  await tools.handle(screenshot());
+  assert.equal((await tools.handle(click())).success, true);
+  assert.equal(clicks, 2);
+});

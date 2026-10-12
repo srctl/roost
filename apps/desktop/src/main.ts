@@ -36,7 +36,10 @@ const panelURL = pathToFileURL(join(directory, "panel.html")).href;
 let window: BrowserWindow;
 let workspace: WebContentsView | null = null;
 let tray: Tray | null = null;
-let companion: DesktopCompanion | null = null;
+let connection: {
+  controller: AbortController;
+  companion: DesktopCompanion;
+} | null = null;
 let tools: LocalTools;
 let grants: Grants = { ...emptyGrants };
 let agents: { id: string; name: string }[] = [];
@@ -129,14 +132,18 @@ function validExternal(value: string) {
     !url.password
   );
 }
-async function openWorkspace() {
+function closeWorkspace() {
   if (workspace) {
     window.contentView.removeChildView(workspace);
     workspace.webContents.close();
+    workspace = null;
   }
+}
+async function openWorkspace(workspaceOrigin: string) {
+  closeWorkspace();
   workspace = new WebContentsView({
     webPreferences: {
-      partition: `persist:roost-${createHash("sha256").update(origin).digest("hex").slice(0, 16)}`,
+      partition: `persist:roost-${createHash("sha256").update(workspaceOrigin).digest("hex").slice(0, 16)}`,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -153,27 +160,58 @@ async function openWorkspace() {
     return { action: "deny" };
   });
   contents.on("will-navigate", (event, url) => {
-    if (new URL(url).origin !== origin) {
+    if (new URL(url).origin !== workspaceOrigin) {
       event.preventDefault();
       if (validExternal(url)) void shell.openExternal(url);
     }
   });
   contents.on("will-redirect", (event, url) => {
-    if (new URL(url).origin !== origin) event.preventDefault();
+    if (new URL(url).origin !== workspaceOrigin) event.preventDefault();
   });
   window.contentView.addChildView(workspace);
   bounds();
   workspace.setVisible(!settingsVisible);
-  await contents.loadURL(origin);
+  await contents.loadURL(workspaceOrigin);
 }
 
 async function connect(server: string, token: string, save = true) {
   const nextOrigin = serverOrigin(server);
-  const api = new RoostAPI(nextOrigin, token);
-  if (companion) await companion.stop();
-  companion = null;
+  const controller = new AbortController();
+  const api = new RoostAPI(nextOrigin, token, controller.signal);
+  const nextTools = new LocalTools(join(directory, "roost-mac-helper"));
+  let ready = false;
+  const nextCompanion = new DesktopCompanion(
+    api,
+    nextTools,
+    () => (connection === attempt ? grants : emptyGrants),
+    (value) => {
+      if (connection !== attempt) return;
+      if (value.startsWith("Connection lost")) {
+        status = value;
+        applyGrants({ ...emptyGrants });
+        controller.abort();
+      } else if (ready) status = value;
+      publish();
+    },
+    (value) => {
+      if (connection !== attempt) return;
+      activity = value;
+      publish();
+    },
+  );
+  const attempt = { controller, companion: nextCompanion };
+  const previous = connection;
+  connection = attempt;
+  previous?.controller.abort();
+  void previous?.companion.stop();
+  tools.stop();
+  tools = nextTools;
+  closeWorkspace();
   applyGrants({ ...emptyGrants });
+  origin = nextOrigin;
+  agents = [];
   status = "Connecting";
+  showSettings(true);
   publish();
   try {
     const list = await api.request("agents");
@@ -182,29 +220,10 @@ async function connect(server: string, token: string, save = true) {
       id: String(agent.id),
       name: String(agent.name),
     }));
-    let ready = false;
-    const nextCompanion = new DesktopCompanion(
-      api,
-      tools,
-      () => grants,
-      (value) => {
-        if (!ready) return;
-        status = value;
-        if (value.startsWith("Connection lost")) {
-          grants = { ...emptyGrants };
-          tools.setGrants(grants);
-        }
-        publish();
-      },
-      (value) => {
-        activity = value;
-        publish();
-      },
-    );
     await nextCompanion.start();
+    controller.signal.throwIfAborted();
     if (save) {
       if (!safeStorage.isEncryptionAvailable()) {
-        await nextCompanion.stop();
         throw new Error(
           "Secure credential storage is unavailable on this computer.",
         );
@@ -221,19 +240,24 @@ async function connect(server: string, token: string, save = true) {
       );
       renameSync(`${path}.tmp`, path);
     }
-    origin = nextOrigin;
+    await openWorkspace(nextOrigin);
+    controller.signal.throwIfAborted();
     agents = nextAgents;
-    companion = nextCompanion;
-    status = "Connected";
-    await openWorkspace();
-    showSettings(false);
     ready = true;
+    status = "Connected";
+    showSettings(false);
   } catch (error) {
-    await companion?.stop();
-    companion = null;
-    applyGrants({ ...emptyGrants });
-    status = "Disconnected";
-    publish();
+    controller.abort();
+    if (connection === attempt) {
+      connection = null;
+      applyGrants({ ...emptyGrants });
+      closeWorkspace();
+      origin = "";
+      agents = [];
+      if (!status.startsWith("Connection lost")) status = "Disconnected";
+      showSettings(true);
+    }
+    await nextCompanion.stop();
     throw error;
   }
   publish();
@@ -258,14 +282,12 @@ function registerIPC() {
       return state();
     },
     "desktop:disconnect": async () => {
-      if (companion) await companion.stop();
-      companion = null;
+      const previous = connection;
+      connection = null;
+      previous?.controller.abort();
+      void previous?.companion.stop();
       applyGrants({ ...emptyGrants });
-      if (workspace) {
-        window.contentView.removeChildView(workspace);
-        workspace.webContents.close();
-        workspace = null;
-      }
+      closeWorkspace();
       writeFileSync(configPath(), "{}", { mode: 0o600 });
       status = "Disconnected";
       agents = [];
@@ -280,7 +302,7 @@ function registerIPC() {
         throw new Error(
           "Stop computer access before changing local permissions.",
         );
-      if (!companion || status !== "Connected")
+      if (!connection || status !== "Connected")
         throw new Error("Connect to Roost first.");
       if (agentId && !agents.some((agent) => agent.id === agentId))
         throw new Error("Choose an agent from this server.");
@@ -452,15 +474,13 @@ else {
           safeStorage.decryptString(Buffer.from(saved.token, "base64")),
           false,
         );
-    } catch {
-      status = "Disconnected";
-      publish();
-    }
+    } catch {}
   });
   app.on("before-quit", () => {
     quitting = true;
     tools?.stop();
     globalShortcut.unregisterAll();
-    void companion?.stop();
+    connection?.controller.abort();
+    void connection?.companion.stop();
   });
 }

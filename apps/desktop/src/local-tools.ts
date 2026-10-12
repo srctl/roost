@@ -148,6 +148,7 @@ export class LocalTools {
       this.controller.signal,
       AbortSignal.timeout(Math.max(1, remaining)),
     ]);
+    let inputAttempted = false;
     try {
       let result: DesktopResult;
       if (request.call.tool === "roost_desktop_messages") {
@@ -226,8 +227,11 @@ export class LocalTools {
               y: bounds.y + (action.y * bounds.height) / this.screenshot.height,
             };
           }
+          this.screenshot = null;
+          inputAttempted = true;
           await this.run(this.helper, [], JSON.stringify(nativeAction), signal);
         }
+        this.screenshot = null;
         const screenshot = JSON.parse(
           await this.run(
             this.helper,
@@ -272,6 +276,15 @@ export class LocalTools {
       )
         throw new Error("Local access ended.");
       return desktopResultSchema.parse(result);
+    } catch (error) {
+      if (inputAttempted) {
+        this.screenshot = null;
+        throw new Error(
+          "Input may already have been applied. Take a fresh screenshot before trying another action.",
+          { cause: error },
+        );
+      }
+      throw error;
     } finally {
       this.busy = false;
     }
