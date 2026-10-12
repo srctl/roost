@@ -44,17 +44,17 @@ export type ExeCredentials = Extract<Credentials, { kind: "exe" }>;
 export type ConnectionSource = Credentials | { kind: "new-exe"; vm: string };
 export type Authentication = { token: string; proxyToken?: string };
 
+export const savedConnectionSchema = z.object({
+  version: z.literal(2).optional(),
+  origin: z.string(),
+  token: z.string(),
+});
+
 export function decodeConnection(
   saved: unknown,
   decrypt: (data: Buffer) => string,
 ): Credentials {
-  const record = z
-    .object({
-      version: z.literal(2).optional(),
-      origin: z.string(),
-      token: z.string(),
-    })
-    .parse(saved);
+  const record = savedConnectionSchema.parse(saved);
   const plaintext = decrypt(Buffer.from(record.token, "base64"));
   try {
     return credentialsSchema.parse(

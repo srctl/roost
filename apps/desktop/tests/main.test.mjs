@@ -44,6 +44,7 @@ function fixture({
   load,
   ssh,
   authentication,
+  keychain,
 } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "roost-main-test-"));
   const handlers = new Map();
@@ -105,7 +106,10 @@ function fixture({
     Tray,
     ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
     safeStorage: {
-      isEncryptionAvailable: () => true,
+      isEncryptionAvailable: () => {
+        keychain?.();
+        return true;
+      },
       encryptString: encrypt,
       decryptString: (value) => value.toString(),
     },
@@ -447,6 +451,28 @@ test("an unfinished managed setup is not saved for a second reconnect to reuse",
     release.resolve();
     await app.call("disconnect");
     await delay(30);
+    app.close();
+  }
+});
+
+test("fresh launch shows the connection panel before accessing credential storage", async () => {
+  let prompts = 0;
+  const app = fixture({
+    keychain: () => {
+      prompts++;
+    },
+  });
+  try {
+    await until(app.ready);
+    assert.equal((await app.call("state")).value.status, "Disconnected");
+    assert.equal(prompts, 0);
+    assert.equal(
+      (await app.call("connect", "https://fixture.invalid", token)).ok,
+      true,
+    );
+    assert.ok(prompts > 0);
+  } finally {
+    await app.call("disconnect");
     app.close();
   }
 });

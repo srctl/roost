@@ -34,6 +34,7 @@ import {
   type Credentials,
   decodeConnection,
   encodeConnection,
+  savedConnectionSchema,
   vmNameSchema,
 } from "./connection-settings";
 import { CredentialSession, ExeDev } from "./exedev";
@@ -79,12 +80,12 @@ function saveConnection(value: Credentials) {
   renameSync(`${path}.tmp`, path);
 }
 function savedConnection() {
+  const saved = savedConnectionSchema.parse(
+    JSON.parse(readFileSync(configPath(), "utf8")),
+  );
   if (!safeStorage.isEncryptionAvailable())
     throw new Error("Secure credential storage is unavailable.");
-  return decodeConnection(
-    JSON.parse(readFileSync(configPath(), "utf8")),
-    (data) => safeStorage.decryptString(data),
-  );
+  return decodeConnection(saved, (data) => safeStorage.decryptString(data));
 }
 function state() {
   return {
