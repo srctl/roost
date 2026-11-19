@@ -409,9 +409,9 @@ struct DashboardChart: View {
                 return []
             }
             for row in dataset.rows {
-                guard row.indices.contains(x), row.indices.contains(index),
-                    let value = row[index].number
-                else { return [] }
+                guard row.indices.contains(x), row.indices.contains(index) else { return [] }
+                // Line and bar data may leave a value empty; it is a gap, not zero.
+                guard let value = row[index].number else { continue }
                 result.append(
                     Point(
                         id: result.count, label: row[x].text, x: row[x].number, value: value,

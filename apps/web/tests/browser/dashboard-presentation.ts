@@ -194,13 +194,13 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${base}/agents/${id}/dashboard`);
-    await page.getByLabel("View", { exact: true }).waitFor();
+    await page.getByRole("radiogroup", { name: "View" }).waitFor();
     assert.equal(
       await page.getByRole("button", { name: "Describe a view" }).count(),
       0,
     );
     await page.getByText("Healthy plants", { exact: true }).waitFor();
-    await page.getByLabel("View", { exact: true }).selectOption("charts");
+    await page.getByRole("radio", { name: "Charts" }).click();
     await page.getByRole("button", { name: "Reset view" }).waitFor();
     await page
       .getByRole("status")
@@ -222,14 +222,16 @@ try {
     await page.reload();
     await page.getByText("Weekly growth", { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel("View", { exact: true }).inputValue(),
-      "charts",
+      await page
+        .getByRole("radio", { name: "Charts" })
+        .getAttribute("aria-checked"),
+      "true",
     );
     await page.screenshot({
       path: join(output, `${label}-charts.png`),
       fullPage: true,
     });
-    await page.getByLabel("View", { exact: true }).selectOption("tasks");
+    await page.getByRole("radio", { name: "Tasks" }).click();
     await page.getByText("Water the basil", { exact: true }).waitFor();
     await page
       .getByRole("status")
@@ -250,15 +252,17 @@ try {
       ).status,
       200,
     );
-    await page.getByLabel("View", { exact: true }).selectOption("summary");
+    await page.getByRole("radio", { name: "Summary" }).click();
     await page.getByRole("alert").waitFor();
     await page
       .getByRole("status")
       .filter({ hasText: "Updating view" })
       .waitFor({ state: "hidden" });
     assert.equal(
-      await page.getByLabel("View", { exact: true }).inputValue(),
-      "tables",
+      await page
+        .getByRole("radio", { name: "Tables" })
+        .getAttribute("aria-checked"),
+      "true",
     );
     await page.getByRole("button", { name: "Reset view" }).click();
     await page.getByText("Healthy plants", { exact: true }).waitFor();
@@ -323,7 +327,7 @@ try {
       path: join(output, `${label}-topic.png`),
       fullPage: true,
     });
-    await page.getByLabel("View", { exact: true }).selectOption("summary");
+    await page.getByRole("radio", { name: "Summary" }).click();
     await page.getByText("Launch readiness", { exact: true }).waitFor();
     assert.equal(
       (await (await mobile("dashboard")).json()).presentation.widgetKey,

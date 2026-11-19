@@ -104,7 +104,7 @@ const styles = stylex.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 20,
+    marginTop: 32,
     fontSize: 12,
     backgroundColor: colors.surface,
   },

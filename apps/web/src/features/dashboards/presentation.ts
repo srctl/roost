@@ -89,6 +89,7 @@ export function filterDashboardWidgets(
           case "summary":
             return (
               block.type === "metrics" ||
+              block.type === "item-status" ||
               block.type === "markdown" ||
               block.type === "weather"
             );

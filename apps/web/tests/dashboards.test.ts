@@ -201,3 +201,68 @@ test("native blocks reject executable links, malformed tables, nonfinite charts,
       );
     assert.deepEqual(await run(listDashboards(agent.id)), []);
   }));
+
+test("visual blocks save stat targets, trends, and item status steppers within bounds", async () =>
+  fixture(async () => {
+    const agent = await create();
+    await run(setDashboardPreference(true));
+    const status = {
+      label: "Glasses",
+      value: "$71.90",
+      status: "Shipped",
+      tone: "positive",
+      steps: [{ label: "Ordered", note: "Sep 6" }, { label: "Shipped" }],
+      current: 1,
+      links: [{ label: "Track", url: "https://example.com/track" }],
+    } as const;
+    const saved = await run(
+      saveDashboard(agent.id, {
+        ...content,
+        blocks: [
+          {
+            type: "metrics",
+            items: [
+              {
+                label: "Protein",
+                value: "41 g",
+                progress: { value: 41, target: 90 },
+                trend: [70, null, 41],
+                tone: "attention",
+              },
+            ],
+          },
+          { type: "item-status", items: [status] },
+        ],
+      }),
+    );
+    assert.equal(saved.blocks.length, 2);
+    for (const blocks of [
+      [{ type: "item-status", items: [{ ...status, current: 2 }] }],
+      [
+        {
+          type: "item-status",
+          items: [{ ...status, steps: [status.steps[0]] }],
+        },
+      ],
+      [
+        {
+          type: "item-status",
+          items: [
+            { ...status, links: [{ label: "Bad", url: "javascript:x" }] },
+          ],
+        },
+      ],
+      [
+        {
+          type: "metrics",
+          items: [
+            { label: "A", value: "1", progress: { value: 1, target: 0 } },
+          ],
+        },
+      ],
+      [{ type: "metrics", items: [{ label: "A", value: "1", trend: [1] }] }],
+    ])
+      await assert.rejects(
+        run(saveDashboard(agent.id, { ...content, blocks } as SaveDashboard)),
+      );
+  }));

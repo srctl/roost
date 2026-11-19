@@ -30,11 +30,13 @@ export function CreateTracker({
   return (
     <div {...stylex.props(styles.container)}>
       <Button
+        variant="default"
+        size="sm"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         disabled={saving || !hydrated}
       >
-        Add tracker
+        <span aria-hidden="true">+</span> Add tracker
       </Button>
       {open && (
         <form
@@ -310,8 +312,11 @@ function WeatherLocationPicker({
 }
 
 const styles = stylex.create({
-  container: { marginBottom: 16 },
+  // Lets the button sit in the dashboard toolbar while its form wraps below.
+  container: { display: "contents" },
   form: {
+    flexBasis: "100%",
+    order: 1,
     display: "flex",
     alignItems: "flex-end",
     flexWrap: "wrap",
@@ -380,5 +385,11 @@ const styles = stylex.create({
     backgroundColor: colors.selected,
     color: colors.foreground,
   },
-  error: { fontSize: 12, lineHeight: 1.6, color: colors.muted },
+  error: {
+    fontSize: 12,
+    lineHeight: 1.6,
+    color: colors.muted,
+    flexBasis: "100%",
+    order: 1,
+  },
 });

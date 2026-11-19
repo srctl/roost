@@ -171,8 +171,8 @@ try {
       await todo
         .getByLabel("New task", { exact: true })
         .fill("Keep this task draft");
-      await page.getByLabel("View", { exact: true }).selectOption("tables");
-      await page.getByLabel("View", { exact: true }).selectOption("tasks");
+      await page.getByRole("radio", { name: "Tables" }).click();
+      await page.getByRole("radio", { name: "Tasks" }).click();
       assert.equal(
         await todo.getByLabel("New task", { exact: true }).inputValue(),
         "Keep this task draft",
@@ -214,8 +214,8 @@ try {
         await meal.getByLabel("Meal or snack", { exact: true }).isDisabled(),
         true,
       );
-      await page.getByLabel("View", { exact: true }).selectOption("tasks");
-      await page.getByLabel("View", { exact: true }).selectOption("all");
+      await page.getByRole("radio", { name: "Tasks" }).click();
+      await page.getByRole("radio", { name: "Everything" }).click();
       await meal
         .getByRole("button", { name: "Retry save", exact: true })
         .waitFor();

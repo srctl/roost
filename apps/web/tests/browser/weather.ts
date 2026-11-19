@@ -282,7 +282,7 @@ try {
     { type: "weather", id: "items", locationId: 5809844, unit: "fahrenheit" },
   ]);
   const key: string = saved.key;
-  await page.getByLabel("View", { exact: true }).selectOption("summary");
+  await page.getByRole("radio", { name: "Summary" }).click();
   await forecast(weather, "fahrenheit");
   await weather.getByRole("button", { name: "Celsius", exact: true }).click();
   await forecast(weather, "celsius");
@@ -292,8 +292,10 @@ try {
   if (await hideChat.count()) await hideChat.click();
   await forecast(weather, "celsius");
   assert.equal(
-    await page.getByLabel("View", { exact: true }).inputValue(),
-    "summary",
+    await page
+      .getByRole("radio", { name: "Summary" })
+      .getAttribute("aria-checked"),
+    "true",
   );
   await geometry(page, weather);
   await article.scrollIntoViewIfNeeded();
