@@ -11,7 +11,8 @@ import {
   themeNames,
   themePalettes,
 } from "../features/settings/themes";
-import { colors } from "../styles/tokens.stylex";
+import { motion } from "../styles/motion.stylex";
+import { colors, radii, shadows } from "../styles/tokens.stylex";
 import { Button } from "./ui/button";
 
 const descriptions: Record<ThemeId, string> = {
@@ -97,7 +98,7 @@ export function ThemeSetting() {
             value={mode}
             {...stylex.props(
               styles.mode,
-              current.mode === mode && styles.selected,
+              current.mode === mode && styles.selectedMode,
             )}
           >
             {mode === "system" ? "System" : mode === "light" ? "Light" : "Dark"}
@@ -109,8 +110,9 @@ export function ThemeSetting() {
       </p>
       <div {...stylex.props(styles.actions)}>
         <Button
+          variant="default"
+          size="default"
           disabled={!changed}
-          xstyle={styles.save}
           onClick={() => {
             if (save()) setNotice("Theme saved.");
           }}
@@ -118,6 +120,8 @@ export function ThemeSetting() {
           Save theme
         </Button>
         <Button
+          variant="outline"
+          size="default"
           disabled={!changed}
           onClick={() => {
             preview(null);
@@ -161,25 +165,34 @@ const styles = stylex.create({
     alignItems: "flex-start",
     textAlign: "left",
     padding: 14,
-    borderRadius: 10,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: colors.border,
+    borderColor: {
+      default: colors.border,
+      ":hover": `color-mix(in srgb, ${colors.foreground} 18%, ${colors.border})`,
+    },
     backgroundColor: colors.surface,
     color: colors.foreground,
+    boxShadow: shadows.xs,
     cursor: "pointer",
-    outlineOffset: 3,
+    outlineOffset: 2,
+    transitionProperty: "border-color, box-shadow",
+    transitionDuration: motion.fast,
   },
-  selected: { borderColor: colors.accent, backgroundColor: colors.selected },
+  selected: {
+    borderColor: { default: colors.accent, ":hover": colors.accent },
+    boxShadow: `${shadows.xs}, ${shadows.ring}`,
+  },
   name: { fontSize: 14, fontWeight: 500, marginTop: 12 },
   swatches: { display: "flex", gap: 8, flexWrap: "wrap" },
   swatchGroup: {
     display: "flex",
     overflow: "hidden",
-    borderRadius: 4,
+    borderRadius: radii.sm,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: colors.faint,
+    borderColor: colors.border,
   },
   swatch: { width: 20, height: 20 },
   modeHeading: {
@@ -188,26 +201,33 @@ const styles = stylex.create({
     marginTop: 20,
     marginBottom: 8,
   },
-  modes: { display: "flex", gap: 8 },
+  modes: {
+    display: "flex",
+    gap: 2,
+    width: "fit-content",
+    padding: 3,
+    borderRadius: radii.md,
+    backgroundColor: colors.bubble,
+  },
   mode: {
-    borderRadius: 6,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: colors.border,
+    borderRadius: radii.sm,
+    borderWidth: 0,
     paddingInline: 16,
-    paddingBlock: 12,
+    paddingBlock: 6,
     fontSize: 12,
+    fontWeight: 500,
     cursor: "pointer",
+    backgroundColor: "transparent",
+    color: { default: colors.muted, ":hover": colors.foreground },
+    outlineOffset: 2,
+    transitionProperty: "background-color, color, box-shadow",
+    transitionDuration: motion.fast,
+  },
+  selectedMode: {
+    backgroundColor: colors.background,
     color: colors.foreground,
-    outlineOffset: 3,
+    boxShadow: shadows.sm,
   },
-  actions: { display: "flex", gap: 12, marginTop: 16 },
-  save: {
-    backgroundColor: colors.accent,
-    color: colors.onAccent,
-    paddingInline: 14,
-    minHeight: 40,
-    opacity: { default: 1, ":disabled": 0.5 },
-  },
+  actions: { display: "flex", gap: 8, marginTop: 16 },
   status: { fontSize: 12, color: colors.muted, minHeight: 18, marginBottom: 0 },
 });

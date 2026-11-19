@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { motion } from "./motion.stylex";
-import { colors } from "./tokens.stylex";
+import { colors, fonts, radii, shadows } from "./tokens.stylex";
 
 const arrive = stylex.keyframes({
   from: { opacity: 0, transform: "translateY(6px)" },
@@ -34,7 +34,7 @@ export const feedStyles = stylex.create({
     marginTop: 8,
     marginBottom: 0,
   },
-  headerActions: { display: "flex", alignItems: "center", gap: 5 },
+  headerActions: { display: "flex", alignItems: "center", gap: 6 },
   buttonLabel: {
     display: { default: "inline", "@media (max-width: 500px)": "none" },
   },
@@ -51,17 +51,24 @@ export const feedStyles = stylex.create({
   },
   filters: {
     display: "flex",
-    gap: 4,
+    gap: 2,
     borderWidth: 0,
-    padding: 0,
+    padding: 3,
     margin: 0,
     minWidth: 0,
+    borderRadius: radii.md,
+    backgroundColor: colors.bubble,
   },
-  filter: { paddingInline: 12, borderRadius: 6, minHeight: 32 },
+  filter: {
+    paddingInline: 14,
+    borderRadius: radii.sm,
+    minHeight: { default: 26, "@media (max-width: 700px)": 36 },
+    fontWeight: 500,
+  },
   selectedFilter: {
     color: colors.foreground,
-    backgroundColor: colors.selected,
-    fontWeight: 500,
+    backgroundColor: colors.background,
+    boxShadow: shadows.sm,
   },
   status: { fontSize: 11, color: colors.muted, margin: 0 },
   statusAction: {
@@ -141,7 +148,7 @@ export const feedStyles = stylex.create({
     padding: 0,
     borderWidth: 0,
     overflow: "hidden",
-    borderRadius: 4,
+    borderRadius: radii.lg,
     cursor: "pointer",
     backgroundColor: colors.surface,
     outlineOffset: 4,
@@ -279,8 +286,7 @@ export const feedStyles = stylex.create({
     borderRadius: { default: 10, "@media (max-width: 700px)": 0 },
     backgroundColor: colors.background,
     color: colors.foreground,
-    fontFamily:
-      "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 1.5,
     boxShadow: "0 12px 70px #00000030",

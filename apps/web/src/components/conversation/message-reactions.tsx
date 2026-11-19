@@ -6,7 +6,7 @@ import {
   REACTION_EMOJIS,
 } from "../../features/chat/reactions";
 import type { Message } from "../../features/chat/schema";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "../ui/button";
 
 const names: Record<string, string> = {
@@ -274,7 +274,7 @@ const styles = stylex.create({
   },
   positioner: { zIndex: 50 },
   popup: {
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 1.6,
     width: 284,
