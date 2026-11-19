@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roost</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand"><img src="roost.svg" width="27" height="27" alt=""><strong>Roost</strong><span id="host">This Mac</span></div>
+    <div class="toolbar-actions"><span id="status" role="status">Disconnected</span><button type="button" id="stop" class="danger" hidden>Stop computer access</button><button type="button" id="settings">Companion</button></div>
+  </header>
+  <main id="panel">
+    <div class="intro" id="intro"><span class="eyebrow">ON THIS MAC</span><h1>Connect this Mac to Roost</h1><p>Connect to Roost, then choose what an agent can access here.</p></div>
+    <section id="exe-connection" class="section">
+      <h2>Connect your instance</h2>
+      <p>Choose your exe.dev VM. Roost uses your SSH login to set up this Mac.</p>
+      <button class="primary" id="exe-discover" type="button">Connect to exe.dev</button>
+      <form id="exe-form" hidden>
+        <label>Your instance<select id="exe-vm" required><option value="">Choose an instance</option></select></label>
+        <button class="primary" id="exe-connect" type="submit">Connect to Roost</button>
+      </form>
+    </section>
+    <details id="manual-connection"><summary>Connect another server</summary>
+    <form id="connect-form" class="section">
+      <h2>Connect to Roost</h2><div class="connection-fields"><label>Server address<input id="origin" type="url" placeholder="https://roost.example.com" required></label><label>Device token<input id="token" type="password" autocomplete="off" placeholder="roost_mobile_…" required></label></div>
+      <p class="hint">Create a device token on your server with <code>roost mobile create --name Mac --output /private/path/mac-token.txt</code>. Web sign-in opens separately.</p>
+      <button class="primary" type="submit" id="connect">Connect</button>
+    </form>
+    </details>
+    <div id="connection-summary" class="section" hidden><div class="section-heading"><h2>Connected to Roost</h2><div><button type="button" id="reconnect">Reconnect</button> <button type="button" id="disconnect">Disconnect this Mac</button></div></div><p id="connection-origin" class="hint"></p></div>
+    <section id="access" class="section" hidden>
+      <div class="section-heading"><h2>Local access</h2><button type="button" id="workspace">Open workspace ↗</button></div>
+      <label class="agent-label">Choose an agent<select id="agent"><option value="">Local access off</option></select></label>
+      <div class="access-row"><div><h3>Messages</h3><p>Share selected conversations for reading. Replies and attachments stay outside this integration.</p></div><button type="button" id="load-chats">Choose conversations</button></div>
+      <div id="chats" class="chat-list" hidden></div>
+      <div class="access-row"><div><h3>Your computer</h3><p>Allow screenshots, clicks, and typing on your main display for 10 minutes.</p><p class="hint">Stop anytime with <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Esc</kbd> or the menu bar.</p></div><button type="button" id="start-computer">Enable computer access</button></div>
+      <div class="permission-links"><button type="button" id="screen-permission">Screen recording settings</button><button type="button" id="accessibility-permission">Accessibility settings</button><button type="button" id="messages-permission">Messages access settings</button></div>
+      <p id="permission-status" class="hint"></p>
+      <div class="activity"><span class="activity-dot"></span><span id="activity">Local access is off</span><span id="remaining"></span></div>
+    </section>
+    <p id="error" role="alert" hidden></p>
+    <footer>Agents keep working on your Roost server. This Mac is available while the companion is connected and awake.</footer>
+  </main>
+  <script src="panel.js"></script>
+</body>
+</html>

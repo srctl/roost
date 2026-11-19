@@ -50,6 +50,8 @@ const help = `Roost
   roost auth setup --origin https://roost.example.com
   roost auth recover [--origin https://roost.example.com]
   roost mobile create --name iPhone --output <new-file>
+  roost mobile create --name Mac --id <uuid> --json
+  roost mobile renew --id <device-id> --json
   roost mobile list
   roost mobile revoke <device-id>
   roost storage enable                One verified backup, two releases, bounded logs

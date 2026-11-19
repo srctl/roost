@@ -20,6 +20,7 @@
     "test:weather:browser": "node --import tsx tests/browser/weather.ts"
   },
   "dependencies": {
+    "@roost/desktop-protocol": "workspace:*",
     "@base-ui/react": "1.8.0",
     "@effect/platform-node": "0.108.1",
     "@fluentui/react-charts": "9.3.25",

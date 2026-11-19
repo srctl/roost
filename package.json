@@ -22,6 +22,10 @@
     }
   },
   "scripts": {
+    "desktop:dev": "corepack pnpm --filter @roost/desktop dev",
+    "desktop:build": "corepack pnpm --filter @roost/desktop build",
+    "desktop:pack": "corepack pnpm --filter @roost/desktop run package",
+    "desktop:test": "corepack pnpm --filter @roost/desktop test",
     "dev": "ROOST_DATA_DIR=\"${ROOST_DATA_DIR:-$PWD/.roost}\" corepack pnpm --filter @roost/web dev",
     "dev:web": "corepack pnpm dev",
     "build": "corepack pnpm --filter @roost/web build",

@@ -31,6 +31,7 @@ connect it to Codex.
 - [Push notifications](notifications.md) — receive results and approval requests on your devices.
 - [Settings and appearance](settings.md) — find controls, preview themes, and choose how replies look.
 - [iPhone and mobile web](mobile.md) — connect the native app or add Roost to your home screen.
+- [Desktop companion](desktop.md) — connect your Mac, share selected Messages chats, and enable a short computer session.
 
 ## Build and operate
 

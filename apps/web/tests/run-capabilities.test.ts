@@ -45,6 +45,8 @@ test("handoff and Feed runs reject forged tools through app-server dispatch", as
   );
   const forbidden = [
     "roost_computer",
+    "roost_desktop_messages",
+    "roost_desktop_computer",
     "roost_request_approval",
     "roost_publish_artifact",
     "roost_request_purchase",
