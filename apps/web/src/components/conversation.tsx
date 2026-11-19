@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import {
   lazy,
+  memo,
+  type ReactNode,
   Suspense,
   useCallback,
   useEffect,
@@ -15,6 +17,7 @@ import {
   type InitialConversation,
   openThread,
 } from "../features/chat/functions";
+import type { Message } from "../features/chat/schema";
 import { useConversation } from "../features/chat/use-conversation";
 import { computerPreviewAnchor } from "../features/computer/preview";
 import { useLiveEntries, useMountedAfterLoad } from "../features/motion";
@@ -74,7 +77,7 @@ export function Conversation({
   title?: string;
   onClose?: () => void;
   conversationId?: string;
-  parent?: import("../features/chat/schema").Message;
+  parent?: Message;
   onOpenThread?: (id: string) => void;
   suggestion?: { id: number; text: string };
 }) {
@@ -350,6 +353,43 @@ export function Conversation({
     };
   }, [updateBottomButton]);
 
+  // Rows are memoized, so they get stable handlers that read the latest state.
+  const latest = useRef({ react, threads, onOpenThread });
+  useLayoutEffect(() => {
+    latest.current = { react, threads, onOpenThread };
+  });
+  const reactToMessage = useCallback(
+    (messageId: string, emoji: string, active: boolean) =>
+      latest.current.react(messageId, emoji, active),
+    [],
+  );
+  const openReplyToMessage = useCallback(
+    async (messageId: string) => {
+      const { threads, onOpenThread } = latest.current;
+      if (!onOpenThread) return;
+      const existingThread = threads.find(
+        (thread) => thread.parentMessageId === messageId,
+      );
+      if (existingThread) {
+        setThreadError(undefined);
+        onOpenThread(existingThread.id);
+        return;
+      }
+      try {
+        const result = await openThread({
+          data: { agentId: agent.id, parentMessageId: messageId },
+        });
+        if (result.ok) {
+          setThreadError(undefined);
+          onOpenThread(result.value.id);
+        } else setThreadError(result.error);
+      } catch {
+        setThreadError("Could not open this thread. Please retry.");
+      }
+    },
+    [agent.id],
+  );
+
   function replyLabel(messageId: string) {
     const thread = threads.find((t) => t.parentMessageId === messageId);
     return thread
@@ -500,116 +540,23 @@ export function Conversation({
               )}
               {threadError && <p role="alert">{threadError}</p>}
               {messages.map((message, index) => {
-                const existingThread = threads.find(
+                const thread = threads.find(
                   (thread) => thread.parentMessageId === message.id,
                 );
-                const openReply = async () => {
-                  if (!onOpenThread) return;
-                  if (existingThread) {
-                    setThreadError(undefined);
-                    onOpenThread(existingThread.id);
-                    return;
-                  }
-                  try {
-                    const result = await openThread({
-                      data: {
-                        agentId: agent.id,
-                        parentMessageId: message.id,
-                      },
-                    });
-                    if (result.ok) {
-                      setThreadError(undefined);
-                      onOpenThread(result.value.id);
-                    } else setThreadError(result.error);
-                  } catch {
-                    setThreadError("Could not open this thread. Please retry.");
-                  }
-                };
-
-                const replyAction = onOpenThread &&
-                  message.role === "assistant" && (
-                    <Button
-                      xstyle={styles.replyAction}
-                      title="Reply in thread"
-                      aria-label="Reply in thread"
-                      onClick={openReply}
-                    >
-                      <Icon name="reply" />
-                    </Button>
-                  );
                 return (
-                  <div
+                  <ConversationRow
                     key={message.id}
-                    id={message.id}
-                    data-message-id={message.id}
+                    agent={agent}
+                    message={message}
+                    previous={parent ? messages[index - 1] : undefined}
+                    inThread={!!parent}
+                    entering={entering.has(message.id)}
+                    conversationId={conversationId}
+                    canReply={!!onOpenThread}
+                    replyLabel={thread ? replyLabel(message.id) : undefined}
+                    onReact={reactToMessage}
+                    onOpenReply={openReplyToMessage}
                   >
-                    {parent &&
-                    (message.role === "user" ||
-                      message.role === "assistant") ? (
-                      <ThreadMessage
-                        agent={agent}
-                        message={message}
-                        previous={messages[index - 1]}
-                        onReact={(emoji, active) =>
-                          react(message.id, emoji, active)
-                        }
-                        entering={entering.has(message.id)}
-                      />
-                    ) : message.role === "user" ? (
-                      <UserMessage
-                        reactions={
-                          <MessageReactions
-                            message={message}
-                            agentName={agent.name}
-                          />
-                        }
-                        files={message.files}
-                        entering={entering.has(message.id)}
-                      >
-                        {message.text}
-                      </UserMessage>
-                    ) : message.role === "notice" ? (
-                      <ConversationNotice
-                        agentId={agent.id}
-                        message={message}
-                      />
-                    ) : message.role === "activity" ? (
-                      <ToolActivity
-                        conversationId={conversationId}
-                        agentId={agent.id}
-                        message={message}
-                        entering={entering.has(message.id)}
-                      />
-                    ) : (
-                      <AgentMessage
-                        reactions={
-                          <MessageReactions
-                            message={message}
-                            agentName={agent.name}
-                            onReact={(emoji, active) =>
-                              react(message.id, emoji, active)
-                            }
-                          />
-                        }
-                        action={replyAction}
-                        name={agent.name}
-                        title={message.title}
-                        files={message.files}
-                        ui={message.ui}
-                        entering={entering.has(message.id)}
-                      >
-                        {message.text}
-                      </AgentMessage>
-                    )}
-                    {onOpenThread && existingThread && (
-                      <Button
-                        title="Reply in thread"
-                        aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel(message.id)}`}
-                        onClick={openReply}
-                      >
-                        {replyLabel(message.id)}
-                      </Button>
-                    )}
                     {computerEnabled &&
                       computerOpen &&
                       message.id === computerAnchor && (
@@ -622,7 +569,7 @@ export function Conversation({
                           />
                         </Suspense>
                       )}
-                  </div>
+                  </ConversationRow>
                 );
               })}
               {computerEnabled &&
@@ -734,6 +681,105 @@ export function Conversation({
 const fadeIn = stylex.keyframes({
   from: { opacity: 0 },
   to: { opacity: 1 },
+});
+
+// Polls and scroll bookkeeping re-render the conversation every second, so
+// unchanged messages must not re-render with it.
+const ConversationRow = memo(function ConversationRow({
+  agent,
+  message,
+  previous,
+  inThread,
+  entering,
+  conversationId,
+  canReply,
+  replyLabel,
+  onReact,
+  onOpenReply,
+  children,
+}: {
+  agent: Agent;
+  message: Message;
+  previous?: Message;
+  inThread: boolean;
+  entering: boolean;
+  conversationId: string;
+  canReply: boolean;
+  replyLabel?: string;
+  onReact: (messageId: string, emoji: string, active: boolean) => Promise<void>;
+  onOpenReply: (messageId: string) => Promise<void>;
+  children?: ReactNode;
+}) {
+  const replyAction = canReply && message.role === "assistant" && (
+    <Button
+      xstyle={styles.replyAction}
+      title="Reply in thread"
+      aria-label="Reply in thread"
+      onClick={() => onOpenReply(message.id)}
+    >
+      <Icon name="reply" />
+    </Button>
+  );
+  return (
+    <div id={message.id} data-message-id={message.id}>
+      {inThread && (message.role === "user" || message.role === "assistant") ? (
+        <ThreadMessage
+          agent={agent}
+          message={message}
+          previous={previous}
+          onReact={(emoji, active) => onReact(message.id, emoji, active)}
+          entering={entering}
+        />
+      ) : message.role === "user" ? (
+        <UserMessage
+          reactions={
+            <MessageReactions message={message} agentName={agent.name} />
+          }
+          files={message.files}
+          entering={entering}
+        >
+          {message.text}
+        </UserMessage>
+      ) : message.role === "notice" ? (
+        <ConversationNotice agentId={agent.id} message={message} />
+      ) : message.role === "activity" ? (
+        <ToolActivity
+          conversationId={conversationId}
+          agentId={agent.id}
+          message={message}
+          entering={entering}
+        />
+      ) : (
+        <AgentMessage
+          reactions={
+            <MessageReactions
+              message={message}
+              agentName={agent.name}
+              onReact={(emoji, active) => onReact(message.id, emoji, active)}
+            />
+          }
+          action={replyAction}
+          name={agent.name}
+          title={message.title}
+          files={message.files}
+          ui={message.ui}
+          entering={entering}
+        >
+          {message.text}
+        </AgentMessage>
+      )}
+      {canReply && replyLabel && (
+        <Button
+          title="Reply in thread"
+          aria-label={`Reply in thread: ${message.text.slice(0, 60)}. ${replyLabel}`}
+          onClick={() => onOpenReply(message.id)}
+        >
+          {replyLabel}
+        </Button>
+      )}
+      {children}
+    </div>
+  );
 });
 
 const styles = stylex.create({
