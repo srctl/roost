@@ -1,13 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { createRenderer } from "juxi/react";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { changeDashboardPresentation } from "../features/dashboards/functions";
 import {
   DASHBOARD_FOCUS_LABELS,
   type DashboardFocus,
   type DashboardPresentation,
   type DashboardViewProps,
-  dashboardFocusSchema,
   dashboardUI,
   filterDashboardWidgets,
   validateDashboardPlan,
@@ -16,7 +22,7 @@ import type {
   DashboardDataset,
   DashboardWidget as Widget,
 } from "../features/dashboards/schema";
-import { colors } from "../styles/tokens.stylex";
+import { colors, radii } from "../styles/tokens.stylex";
 import { DashboardDataSources } from "./dashboard-data";
 import { DashboardWidget } from "./dashboard-widget";
 import { Button } from "./ui/button";
@@ -65,9 +71,6 @@ function DashboardContents({
 }: DashboardContent & { showDataSources?: boolean }) {
   return (
     <>
-      {showDataSources && datasets.length > 0 && (
-        <DashboardDataSources datasets={datasets} />
-      )}
       <div {...stylex.props(styles.grid)}>
         {widgets.map((widget) => (
           <DashboardWidget
@@ -82,6 +85,9 @@ function DashboardContents({
           />
         ))}
       </div>
+      {showDataSources && datasets.length > 0 && (
+        <DashboardDataSources datasets={datasets} />
+      )}
     </>
   );
 }
@@ -109,9 +115,12 @@ export function AdaptiveDashboard({
   agentId,
   presentation,
   onPresentation,
+  actions,
   ...content
 }: DashboardContent & {
   agentId: string;
+  /** Page-level buttons, such as Add tracker, that share the toolbar row. */
+  actions?: ReactNode;
   presentation: DashboardPresentation;
   onPresentation: (value: DashboardPresentation) => void;
   onReload: () => Promise<void>;
@@ -190,56 +199,63 @@ export function AdaptiveDashboard({
   const ordinary = <DashboardContents {...content} />;
   return (
     <ContentContext value={content}>
-      {(presentation.availableFocus.length > 1 ||
-        presentation.canAdapt ||
-        presentation.widgetKey) && (
-        <div {...stylex.props(styles.toolbar)}>
-          <div {...stylex.props(styles.controls)}>
-            <label htmlFor="dashboard-focus" {...stylex.props(styles.label)}>
-              View
-            </label>
-            <select
-              id="dashboard-focus"
-              value={presentation.focus ?? "all"}
-              disabled={saving}
-              {...stylex.props(styles.select)}
-              onChange={(event) => {
-                const focus = dashboardFocusSchema.safeParse(
-                  event.target.value,
-                );
-                if (focus.success) void change({ focus: focus.data });
-              }}
+      <div {...stylex.props(styles.toolbar)}>
+        <div {...stylex.props(styles.controls)}>
+          {presentation.availableFocus.length > 1 && (
+            <div
+              role="radiogroup"
+              aria-label="View"
+              {...stylex.props(styles.pills)}
             >
-              {presentation.availableFocus.map((focus) => (
-                <option key={focus} value={focus}>
-                  {DASHBOARD_FOCUS_LABELS[focus]}
-                </option>
-              ))}
-            </select>
-            {presentation.canAdapt && (
-              <Button
-                disabled={saving}
-                aria-expanded={describing}
-                aria-controls="dashboard-intent"
-                onClick={() => setDescribing(!describing)}
-              >
-                Describe a view
-              </Button>
-            )}
-            {presentation.focus !== null && (
-              <Button
-                disabled={saving}
-                onClick={() => void change({ intent: "" })}
-              >
-                Reset view
-              </Button>
-            )}
-            {saving && (
-              <span role="status" {...stylex.props(styles.status)}>
-                Updating view…
-              </span>
-            )}
-          </div>
+              {presentation.availableFocus.map((focus) => {
+                const checked = (presentation.focus ?? "all") === focus;
+                return (
+                  // biome-ignore lint/a11y/useSemanticElements: Pill buttons read better than native radios here and keep radio semantics.
+                  <button
+                    key={focus}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    disabled={saving}
+                    onClick={() => {
+                      if (!checked) void change({ focus });
+                    }}
+                    {...stylex.props(styles.pill, checked && styles.pillOn)}
+                  >
+                    {DASHBOARD_FOCUS_LABELS[focus]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {presentation.canAdapt && (
+            <button
+              type="button"
+              disabled={saving}
+              aria-expanded={describing}
+              aria-controls="dashboard-intent"
+              onClick={() => setDescribing(!describing)}
+              {...stylex.props(styles.pill, styles.describe)}
+            >
+              Describe a view
+            </button>
+          )}
+          {presentation.focus !== null && (
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={() => void change({ intent: "" })}
+            >
+              Reset view
+            </Button>
+          )}
+          {saving && (
+            <span role="status" {...stylex.props(styles.status)}>
+              Updating view…
+            </span>
+          )}
+          <span {...stylex.props(styles.spacer)} />
+          {actions}
           {describing && presentation.canAdapt && (
             <form
               id="dashboard-intent"
@@ -285,7 +301,7 @@ export function AdaptiveDashboard({
             </p>
           )}
         </div>
-      )}
+      </div>
       {error && (
         <p role="alert" {...stylex.props(styles.notice)}>
           {error}
@@ -306,31 +322,51 @@ export function AdaptiveDashboard({
 }
 
 const styles = stylex.create({
-  toolbar: {
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: colors.border,
+  toolbar: { marginBottom: 22 },
+  controls: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  controls: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 },
-  label: { color: colors.muted, fontSize: 12 },
-  select: {
-    fontFamily: "inherit",
+  pills: { display: "flex", flexWrap: "wrap", gap: 6 },
+  pill: {
+    font: "inherit",
     fontSize: 13,
-    color: colors.foreground,
-    backgroundColor: colors.surface,
+    minHeight: { default: 32, "@media (max-width: 700px)": 40 },
+    paddingInline: 14,
+    borderRadius: radii.full,
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: colors.border,
-    borderRadius: 6,
-    paddingInline: 10,
-    minHeight: { default: 32, "@media (max-width: 700px)": 44 },
-    maxWidth: "100%",
-    outlineOffset: 3,
+    backgroundColor: {
+      default: colors.background,
+      "@media (hover: hover)": { ":not(:disabled):hover": colors.bubble },
+    },
+    color: colors.foreground,
+    cursor: { default: "pointer", ":disabled": "default" },
+    outlineOffset: 2,
   },
+  pillOn: {
+    borderColor: colors.action,
+    backgroundColor: {
+      default: colors.action,
+      "@media (hover: hover)": { ":not(:disabled):hover": colors.action },
+    },
+    color: colors.onAccent,
+  },
+  describe: {
+    borderStyle: "dashed",
+    borderColor: colors.faint,
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover)": { ":not(:disabled):hover": colors.bubble },
+    },
+    color: colors.muted,
+  },
+  spacer: { flex: 1 },
   status: { fontSize: 12, color: colors.muted },
-  form: { marginTop: 16, maxWidth: 580 },
+  form: { flexBasis: "100%", order: 2, marginTop: 8, maxWidth: 580 },
   intentLabel: {
     display: "block",
     fontSize: 13,
@@ -361,7 +397,9 @@ const styles = stylex.create({
     color: colors.onAccent,
   },
   intent: {
-    marginTop: 12,
+    flexBasis: "100%",
+    order: 2,
+    marginTop: 4,
     marginBottom: 0,
     fontSize: 12,
     color: colors.muted,
@@ -373,10 +411,10 @@ const styles = stylex.create({
     color: colors.muted,
     marginBlock: 12,
   },
+  // Each widget is a full-width section; its blocks form the tile grid.
   grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
-    gap: 20,
-    alignItems: "start",
+    display: "flex",
+    flexDirection: "column",
+    gap: 40,
   },
 });

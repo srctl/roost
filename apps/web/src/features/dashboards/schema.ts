@@ -80,6 +80,17 @@ export const DashboardDataset = Schema.Struct({
   revision,
   updatedAt: Schema.Number,
 });
+const finite = Schema.Finite.pipe(Schema.between(-1e15, 1e15));
+export const DashboardTone = Schema.Literal("neutral", "positive", "attention");
+export const ChartGoal = Schema.Struct({
+  min: finite,
+  max: Schema.optional(finite),
+  label: Schema.optional(label),
+}).pipe(
+  Schema.filter((goal) => goal.max === undefined || goal.max >= goal.min, {
+    message: () => "A goal's max must be at least its min.",
+  }),
+);
 export const DatasetChart = Schema.Struct({
   type: Schema.Literal("dataset-chart"),
   title: label,
@@ -97,6 +108,7 @@ export const DatasetChart = Schema.Struct({
     Schema.minItems(1),
     Schema.maxItems(4),
   ),
+  goal: Schema.optional(ChartGoal),
 }).pipe(
   Schema.filter(
     (chart) =>
@@ -169,8 +181,49 @@ export const DashboardBlock = Schema.Union(
   Schema.Struct({
     type: Schema.Literal("metrics"),
     items: Schema.Array(
-      Schema.Struct({ label, value: label, note: Schema.optional(text) }),
+      Schema.Struct({
+        label,
+        value: label,
+        note: Schema.optional(text),
+        progress: Schema.optional(
+          Schema.Struct({
+            value: finite.pipe(Schema.nonNegative()),
+            target: finite.pipe(Schema.positive()),
+          }),
+        ),
+        trend: Schema.optional(
+          Schema.Array(Schema.Union(finite, Schema.Null)).pipe(
+            Schema.minItems(2),
+            Schema.maxItems(60),
+          ),
+        ),
+        tone: Schema.optional(DashboardTone),
+      }),
     ).pipe(Schema.minItems(1), Schema.maxItems(8)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("item-status"),
+    items: Schema.Array(
+      Schema.Struct({
+        label,
+        detail: Schema.optional(text.pipe(Schema.maxLength(200))),
+        value: Schema.optional(label),
+        status: label,
+        tone: Schema.optional(DashboardTone),
+        steps: Schema.Array(
+          Schema.Struct({ label, note: Schema.optional(label) }),
+        ).pipe(Schema.minItems(2), Schema.maxItems(6)),
+        current: Schema.Int.pipe(Schema.between(0, 5)),
+        note: Schema.optional(text),
+        links: Schema.optional(
+          Schema.Array(Schema.Struct({ label, url })).pipe(Schema.maxItems(3)),
+        ),
+      }).pipe(
+        Schema.filter((item) => item.current < item.steps.length, {
+          message: () => "current must index one of the item's steps.",
+        }),
+      ),
+    ).pipe(Schema.minItems(1), Schema.maxItems(12)),
   }),
   Schema.Struct({
     type: Schema.Literal("table"),

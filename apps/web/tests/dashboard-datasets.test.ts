@@ -179,7 +179,7 @@ test("chart references and source updates validate atomically; sources in use ca
           ...data.columns.slice(1),
         ],
       },
-      { ...data, rows: [["Week 1", null, 1]] },
+      { ...data, rows: [[null, 4, 1]] },
     ])
       await assert.rejects(
         run(saveDataset(owner, { ...invalid, expectedRevision: 1 })),
@@ -248,6 +248,18 @@ test("chart mappings distinguish signed, empty, missing, categorical, and scatte
     );
   for (const style of ["area", "stacked-bar", "donut"] as const)
     assert.match(chartDataError({ ...chart, style }, negative)!, /nonnegative/);
+  // Line and bar charts show a missing value as a gap; other styles cannot.
+  const gap = {
+    ...dataset,
+    rows: [
+      ["Week 1", null, 2],
+      ["Week 2", 3, 4],
+    ],
+  };
+  for (const style of ["line", "bar"] as const)
+    assert.equal(chartDataError({ ...chart, style }, gap), null);
+  for (const style of ["area", "stacked-bar"] as const)
+    assert.match(chartDataError({ ...chart, style }, gap)!, /missing/);
   assert.match(
     chartDataError(
       { ...chart, style: "donut", series: [chart.series[0]!] },

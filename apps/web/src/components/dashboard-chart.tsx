@@ -1,19 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import {
-  Component,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { Component, lazy, type ReactNode, Suspense } from "react";
 import { chartDataError } from "../features/dashboards/chart-data";
 import type {
   DashboardDataset,
   DatasetChart,
 } from "../features/dashboards/schema";
 import { DatasetDetails } from "./dashboard-data";
+import { SvgChart, useElementWidth } from "./dashboard-svg-chart";
 
 const FluentChart = lazy(() => import("./dashboard-fluent-chart"));
 
@@ -41,17 +34,7 @@ export function DashboardChart({
   chart: DatasetChart;
   dataset?: DashboardDataset;
 }) {
-  const container = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const element = container.current;
-    if (!element) return;
-    const observer = new ResizeObserver((entries) =>
-      setWidth(Math.floor(entries[0]?.contentRect.width ?? 0)),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const [container, width] = useElementWidth();
   const error = chartDataError(chart, dataset);
   return (
     <figure {...stylex.props(styles.figure)}>
@@ -65,13 +48,20 @@ export function DashboardChart({
           <ChartBoundary
             key={JSON.stringify(chart) + dataset.key + dataset.revision}
           >
-            <Suspense fallback={<p role="status">Loading chart…</p>}>
-              {width > 0 ? (
+            {width <= 0 ? (
+              <p role="status">Loading chart…</p>
+            ) : chart.style === "donut" || chart.style === "scatter" ? (
+              <Suspense fallback={<p role="status">Loading chart…</p>}>
                 <FluentChart chart={chart} dataset={dataset} width={width} />
-              ) : (
-                <p role="status">Loading chart…</p>
-              )}
-            </Suspense>
+              </Suspense>
+            ) : (
+              <DatasetSvgChart
+                chart={chart}
+                style={chart.style}
+                dataset={dataset}
+                width={width}
+              />
+            )}
           </ChartBoundary>
         )}
       </div>
@@ -79,8 +69,46 @@ export function DashboardChart({
     </figure>
   );
 }
+function DatasetSvgChart({
+  chart,
+  style,
+  dataset,
+  width,
+}: {
+  chart: DatasetChart;
+  style: "line" | "area" | "bar" | "stacked-bar";
+  dataset: DashboardDataset;
+  width: number;
+}) {
+  const x = dataset.columns.findIndex((column) => column.key === chart.x);
+  const rows =
+    dataset.columns[x]?.type === "number"
+      ? [...dataset.rows].sort((a, b) => Number(a[x]) - Number(b[x]))
+      : dataset.rows;
+  return (
+    <SvgChart
+      title={chart.title}
+      style={style}
+      goal={chart.goal}
+      width={width}
+      labels={rows.map((row) => String(row[x]))}
+      series={chart.series.map((series) => {
+        const index = dataset.columns.findIndex(
+          (column) => column.key === series.column,
+        );
+        return {
+          label: series.label,
+          values: rows.map((row) =>
+            typeof row[index] === "number" ? row[index] : null,
+          ),
+        };
+      })}
+    />
+  );
+}
+
 const styles = stylex.create({
   figure: { margin: 0, minWidth: 0 },
-  title: { fontSize: 13, fontWeight: 500, marginBottom: 12 },
+  title: { fontSize: 15, fontWeight: 600, marginBottom: 14 },
   container: { width: "100%", minWidth: 0, overflowX: "auto" },
 });

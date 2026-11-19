@@ -26,6 +26,8 @@ export function chartDataError(
   );
   if (indices.some((index) => index < 0))
     return "Every chart series must reference a numeric column.";
+  // Line and bar charts draw a missing value as a gap, never as zero.
+  const gaps = chart.style === "line" || chart.style === "bar";
   if (
     dataset.rows.some(
       (row) =>
@@ -35,11 +37,12 @@ export function chartDataError(
         (typeof row[x] === "number" && !Number.isFinite(row[x])) ||
         indices.some(
           (index) =>
-            typeof row[index] !== "number" || !Number.isFinite(row[index]),
+            !(row[index] === null && gaps) &&
+            (typeof row[index] !== "number" || !Number.isFinite(row[index])),
         ),
     )
   )
-    return "Chart columns contain missing or invalid values. Ask the agent to complete the data.";
+    return "Chart columns contain missing or invalid values. Only line and bar charts can show missing values, as gaps. Ask the agent to complete the data.";
   if (
     ["donut", "area", "stacked-bar"].includes(chart.style) &&
     dataset.rows.some((row) => indices.some((index) => Number(row[index]) < 0))

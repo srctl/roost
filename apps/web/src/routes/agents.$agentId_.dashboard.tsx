@@ -284,24 +284,26 @@ function AgentDashboard({
       setRefreshError(false);
     } else setRefreshError(true);
   };
+  const addTracker = (
+    <CreateTracker
+      agentId={agent.id}
+      onCreated={async () => {
+        const reset = await changeDashboardPresentation({
+          data: {
+            agentId: agent.id,
+            intent: "",
+            revision: result.value.presentation.revision,
+          },
+        });
+        await reload();
+        return reset.ok
+          ? null
+          : "Tracker created. The view changed on another device; reset the dashboard view to see it.";
+      }}
+    />
+  );
   return (
     <>
-      <CreateTracker
-        agentId={agent.id}
-        onCreated={async () => {
-          const reset = await changeDashboardPresentation({
-            data: {
-              agentId: agent.id,
-              intent: "",
-              revision: result.value.presentation.revision,
-            },
-          });
-          await reload();
-          return reset.ok
-            ? null
-            : "Tracker created. The view changed on another device; reset the dashboard view to see it.";
-        }}
-      />
       {refreshError && (
         <p role="status" {...stylex.props(styles.description)}>
           Could not refresh. Showing the last loaded dashboard.
@@ -347,6 +349,7 @@ function AgentDashboard({
             })
           }
           onReload={reload}
+          actions={addTracker}
         />
       ) : (
         <div {...stylex.props(styles.empty)}>
@@ -355,11 +358,14 @@ function AgentDashboard({
             Ask {agent.name} to create a tracker in the conversation. Notes,
             tasks, and charts saved by your agent will appear here.
           </p>
-          <Button
-            onClick={() => onDiscuss("Let's create a dashboard tracker.")}
-          >
-            Start a tracker →
-          </Button>
+          <div {...stylex.props(styles.emptyActions)}>
+            {addTracker}
+            <Button
+              onClick={() => onDiscuss("Let's create a dashboard tracker.")}
+            >
+              Start a tracker →
+            </Button>
+          </div>
         </div>
       )}
     </>
@@ -514,6 +520,12 @@ const styles = stylex.create({
     lineHeight: 1.65,
   },
   empty: { maxWidth: 360, marginInline: "auto", paddingBlock: 80 },
+  emptyActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 20,
+  },
   emptyTitle: { fontSize: 18, fontWeight: 500, margin: 0 },
   emptyText: { color: colors.muted, lineHeight: 1.8, fontSize: 13 },
   link: { color: colors.foreground, textUnderlineOffset: 3, fontSize: 12 },
