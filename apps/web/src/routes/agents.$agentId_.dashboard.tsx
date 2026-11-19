@@ -3,10 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { AdaptiveDashboard } from "../components/adaptive-dashboard";
 import { AgentHeader } from "../components/agent-header";
-import { Conversation } from "../components/conversation";
+import { Conversation, ConversationSkeleton } from "../components/conversation";
 import { CreateTracker } from "../components/create-tracker";
 import { DashboardTrackerDrafts } from "../components/dashboard-tracker";
 import { Button } from "../components/ui/button";
+import { Skeleton, SkeletonGroup } from "../components/ui/skeleton";
 import type { Agent } from "../features/agents/schema";
 import { getConversationSnapshot } from "../features/chat/functions";
 import {
@@ -31,6 +32,10 @@ export const Route = createFileRoute("/agents/$agentId_/dashboard")({
     return { dashboard, conversation };
   },
   headers: () => ({ "Cache-Control": "private, no-store" }),
+  // Show the tab at once with a skeleton while its data loads.
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: DashboardPending,
   component: DashboardPage,
 });
 
@@ -361,6 +366,37 @@ function AgentDashboard({
   );
 }
 
+function DashboardPending() {
+  const { agentId } = Route.useParams();
+  const agents = RootRoute.useLoaderData();
+  const agent = agents.ok
+    ? agents.value.find((agent) => agent.id === agentId)
+    : undefined;
+  if (!agent) return null;
+  return (
+    <section {...stylex.props(styles.page)}>
+      <AgentHeader agent={agent} dashboard />
+      <div {...stylex.props(styles.workspace, styles.skeletonWorkspace)}>
+        <SkeletonGroup
+          label="Loading dashboard"
+          xstyle={[styles.content, styles.skeleton]}
+        >
+          <Skeleton xstyle={styles.skeletonToolbar} />
+          <div {...stylex.props(styles.skeletonGrid)}>
+            <Skeleton xstyle={styles.skeletonCard} />
+            <Skeleton xstyle={styles.skeletonCard} />
+            <Skeleton xstyle={styles.skeletonCard} />
+            <Skeleton xstyle={styles.skeletonCard} />
+          </div>
+        </SkeletonGroup>
+        <div {...stylex.props(styles.skeletonChat)}>
+          <ConversationSkeleton agent={agent} embedded />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // Polls that began before a save must not roll the selected view back.
 function newerDashboard(
   previous: Awaited<ReturnType<typeof loadDashboard>>,
@@ -377,6 +413,29 @@ function newerDashboard(
 }
 
 const styles = stylex.create({
+  skeletonWorkspace: {
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr) 360px",
+      "@media (max-width: 1100px)": "minmax(0, 1fr)",
+    },
+  },
+  skeleton: { display: "flex", flexDirection: "column", gap: 16 },
+  skeletonToolbar: { height: 36, borderRadius: 10 },
+  // Mirrors the adaptive dashboard's card grid.
+  skeletonGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
+    gap: 16,
+  },
+  skeletonCard: { height: 180, borderRadius: 12 },
+  skeletonChat: {
+    display: { default: "block", "@media (max-width: 1100px)": "none" },
+    minHeight: 0,
+    paddingLeft: 20,
+    borderLeftWidth: 1,
+    borderLeftStyle: "solid",
+    borderLeftColor: colors.border,
+  },
   page: {
     display: "flex",
     flexDirection: "column",

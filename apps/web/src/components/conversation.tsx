@@ -40,6 +40,7 @@ import { Appear } from "./ui/appear";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
 import { ScrollArea } from "./ui/scroll-area";
+import { Skeleton, SkeletonGroup } from "./ui/skeleton";
 
 const ComputerPanel = lazy(() =>
   import("./computer-panel").then((module) => ({
@@ -683,6 +684,43 @@ const fadeIn = stylex.keyframes({
   to: { opacity: 1 },
 });
 
+/** Holds the conversation's layout while its first snapshot loads. */
+export function ConversationSkeleton({
+  agent,
+  embedded = false,
+}: {
+  agent: Agent;
+  embedded?: boolean;
+}) {
+  return (
+    <section
+      {...stylex.props(styles.conversation, embedded && styles.embedded)}
+      aria-label={`Conversation with ${agent.name}`}
+    >
+      {embedded ? (
+        <header {...stylex.props(styles.chatHeader)}>
+          <h2 {...stylex.props(styles.chatTitle)}>Conversation</h2>
+        </header>
+      ) : (
+        <AgentHeader agent={agent} />
+      )}
+      <SkeletonGroup
+        label="Loading conversation"
+        xstyle={[styles.history, styles.skeletonHistory]}
+      >
+        <Skeleton xstyle={[styles.skeletonBubble, styles.skeletonMine]} />
+        <Skeleton xstyle={[styles.skeletonLine, styles.skeletonWide]} />
+        <Skeleton xstyle={styles.skeletonLine} />
+        <Skeleton xstyle={[styles.skeletonLine, styles.skeletonShort]} />
+        <Skeleton xstyle={[styles.skeletonBubble, styles.skeletonMine]} />
+        <Skeleton xstyle={[styles.skeletonLine, styles.skeletonWide]} />
+        <Skeleton xstyle={[styles.skeletonLine, styles.skeletonShort]} />
+      </SkeletonGroup>
+      <Skeleton xstyle={styles.skeletonComposer} />
+    </section>
+  );
+}
+
 // Polls and scroll bookkeeping re-render the conversation every second, so
 // unchanged messages must not re-render with it.
 const ConversationRow = memo(function ConversationRow({
@@ -894,6 +932,24 @@ const styles = stylex.create({
     animationDuration: motion.base,
     animationTimingFunction: motion.easeOut,
     animationFillMode: "backwards",
+  },
+  skeletonHistory: {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    gap: 12,
+    overflow: "hidden",
+  },
+  skeletonBubble: { height: 40, width: "40%", borderRadius: 18 },
+  skeletonMine: { alignSelf: "flex-end" },
+  skeletonLine: { width: "70%" },
+  skeletonWide: { width: "85%", marginTop: 8 },
+  skeletonShort: { width: "45%" },
+  skeletonComposer: {
+    flexShrink: 0,
+    height: 56,
+    borderRadius: 24,
+    marginBottom: { default: 16, "@media (max-width: 700px)": 8 },
   },
   empty: { paddingTop: 60, color: colors.muted, textAlign: "center" },
   error: {

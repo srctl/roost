@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ConversationSkeleton } from "../components/conversation";
 import { ThreadConversations } from "../components/thread-conversations";
 import { getConversationSnapshot } from "../features/chat/functions";
 import { Route as RootRoute } from "./__root";
@@ -21,6 +22,10 @@ export const Route = createFileRoute("/agents/$agentId")({
       }),
     ),
   headers: () => ({ "Cache-Control": "private, no-store" }),
+  // Show the tab at once with a skeleton while its data loads.
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: AgentPending,
   component: AgentPage,
 });
 
@@ -39,4 +44,13 @@ function AgentPage() {
       initialConversation={initialConversation}
     />
   );
+}
+
+function AgentPending() {
+  const { agentId } = Route.useParams();
+  const result = RootRoute.useLoaderData();
+  const agent = result.ok
+    ? result.value.find((agent) => agent.id === agentId)
+    : undefined;
+  return agent ? <ConversationSkeleton agent={agent} /> : null;
 }
