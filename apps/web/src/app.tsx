@@ -31,6 +31,7 @@ export function App() {
     agents.sidebarPreferences.width,
   );
   const [maxSidebarWidth, setMaxSidebarWidth] = useState(sidebarMaxWidth);
+  const [resizingSidebar, setResizingSidebar] = useState(false);
   const sidebarWidth = Math.min(preferredSidebarWidth, maxSidebarWidth);
   const navigation = useRef<HTMLDivElement>(null);
 
@@ -39,10 +40,26 @@ export function App() {
     saveSidebarPreference(sidebarCollapsedKey, value);
   }
 
-  function resizeSidebar(width: number) {
-    const next = Math.round(
+  function clampSidebarWidth(width: number) {
+    return Math.round(
       Math.max(sidebarMinWidth, Math.min(maxSidebarWidth, width)),
     );
+  }
+
+  // Dragging writes the width straight to the pane, so the app does not
+  // re-render on every pointer move. React state and the cookie catch up
+  // once, when the drag ends.
+  function dragSidebar(width: number) {
+    navigation.current?.style.setProperty(
+      "--sidebar-width",
+      `${clampSidebarWidth(width)}px`,
+    );
+  }
+
+  function resizeSidebar(width: number) {
+    const next = clampSidebarWidth(width);
+    setResizingSidebar(false);
+    navigation.current?.style.setProperty("--sidebar-width", `${next}px`);
     setPreferredSidebarWidth(next);
     saveSidebarPreference(sidebarWidthKey, next);
   }
@@ -139,6 +156,7 @@ export function App() {
               {...stylex.props(
                 styles.desktopNavigation,
                 collapsed && styles.navigationCollapsed,
+                resizingSidebar && styles.navigationResizing,
               )}
               style={
                 {
@@ -158,6 +176,8 @@ export function App() {
                 min={sidebarMinWidth}
                 max={maxSidebarWidth}
                 onResize={resizeSidebar}
+                onDragStart={() => setResizingSidebar(true)}
+                onDrag={dragSidebar}
               />
             </div>
             {collapsed && (
@@ -211,6 +231,8 @@ const styles = stylex.create({
     transitionTimingFunction: motion.easeInOut,
   },
   navigationCollapsed: { width: 0 },
+  // The collapse animation would make the pane trail the pointer while dragging.
+  navigationResizing: { transitionDuration: "0s" },
   expand: {
     position: "sticky",
     top: 0,
