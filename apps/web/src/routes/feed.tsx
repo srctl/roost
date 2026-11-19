@@ -339,6 +339,7 @@ function FeedPageView() {
         </div>
         <div {...stylex.props(styles.headerActions)}>
           <Button
+            variant="outline"
             aria-label="Refresh feed"
             title="Refresh feed"
             disabled={!page || busyRefresh || !page.settings.enabled}
@@ -350,6 +351,7 @@ function FeedPageView() {
             </span>
           </Button>
           <Button
+            variant="outline"
             aria-label="Feed sources and preferences"
             title="Feed sources and preferences"
             aria-haspopup="dialog"

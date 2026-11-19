@@ -34,7 +34,7 @@ export const themePalettes = {
   default: {
     light: {
       background: "#FFFFFF",
-      sidebar: "#F2F2E9",
+      sidebar: "#F6F6F1",
       surface: "#FCFCFA",
       selected: "#E8EBDD",
       bubble: "#F3F3EF",

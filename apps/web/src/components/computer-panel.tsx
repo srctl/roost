@@ -3,7 +3,7 @@ import type RFB from "@novnc/novnc/lib/rfb.js";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { controlComputer, openComputer } from "../features/computer/functions";
-import { colors } from "../styles/tokens.stylex";
+import { colors, fonts } from "../styles/tokens.stylex";
 import { ComputerInput } from "./computer-input";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/primitives";
@@ -326,8 +326,7 @@ const styles = stylex.create({
     overflow: "hidden",
     backgroundColor: "#080a08",
     color: "#eceee8",
-    fontFamily:
-      "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 1.5,
     paddingTop: "env(safe-area-inset-top)",

@@ -20,7 +20,7 @@ import {
 } from "./features/settings/sidebar-preferences";
 import { Route } from "./routes/__root";
 import { motion } from "./styles/motion.stylex";
-import { colors } from "./styles/tokens.stylex";
+import { colors, fonts } from "./styles/tokens.stylex";
 
 export function App() {
   const agents = Route.useLoaderData();
@@ -292,8 +292,8 @@ const styles = stylex.create({
     flexDirection: { default: "row", "@media (max-width: 700px)": "column" },
     backgroundColor: colors.background,
     color: colors.foreground,
-    fontFamily:
-      "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily: fonts.sans,
+    fontFeatureSettings: "'cv11', 'ss01'",
     fontSize: 13,
     lineHeight: 1.5,
     WebkitFontSmoothing: "antialiased",

@@ -5,7 +5,7 @@ import { useOpenAfterMount } from "../features/motion";
 import { listenForNavigationSwipe } from "../features/navigation-swipe";
 import { Route } from "../routes/__root";
 import { motion } from "../styles/motion.stylex";
-import { colors } from "../styles/tokens.stylex";
+import { colors, fonts } from "../styles/tokens.stylex";
 import { Sidebar } from "./sidebar";
 
 export function MobileNavigationDialog({
@@ -79,7 +79,7 @@ const styles = stylex.create({
     color: colors.foreground,
     overflowY: "auto",
     overscrollBehavior: "contain",
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 14,
     transform: {
       default: "translateX(0)",

@@ -6,7 +6,7 @@ export const colors = stylex.defineVars({
     "@media (prefers-color-scheme: dark)": "var(--roost-background, #20221E)",
   },
   sidebar: {
-    default: "var(--roost-sidebar, #F2F2E9)",
+    default: "var(--roost-sidebar, #F6F6F1)",
     "@media (prefers-color-scheme: dark)": "var(--roost-sidebar, #25281F)",
   },
   surface: {
@@ -53,4 +53,27 @@ export const colors = stylex.defineVars({
     default: "var(--roost-review, #9C8053)",
     "@media (prefers-color-scheme: dark)": "var(--roost-review, #C8B080)",
   },
+});
+
+/* Type, shape, and depth shared by the shadcn-derived components in
+   components/ui. Shadows mix the foreground colour so they read in every
+   theme without per-palette values. */
+export const fonts = stylex.defineVars({
+  sans: "'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  mono: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+});
+
+export const radii = stylex.defineVars({
+  sm: "6px",
+  md: "8px",
+  lg: "12px",
+  xl: "16px",
+  full: "9999px",
+});
+
+export const shadows = stylex.defineVars({
+  xs: `0 1px 2px color-mix(in srgb, ${colors.foreground} 6%, transparent)`,
+  sm: `0 1px 2px color-mix(in srgb, ${colors.foreground} 5%, transparent), 0 1px 3px color-mix(in srgb, ${colors.foreground} 6%, transparent)`,
+  md: `0 2px 4px color-mix(in srgb, ${colors.foreground} 4%, transparent), 0 6px 16px color-mix(in srgb, ${colors.foreground} 7%, transparent)`,
+  ring: `0 0 0 3px color-mix(in srgb, ${colors.accent} 22%, transparent)`,
 });

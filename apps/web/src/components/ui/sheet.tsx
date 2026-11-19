@@ -2,7 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { motion } from "../../styles/motion.stylex";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, fonts } from "../../styles/tokens.stylex";
 
 // shadcn Sheet composition, using Base UI with Roost's StyleX theme.
 export const Sheet = Dialog.Root;
@@ -59,8 +59,7 @@ const styles = stylex.create({
     backgroundColor: colors.background,
     color: colors.foreground,
     boxShadow: "-12px 0 40px #00000018",
-    fontFamily:
-      "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 1.6,
     transform: {

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useDashboardsEnabled } from "../features/dashboards/preference";
 import { motion } from "../styles/motion.stylex";
-import { colors } from "../styles/tokens.stylex";
+import { colors, radii, shadows } from "../styles/tokens.stylex";
 import { AgentSettings } from "./agent-settings";
 import { MobileNavigation } from "./mobile-navigation";
 import { Avatar } from "./ui/primitives";
@@ -90,12 +90,14 @@ const styles = stylex.create({
       "@media (max-width: 700px)": "minmax(0, 1fr) auto",
     },
     alignItems: "center",
-    columnGap: { default: 28, "@media (max-width: 700px)": 8 },
+    columnGap: { default: 24, "@media (max-width: 700px)": 8 },
+    rowGap: { default: 0, "@media (max-width: 700px)": 6 },
     paddingTop: {
       default: 0,
       "@media (max-width: 700px)": "env(safe-area-inset-top)",
     },
     paddingInline: { default: 0, "@media (max-width: 700px)": 8 },
+    paddingBottom: { default: 10, "@media (max-width: 700px)": 8 },
     flexShrink: 0,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
@@ -113,7 +115,8 @@ const styles = stylex.create({
     margin: 0,
     minWidth: 0,
     fontSize: 16,
-    fontWeight: 500,
+    fontWeight: 600,
+    letterSpacing: "-0.01em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -131,25 +134,36 @@ const styles = stylex.create({
     gridColumn: { default: "2", "@media (max-width: 700px)": "1 / -1" },
     gridRow: { default: "1", "@media (max-width: 700px)": "2" },
     display: "flex",
-    alignSelf: "stretch",
-    gap: 20,
-    paddingInline: { default: 0, "@media (max-width: 700px)": 8 },
+    alignSelf: "center",
+    justifySelf: "start",
+    gap: 2,
+    padding: 3,
+    borderRadius: radii.md,
+    backgroundColor: colors.bubble,
+    marginInline: { default: 0, "@media (max-width: 700px)": 4 },
   },
   tab: {
     display: "inline-flex",
     alignItems: "center",
-    minHeight: { default: 44, "@media (max-width: 700px)": 36 },
+    justifyContent: "center",
+    minHeight: { default: 26, "@media (max-width: 700px)": 32 },
+    paddingInline: 12,
+    borderRadius: radii.sm,
     fontSize: 12,
-    color: colors.foreground,
+    fontWeight: 500,
+    color: {
+      default: colors.muted,
+      "@media (hover: hover)": { ":hover": colors.foreground },
+    },
     textDecoration: "none",
-    borderBottomWidth: 2,
-    borderBottomStyle: "solid",
-    borderBottomColor: "transparent",
-    marginBottom: -1,
-    outlineOffset: -2,
-    transitionProperty: "color, border-color",
+    outlineOffset: 1,
+    transitionProperty: "color, background-color, box-shadow",
     transitionDuration: motion.fast,
     transitionTimingFunction: motion.easeOut,
   },
-  active: { color: colors.foreground, borderBottomColor: colors.foreground },
+  active: {
+    color: colors.foreground,
+    backgroundColor: colors.background,
+    boxShadow: shadows.sm,
+  },
 });

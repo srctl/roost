@@ -4,6 +4,8 @@
 Its Tailwind styles have been replaced with StyleX, and unused variants removed.
 `src/components/ui/scroll-area.tsx` and `collapsible.tsx` follow shadcn/ui’s
 Base UI component composition, with locally owned StyleX styling.
+`src/components/ui/card.tsx`, `input.tsx`, and `badge.tsx` are adapted from
+shadcn/ui's Card, Base UI Input, and Badge, with StyleX in place of Tailwind.
 
 Source: https://ui.shadcn.com/r/styles/base-nova/button.json
 

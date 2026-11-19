@@ -5,7 +5,7 @@ import {
   type FileAttachment,
   safeAttachmentUrl,
 } from "../../features/chat/files";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/primitives";
 
@@ -147,7 +147,7 @@ const styles = stylex.create({
     backgroundColor: colors.background,
     color: colors.foreground,
     borderRadius: 12,
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: fonts.sans,
   },
   heading: { display: "flex", alignItems: "center", gap: 12 },
   title: {

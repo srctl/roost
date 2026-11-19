@@ -1,3 +1,4 @@
+import inter from "@fontsource-variable/inter/index.css?url";
 import * as stylex from "@stylexjs/stylex";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -33,6 +34,7 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: "Roost" },
     ],
     links: [
+      { rel: "stylesheet", href: inter },
       { rel: "stylesheet", href: stylesheet },
       {
         rel: "manifest",

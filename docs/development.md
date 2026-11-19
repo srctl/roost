@@ -104,6 +104,14 @@ and styled with StyleX. New components are locally owned source: adapt shadcn's
 Base UI components and translate their styles to StyleX. Stock `shadcn add` is
 not configured because it assumes Tailwind.
 
+The local shadcn set lives in `apps/web/src/components/ui`: Button (`ghost`,
+`default`, `secondary`, `outline`, and `destructive` variants; `sm`, `default`,
+`lg`, and `icon` sizes), Card, Input, Badge, Scroll Area, Collapsible, and Sheet.
+They read the shared tokens in `apps/web/src/styles/tokens.stylex.ts`: palette
+`colors`, `fonts`, `radii`, and `shadows`. Shadows mix the active foreground
+colour, so they work in every theme. Inter is bundled through
+`@fontsource-variable/inter` and loaded by the root route.
+
 The StyleX Vite plugin runs before React and compiles styles for the client and
 server builds. The root route links the emitted stylesheet so the server-rendered
 page is styled before hydration.

@@ -10,7 +10,7 @@ import {
 import type { Agent } from "../features/agents/schema";
 import { Route } from "../routes/__root";
 import { motion } from "../styles/motion.stylex";
-import { colors } from "../styles/tokens.stylex";
+import { colors, radii, shadows } from "../styles/tokens.stylex";
 import { AgentSectionControls } from "./agent-section-controls";
 import { AgentWorking } from "./agent-working";
 import { Button } from "./ui/button";
@@ -358,7 +358,9 @@ export function Sidebar({
           onClick={onNavigate}
           to="/settings"
           {...stylex.props(styles.row, styles.create)}
+          activeProps={stylex.props(styles.row, styles.create, styles.active)}
         >
+          <Icon name="settings" size={14} />
           Settings
         </Link>
       </footer>
@@ -367,9 +369,9 @@ export function Sidebar({
 }
 
 const styles = stylex.create({
-  primaryNavigation: { flexShrink: 0, marginBottom: 24 },
+  primaryNavigation: { flexShrink: 0, marginBottom: 20 },
   group: {
-    borderRadius: 6,
+    borderRadius: radii.md,
     transitionProperty: "background-color",
     transitionDuration: motion.fast,
     transitionTimingFunction: motion.easeOut,
@@ -410,7 +412,8 @@ const styles = stylex.create({
     textAlign: "left",
     justifyContent: "flex-start",
     fontSize: 12,
-    paddingInline: 6,
+    fontWeight: 500,
+    paddingInline: 8,
     transform: "none",
   },
   manage: { padding: 6 },
@@ -425,7 +428,8 @@ const styles = stylex.create({
   ungrouped: { marginTop: 12 },
   ungroupedHeading: {
     fontSize: 11,
-    color: colors.muted,
+    fontWeight: 500,
+    color: colors.faint,
     paddingInline: 8,
     paddingBottom: 4,
   },
@@ -437,8 +441,8 @@ const styles = stylex.create({
     minHeight: 0,
     overflow: "hidden",
     backgroundColor: colors.sidebar,
-    paddingBlock: 20,
-    paddingInline: 12,
+    paddingBlock: 16,
+    paddingInline: 10,
     borderRightWidth: 1,
     borderRightStyle: "solid",
     borderRightColor: colors.border,
@@ -456,15 +460,16 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: { default: 30, "@media (max-width: 700px)": 20 },
+    paddingInline: 8,
+    marginBottom: { default: 24, "@media (max-width: 700px)": 20 },
   },
   brand: {
     display: "flex",
     alignItems: "center",
     gap: 7,
-    fontSize: 22,
-    fontWeight: 600,
-    letterSpacing: "-0.7px",
+    fontSize: 20,
+    fontWeight: 650,
+    letterSpacing: "-0.04em",
     textDecoration: "none",
     color: colors.foreground,
   },
@@ -475,12 +480,15 @@ const styles = stylex.create({
     flexShrink: 0,
     color: colors.muted,
     fontSize: 11,
-    marginBottom: 8,
+    fontWeight: 500,
+    letterSpacing: "0.02em",
+    paddingLeft: 8,
+    marginBottom: 6,
   },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 2,
     minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
@@ -489,19 +497,21 @@ const styles = stylex.create({
   row: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    paddingBlock: { default: 6, "@media (max-width: 700px)": 10 },
+    gap: 10,
+    minHeight: { default: 34, "@media (max-width: 700px)": 44 },
+    paddingBlock: 5,
     paddingInline: 8,
-    borderRadius: 6,
+    borderRadius: radii.md,
     textDecoration: "none",
+    fontWeight: 450,
     color: colors.foreground,
     backgroundColor: {
       default: "transparent",
       "@media (hover: hover)": {
-        ":hover": `color-mix(in srgb, ${colors.selected} 55%, transparent)`,
+        ":hover": `color-mix(in srgb, ${colors.foreground} 5%, transparent)`,
       },
     },
-    transitionProperty: "background-color, color",
+    transitionProperty: "background-color, color, box-shadow",
     transitionDuration: motion.fast,
     transitionTimingFunction: motion.easeOut,
   },
@@ -512,7 +522,14 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  active: { backgroundColor: colors.selected },
+  active: {
+    backgroundColor: {
+      default: colors.background,
+      "@media (hover: hover)": { ":hover": colors.background },
+    },
+    boxShadow: `${shadows.sm}, 0 0 0 1px color-mix(in srgb, ${colors.foreground} 4%, transparent)`,
+    fontWeight: 500,
+  },
   create: {
     color: {
       default: colors.muted,
@@ -523,7 +540,7 @@ const styles = stylex.create({
   footer: {
     flexShrink: 0,
     marginTop: "auto",
-    paddingTop: 32,
+    paddingTop: 16,
     fontSize: 11,
     color: colors.muted,
     display: "block",

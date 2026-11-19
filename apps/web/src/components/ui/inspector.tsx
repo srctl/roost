@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import { useOpenAfterMount } from "../../features/motion";
 import { motion } from "../../styles/motion.stylex";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "./button";
 import { Icon } from "./primitives";
 
@@ -89,7 +89,7 @@ const styles = stylex.create({
     boxShadow: "0 24px 60px #00000022",
     overflowY: "auto",
     scrollbarWidth: "thin",
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 1.6,
     // Slides in from the right on desktop and up from the bottom on phones.

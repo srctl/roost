@@ -6,11 +6,11 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { Button } from "../components/ui/button";
+import { cardStyles } from "../components/ui/card";
 import { Avatar, Icon } from "../components/ui/primitives";
 import { getStartupAgent } from "../features/agents/startup-functions";
 import { agentStyles } from "../features/agents/styles";
-import { motion } from "../styles/motion.stylex";
-import { colors } from "../styles/tokens.stylex";
+import { colors, radii, shadows } from "../styles/tokens.stylex";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/")({
@@ -63,9 +63,15 @@ function Home() {
               key={agent.id}
               to="/agents/$agentId"
               params={{ agentId: agent.id }}
-              {...stylex.props(styles.agent)}
+              {...stylex.props(
+                cardStyles.card,
+                cardStyles.interactive,
+                styles.agent,
+              )}
             >
-              <Avatar character={agent.character} size={36} />
+              <span {...stylex.props(styles.avatar)}>
+                <Avatar character={agent.character} size={32} />
+              </span>
               <span {...stylex.props(styles.name)}>{agent.name}</span>
               <Icon name="chevron-right" />
             </Link>
@@ -89,34 +95,45 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    minHeight: 44,
-    color: colors.accent,
+    minHeight: 34,
+    paddingInline: 14,
+    borderRadius: radii.md,
+    backgroundColor: colors.accent,
+    color: colors.onAccent,
+    fontWeight: 500,
+    fontSize: 13,
+    boxShadow: shadows.xs,
     textDecoration: "none",
   },
-  list: { display: "flex", flexDirection: "column" },
+  list: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: 10,
+  },
   agent: {
-    display: "flex",
+    flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    paddingBlock: 16,
-    paddingInline: 8,
-    minHeight: 68,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: colors.border,
-    color: colors.foreground,
-    textDecoration: "none",
-    backgroundColor: {
-      default: "transparent",
-      "@media (hover: hover)": { ":hover": colors.bubble },
-    },
-    borderRadius: 6,
-    outlineOffset: 2,
-    transitionProperty: "background-color",
-    transitionDuration: motion.fast,
-    transitionTimingFunction: motion.easeOut,
+    gap: 12,
+    padding: 12,
+    paddingRight: 14,
+    minHeight: 60,
   },
-  name: { flex: 1, minWidth: 0, overflowWrap: "anywhere", fontSize: 16 },
+  avatar: {
+    display: "grid",
+    placeItems: "center",
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+    borderRadius: radii.md,
+    backgroundColor: colors.bubble,
+  },
+  name: {
+    flex: 1,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    fontSize: 14,
+    fontWeight: 500,
+  },
   empty: {
     display: "flex",
     flexDirection: "column",

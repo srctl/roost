@@ -13,6 +13,7 @@ import { PaymentsSetting } from "../components/payments-setting";
 import { PushNotifications } from "../components/push-notifications";
 import { ThemeSetting } from "../components/theme-setting";
 import { Button } from "../components/ui/button";
+import { inputStyles } from "../components/ui/input";
 import { getCodexAccount, getCodexLogin } from "../features/auth/functions";
 import { getPushSettings } from "../features/notifications/functions";
 import { getPaymentSettings } from "../features/payments/functions";
@@ -23,7 +24,8 @@ import {
   settingsGroups,
 } from "../features/settings/navigation";
 import { usePreferences } from "../features/settings/preferences";
-import { colors } from "../styles/tokens.stylex";
+import { motion } from "../styles/motion.stylex";
+import { colors, radii, shadows } from "../styles/tokens.stylex";
 
 export const Route = createFileRoute("/settings")({
   validateSearch: (search): { group?: SettingsGroup } =>
@@ -92,7 +94,7 @@ function SettingsPage() {
             onKeyDown={(event) => {
               if (event.key === "Escape") clearSearch();
             }}
-            {...stylex.props(styles.searchInput)}
+            {...stylex.props(inputStyles.input, styles.searchInput)}
           />
           {query && <Button onClick={clearSearch}>Clear search</Button>}
         </div>
@@ -355,18 +357,9 @@ const styles = stylex.create({
   },
   searchRow: { display: "flex", gap: 8, alignItems: "center" },
   searchInput: {
-    width: "100%",
     minWidth: 0,
-    minHeight: 44,
-    paddingInline: 12,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    color: colors.foreground,
-    fontSize: 16,
-    outlineOffset: 3,
+    minHeight: 40,
+    fontSize: { default: 14, "@media (max-width: 700px)": 16 },
   },
   layout: {
     display: "grid",
@@ -386,16 +379,25 @@ const styles = stylex.create({
   groupLink: {
     display: "flex",
     alignItems: "center",
-    minHeight: 44,
+    minHeight: { default: 36, "@media (max-width: 700px)": 44 },
     paddingInline: 12,
-    borderRadius: 8,
+    borderRadius: radii.md,
     fontSize: 13,
-    color: colors.foreground,
+    color: { default: colors.muted, ":hover": colors.foreground },
     textDecoration: "none",
-    outlineOffset: 3,
-    backgroundColor: { default: "transparent", ":hover": colors.bubble },
+    outlineOffset: 2,
+    backgroundColor: {
+      default: "transparent",
+      ":hover": `color-mix(in srgb, ${colors.foreground} 5%, transparent)`,
+    },
+    transitionProperty: "background-color, color",
+    transitionDuration: motion.fast,
   },
-  activeGroup: { backgroundColor: colors.selected, fontWeight: 500 },
+  activeGroup: {
+    color: colors.foreground,
+    backgroundColor: { default: colors.bubble, ":hover": colors.bubble },
+    fontWeight: 500,
+  },
   content: { minWidth: 0 },
   results: { margin: 0, fontSize: 13, color: colors.muted, lineHeight: 1.6 },
   groupCaption: {
@@ -415,7 +417,13 @@ const styles = stylex.create({
     lineHeight: 1.6,
     color: colors.muted,
   },
-  title: { marginTop: 0, fontSize: 26, fontWeight: 500, marginBottom: 8 },
+  title: {
+    marginTop: 0,
+    fontSize: 28,
+    fontWeight: 600,
+    letterSpacing: "-0.03em",
+    marginBottom: 6,
+  },
   muted: { color: colors.muted },
   responseSetting: { marginTop: 32 },
   responseLabel: { fontSize: 14, fontWeight: 500, margin: 0, marginBottom: 12 },
@@ -423,15 +431,16 @@ const styles = stylex.create({
     display: "flex",
     gap: 4,
     width: "fit-content",
-    padding: 4,
-    borderRadius: 8,
+    padding: 3,
+    borderRadius: radii.md,
     backgroundColor: colors.bubble,
   },
   styleOption: {
-    paddingBlock: 7,
-    paddingInline: 20,
-    borderRadius: 5,
+    paddingBlock: 6,
+    paddingInline: 18,
+    borderRadius: radii.sm,
     fontSize: 12,
+    fontWeight: 500,
     cursor: "pointer",
     color: colors.muted,
     outlineOffset: 3,
@@ -439,6 +448,7 @@ const styles = stylex.create({
   selectedOption: {
     backgroundColor: colors.background,
     color: colors.foreground,
+    boxShadow: shadows.sm,
   },
   setting: {
     display: "flex",
@@ -468,7 +478,9 @@ const styles = stylex.create({
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.xs,
   },
   previewTitle: { fontSize: 12, fontWeight: 500, margin: 0 },
   previewDescription: {
@@ -485,11 +497,13 @@ const styles = stylex.create({
   },
   switch: {
     width: 36,
-    height: 22,
+    height: 20,
     borderWidth: 0,
-    borderRadius: 20,
-    padding: 3,
-    backgroundColor: colors.bubble,
+    borderRadius: radii.full,
+    padding: 2,
+    backgroundColor: `color-mix(in srgb, ${colors.foreground} 16%, transparent)`,
+    transitionProperty: "background-color",
+    transitionDuration: motion.fast,
     cursor: "pointer",
     flexShrink: 0,
     display: "flex",
@@ -500,11 +514,15 @@ const styles = stylex.create({
     width: 16,
     height: 16,
     borderRadius: "50%",
-    backgroundColor: colors.foreground,
+    backgroundColor: colors.background,
+    boxShadow: shadows.sm,
     transform: "translateX(0)",
+    transitionProperty: "transform",
+    transitionDuration: motion.fast,
+    transitionTimingFunction: motion.easeOut,
   },
   thumbChecked: {
-    transform: "translateX(14px)",
+    transform: "translateX(16px)",
     backgroundColor: colors.onAccent,
   },
 });

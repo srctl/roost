@@ -4,7 +4,8 @@ import { getActivityOutput } from "../../features/chat/functions";
 import type { Message } from "../../features/chat/schema";
 import { usePreferences } from "../../features/settings/preferences";
 import { motion } from "../../styles/motion.stylex";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, radii } from "../../styles/tokens.stylex";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   Collapsible,
@@ -49,9 +50,17 @@ export const ToolActivity = memo(function ToolActivity({
       <span title={label} {...stylex.props(styles.label)}>
         {label}
       </span>
-      <span {...stylex.props(styles.badge, running && styles.running)}>
+      <Badge
+        variant={
+          running
+            ? "accent"
+            : message.status === "failed"
+              ? "destructive"
+              : "secondary"
+        }
+      >
         {status}
-      </span>
+      </Badge>
       {showActivityDetails && (
         <span {...stylex.props(styles.chevron, open && styles.chevronOpen)}>
           <Icon name="chevron-right" size={12} />
@@ -166,7 +175,7 @@ const styles = stylex.create({
     paddingBlock: 5,
     paddingInline: 7,
     borderWidth: 0,
-    borderRadius: 5,
+    borderRadius: radii.sm,
     backgroundColor: {
       default: "transparent",
       "@media (hover: hover)": {
@@ -188,17 +197,6 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
     color: colors.foreground,
   },
-  badge: {
-    fontSize: 10,
-    paddingBlock: 0,
-    paddingInline: 5,
-    borderRadius: 4,
-    backgroundColor: colors.bubble,
-    color: colors.muted,
-    transitionProperty: "background-color, color",
-    transitionDuration: motion.base,
-  },
-  running: { color: colors.accent, backgroundColor: colors.selected },
   chevron: {
     display: "inline-flex",
     transform: "rotate(0deg)",

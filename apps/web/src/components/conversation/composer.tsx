@@ -16,7 +16,7 @@ import {
 } from "../../features/chat/files";
 import { usePreferences } from "../../features/settings/preferences";
 import { motion } from "../../styles/motion.stylex";
-import { colors } from "../../styles/tokens.stylex";
+import { colors, radii, shadows } from "../../styles/tokens.stylex";
 import { Appear } from "../ui/appear";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/primitives";
@@ -513,12 +513,16 @@ const styles = stylex.create({
     gap: { default: 10, "@media (max-width: 700px)": 6 },
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: { default: colors.border, ":focus-within": colors.accent },
-    borderRadius: 14,
+    borderColor: {
+      default: colors.border,
+      ":focus-within": `color-mix(in srgb, ${colors.accent} 55%, ${colors.border})`,
+    },
+    borderRadius: { default: radii.xl, "@media (max-width: 700px)": 22 },
+    backgroundColor: colors.surface,
     padding: { default: 10, "@media (max-width: 700px)": 4 },
     boxShadow: {
-      default: "0 2px 8px #00000003",
-      ":focus-within": `0 2px 12px #00000006, 0 0 0 3px color-mix(in srgb, ${colors.accent} 14%, transparent)`,
+      default: shadows.md,
+      ":focus-within": `${shadows.md}, ${shadows.ring}`,
     },
     transitionProperty: "border-color, box-shadow",
     transitionDuration: motion.base,
@@ -546,7 +550,7 @@ const styles = stylex.create({
     outline: "none",
     paddingInline: 3,
     paddingBlock: { default: 5, "@media (max-width: 700px)": 10 },
-    fontSize: { default: 12, "@media (max-width: 700px)": 16 },
+    fontSize: { default: 13, "@media (max-width: 700px)": 16 },
     lineHeight: 1.5,
     "::placeholder": { color: colors.muted },
   },
@@ -564,8 +568,9 @@ const styles = stylex.create({
     borderColor: "transparent",
     backgroundClip: "padding-box",
     borderRadius: "50%",
-    backgroundColor: colors.action,
+    backgroundColor: colors.accent,
     color: colors.onAccent,
+    boxShadow: shadows.xs,
     // The button lights up as soon as there is something to send.
     opacity: { default: 1, ":disabled": 0.35 },
   },

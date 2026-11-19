@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { motion } from "./motion.stylex";
-import { colors } from "./tokens.stylex";
+import { colors, radii, shadows } from "./tokens.stylex";
 
 export const jobsStyles = stylex.create({
   desktopOnly: {
@@ -194,10 +194,18 @@ export const jobsStyles = stylex.create({
   },
   filters: {
     display: "flex",
-    gap: { default: 8, "@media(max-width:700px)": 4 },
+    gap: 2,
     flexWrap: "wrap",
+    padding: 3,
+    borderRadius: radii.md,
+    backgroundColor: colors.bubble,
   },
-  selected: { backgroundColor: colors.selected, color: colors.foreground },
+  selected: {
+    backgroundColor: colors.background,
+    color: colors.foreground,
+    fontWeight: 500,
+    boxShadow: shadows.sm,
+  },
   title: {
     fontSize: 18,
     fontWeight: 500,

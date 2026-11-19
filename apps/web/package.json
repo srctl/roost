@@ -25,6 +25,7 @@
     "@fluentui/react-charts": "9.3.25",
     "@fluentui/react-provider": "9.22.20",
     "@fluentui/react-theme": "9.2.2",
+    "@fontsource-variable/inter": "5.3.0",
     "@novnc/novnc": "1.5.0",
     "@simplewebauthn/server": "13.3.2",
     "@stripe/link-sdk": "0.6.0",
