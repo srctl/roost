@@ -50,7 +50,10 @@ type Pending =
       };
     };
 
-export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
+export function NoteWorkspace({ initial: loaded }: { initial: NoteSnapshot }) {
+  // A tab switch can render from cached loader data; the poll below catches up
+  // and a later background reload must not re-run draft recovery.
+  const [initial] = useState(loaded);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [base, setBase] = useState(initial);
@@ -160,6 +163,8 @@ export function NoteWorkspace({ initial }: { initial: NoteSnapshot }) {
       setError("");
       void refresh();
     };
+    // The opening snapshot may come from the router cache.
+    if (navigator.onLine) void refresh();
     const timer = window.setInterval(() => {
       if (navigator.onLine) void refresh();
     }, 5000);

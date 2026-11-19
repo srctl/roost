@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
-import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Link, useRouter } from "@tanstack/react-router";
+import { type ReactNode, useEffect } from "react";
 import type { Agent } from "../features/agents/schema";
 import { useDashboardsEnabled } from "../features/dashboards/preference";
 import { motion } from "../styles/motion.stylex";
@@ -19,6 +19,26 @@ export function AgentHeader({
   children?: ReactNode;
 }) {
   const dashboardsEnabled = useDashboardsEnabled();
+  const showDashboard = dashboard || dashboardsEnabled;
+  const router = useRouter();
+  // Warm every tab so a click or tap renders from the router cache at once;
+  // the destination then refreshes in the background. Preloads within the
+  // router's preload stale time are free, so remounting the header is cheap.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = { agentId: agent.id };
+      const tabs = [
+        "/agents/$agentId",
+        "/agents/$agentId/note",
+        ...(agent.kind === "coding" ? ["/agents/$agentId/jobs" as const] : []),
+        ...(showDashboard ? ["/agents/$agentId/dashboard" as const] : []),
+      ] as const;
+      for (const to of tabs)
+        if (!router.matchRoute({ to, params }))
+          void router.preloadRoute({ to, params }).catch(() => {});
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [router, agent.id, agent.kind, showDashboard]);
   return (
     <header {...stylex.props(styles.header)}>
       <div {...stylex.props(styles.identity)}>
@@ -55,7 +75,7 @@ export function AgentHeader({
               Jobs
             </Link>
           )}
-          {(dashboard || dashboardsEnabled) && (
+          {showDashboard && (
             <Link
               to="/agents/$agentId/dashboard"
               params={{ agentId: agent.id }}
