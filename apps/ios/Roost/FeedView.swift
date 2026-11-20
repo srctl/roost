@@ -330,10 +330,23 @@ private struct FeedReaderView: View {
                 }
                 MarkdownText(text: current.body.isEmpty ? current.summary : current.body)
                     .textSelection(.enabled)
-                if !current.why.isEmpty {
+                if !current.why.isEmpty || current.personalScores != nil {
                     VStack(alignment: .leading, spacing: 7) {
                         Text("Why this is here").font(.subheadline.weight(.semibold))
-                        Text(current.why).font(.subheadline).foregroundStyle(palette.muted)
+                        if let scores = current.personalScores {
+                            Text(
+                                "Usefulness \(Int((scores.usefulness * 100).rounded()))/100 · Interest \(Int((scores.interest * 100).rounded()))/100"
+                            )
+                            .font(.subheadline).monospacedDigit()
+                            Text(
+                                scores.confidence < 0.7
+                                    ? "Jev estimate · limited confidence" : "Jev estimate"
+                            )
+                            .font(.caption).foregroundStyle(palette.muted)
+                        }
+                        if !current.why.isEmpty {
+                            Text(current.why).font(.subheadline).foregroundStyle(palette.muted)
+                        }
                     }
                 }
                 if let raw = current.url, let url = workspaceURL(raw) {

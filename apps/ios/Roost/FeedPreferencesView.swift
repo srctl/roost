@@ -103,7 +103,7 @@ struct FeedPreferencesView: View {
                 .listRowBackground(palette.surface)
 
                 Section {
-                    Toggle("Use Jev for relevance", isOn: $settings.jevEnabled)
+                    Toggle("Use Jev for personal scores", isOn: $settings.jevEnabled)
                     SecureField(
                         settings.jevKeySource == "environment"
                             ? "API key managed on server"
@@ -129,7 +129,7 @@ struct FeedPreferencesView: View {
                     Text("Relevance")
                 } footer: {
                     Text(
-                        "Jev receives article excerpts and your interests to help choose useful stories. Allowing private scoring also sends personal update excerpts to TypeSafe. Private scoring is off by default. Without Jev, the feed uses basic ranking."
+                        "Jev uses your existing interests, priorities, and feed feedback to estimate practical usefulness and how much you would enjoy each story. Article excerpts and this profile are sent to TypeSafe. See both scores in the story reader. Allowing private scoring also sends personal update excerpts; it is off by default. Without Jev, the feed uses basic selection."
                     )
                 }
                 .listRowBackground(palette.surface)

@@ -40,6 +40,13 @@ export function migrateFeed(db: DatabaseSync) {
       conversationId TEXT NOT NULL
     );
   `);
+  if (
+    !db
+      .prepare("PRAGMA table_info(feed_source_state)")
+      .all()
+      .some((column) => column.name === "scoringVersion")
+  )
+    db.exec("ALTER TABLE feed_source_state ADD COLUMN scoringVersion TEXT");
 }
 
 // Also run for stores whose agent-deletion migration was already applied.

@@ -35,7 +35,8 @@ const answer = (level: number, confidence = 1) => ({
 const responseBody = () => ({
   model: JEV_FEED_MODEL,
   answers: {
-    relevance: answer(3),
+    interest: answer(3),
+    usefulness: answer(2),
     importance: answer(2),
     actionability: answer(1),
     novelty: answer(3, 0.8),
@@ -77,7 +78,8 @@ test("sends one bounded scoring request and normalizes independent dimensions", 
       const request = JSON.parse(String(init?.body));
       assert.equal(request.model, JEV_FEED_MODEL);
       assert.deepEqual(Object.keys(request.questions), [
-        "relevance",
+        "interest",
+        "usefulness",
         "importance",
         "actionability",
         "novelty",
@@ -95,7 +97,8 @@ test("sends one bounded scoring request and normalizes independent dimensions", 
     },
   });
   assert.deepEqual(result, {
-    relevance: 1,
+    interest: 1,
+    usefulness: 2 / 3,
     importance: 2 / 3,
     actionability: 1 / 3,
     novelty: 1,
@@ -103,6 +106,26 @@ test("sends one bounded scoring request and normalizes independent dimensions", 
     model: JEV_FEED_MODEL,
     inputTokens: 750,
   });
+});
+
+test("interest and usefulness remain independent even without urgency or action", async () => {
+  for (const [interest, usefulness] of [
+    [3, 0],
+    [0, 3],
+  ] as const) {
+    const body = responseBody();
+    body.answers.interest = answer(interest);
+    body.answers.usefulness = answer(usefulness);
+    body.answers.importance = answer(0);
+    body.answers.actionability = answer(0);
+    const result = await scoreFeedCandidate(candidate, context, "test-key", {
+      fetch: async () => Response.json(body),
+    });
+    assert.equal(result.interest, interest / 3);
+    assert.equal(result.usefulness, usefulness / 3);
+    assert.equal(result.importance, 0);
+    assert.equal(result.actionability, 0);
+  }
 });
 
 test("bounds profile, excerpts and history even when the caller supplies huge input", async () => {
@@ -140,22 +163,22 @@ test("rejects missing scores, out-of-range values and malformed probability dist
       delete (value.answers as Record<string, unknown>).novelty;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.score = 4;
+      value.answers.interest.score = 4;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.confidence = -0.1;
+      value.answers.interest.confidence = -0.1;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.probabilities["3"] = 0.5;
+      value.answers.interest.probabilities["3"] = 0.5;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.probabilities["0"] = 1;
+      value.answers.interest.probabilities["0"] = 1;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.score = 0;
+      value.answers.interest.score = 0;
     },
     (value: ReturnType<typeof responseBody>) => {
-      value.answers.relevance.type = "choice";
+      value.answers.interest.type = "choice";
     },
     (value: ReturnType<typeof responseBody>) => {
       value.usage.input_tokens = -1;
@@ -168,7 +191,7 @@ test("rejects missing scores, out-of-range values and malformed probability dist
     mutate(value);
     invalidBodies.push(value);
   }
-  invalidBodies.push(null, [], { answers: { relevance: { score: "3" } } });
+  invalidBodies.push(null, [], { answers: { interest: { score: "3" } } });
   for (const body of invalidBodies)
     await assert.rejects(
       scoreFeedCandidate(candidate, context, "test-key", {
@@ -178,9 +201,38 @@ test("rejects missing scores, out-of-range values and malformed probability dist
     );
 });
 
+test("rejects missing or invalid personal dimensions, including legacy relevance-only responses", async () => {
+  for (const dimension of ["interest", "usefulness"] as const) {
+    for (const invalid of [
+      undefined,
+      answer(4),
+      { ...answer(2), confidence: 2 },
+      {
+        ...answer(2),
+        probabilities: { "0": 0, "1": 1, "2": 0, "3": 0 },
+      },
+    ]) {
+      const body = responseBody();
+      const answers = body.answers as Record<string, unknown>;
+      if (invalid === undefined) {
+        delete answers[dimension];
+        answers.relevance = answer(3);
+      } else {
+        answers[dimension] = invalid;
+      }
+      await assert.rejects(
+        scoreFeedCandidate(candidate, context, "test-key", {
+          fetch: async () => Response.json(body),
+        }),
+        /invalid scoring response/,
+      );
+    }
+  }
+});
+
 test("allows fractional probability-weighted scores with rounding", async () => {
   const body = responseBody();
-  body.answers.relevance = {
+  body.answers.interest = {
     type: "score",
     score: 2.6,
     confidence: 0.7,
@@ -189,7 +241,7 @@ test("allows fractional probability-weighted scores with rounding", async () => 
   const result = await scoreFeedCandidate(candidate, context, "test-key", {
     fetch: async () => Response.json(body),
   });
-  assert.equal(result.relevance, 2.6 / 3);
+  assert.equal(result.interest, 2.6 / 3);
   assert.equal(result.confidence, 0.7);
 });
 
